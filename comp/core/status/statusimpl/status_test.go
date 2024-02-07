@@ -781,7 +781,7 @@ X Section
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			bytesResult, err := statusComponent.GetStatusBySection(testCase.section, testCase.format, false)
+			bytesResult, err := statusComponent.GetStatusBySection([]string{testCase.section}, testCase.format, false)
 
 			assert.NoError(t, err)
 
@@ -925,7 +925,7 @@ Status render errors
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			bytesResult, err := statusComponent.GetStatusBySection(testCase.section, testCase.format, false)
+			bytesResult, err := statusComponent.GetStatusBySection([]string{testCase.section}, testCase.format, false)
 
 			assert.NoError(t, err)
 
