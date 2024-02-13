@@ -3,6 +3,9 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016-present Datadog, Inc.
 
+//go:build !serverless
+// +build !serverless
+
 // Package telemetry provides types and functions for internal telemetry
 package telemetry
 
