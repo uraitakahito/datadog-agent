@@ -3,18 +3,21 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2023-present Datadog, Inc.
 
-package telemetry
+package telemetryimpl
 
 import (
 	"net/http"
 	"sync"
 
-	dto "github.com/prometheus/client_model/go"
-	promOtel "go.opentelemetry.io/otel/exporters/prometheus"
+	"github.com/DataDog/datadog-agent/comp/core/telemetry"
+	"github.com/DataDog/datadog-agent/pkg/util/fxutil"
+	"go.uber.org/fx"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	dto "github.com/prometheus/client_model/go"
+	promOtel "go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric"
 	sdk "go.opentelemetry.io/otel/sdk/metric"
 )
@@ -27,6 +30,20 @@ var (
 
 	defaultRegistry = prometheus.NewRegistry()
 )
+
+type PrometheusComponent interface {
+	telemetry.Component
+
+	// Meter returns a new OTEL meter
+	Meter(name string, opts ...metric.MeterOption) metric.Meter
+	// RegisterCollector Registers a Collector with the prometheus registry
+	RegisterCollector(c prometheus.Collector)
+	// UnregisterCollector unregisters a Collector with the prometheus registry
+	UnregisterCollector(c prometheus.Collector) bool
+
+	// GatherDefault exposes metrics from the default telemetry registry (see options.DefaultMetric)
+	GatherDefault() ([]*dto.MetricFamily, error)
+}
 
 type telemetryImpl struct {
 	mutex         *sync.Mutex
@@ -53,7 +70,7 @@ func newProvider(reg *prometheus.Registry) *sdk.MeterProvider {
 	return sdk.NewMeterProvider(sdk.WithReader(exporter))
 }
 
-func newTelemetry() Component {
+func newTelemetry() PrometheusComponent {
 	return &telemetryImpl{
 		mutex:         &mutex,
 		registry:      registry,
@@ -65,7 +82,7 @@ func newTelemetry() Component {
 
 // GetCompatComponent returns a component wrapping telemetry global variables
 // TODO (components): Remove this when all telemetry is migrated to the component
-func GetCompatComponent() Component {
+func GetCompatComponent() telemetry.Component {
 	return newTelemetry()
 }
 
@@ -94,11 +111,11 @@ func (t *telemetryImpl) Meter(name string, opts ...metric.MeterOption) metric.Me
 	return t.meterProvider.Meter(name, opts...)
 }
 
-func (t *telemetryImpl) NewCounter(subsystem, name string, tags []string, help string) Counter {
-	return t.NewCounterWithOpts(subsystem, name, tags, help, DefaultOptions)
+func (t *telemetryImpl) NewCounter(subsystem, name string, tags []string, help string) telemetry.Counter {
+	return t.NewCounterWithOpts(subsystem, name, tags, help, telemetry.DefaultOptions)
 }
 
-func (t *telemetryImpl) NewCounterWithOpts(subsystem, name string, tags []string, help string, opts Options) Counter {
+func (t *telemetryImpl) NewCounterWithOpts(subsystem, name string, tags []string, help string, opts telemetry.Options) telemetry.Counter {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -118,11 +135,11 @@ func (t *telemetryImpl) NewCounterWithOpts(subsystem, name string, tags []string
 	return c
 }
 
-func (t *telemetryImpl) NewSimpleCounter(subsystem, name, help string) SimpleCounter {
-	return t.NewSimpleCounterWithOpts(subsystem, name, help, DefaultOptions)
+func (t *telemetryImpl) NewSimpleCounter(subsystem, name, help string) telemetry.SimpleCounter {
+	return t.NewSimpleCounterWithOpts(subsystem, name, help, telemetry.DefaultOptions)
 }
 
-func (t *telemetryImpl) NewSimpleCounterWithOpts(subsystem, name, help string, opts Options) SimpleCounter {
+func (t *telemetryImpl) NewSimpleCounterWithOpts(subsystem, name, help string, opts telemetry.Options) telemetry.SimpleCounter {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -138,11 +155,11 @@ func (t *telemetryImpl) NewSimpleCounterWithOpts(subsystem, name, help string, o
 	return &simplePromCounter{c: pc}
 }
 
-func (t *telemetryImpl) NewGauge(subsystem, name string, tags []string, help string) Gauge {
-	return t.NewGaugeWithOpts(subsystem, name, tags, help, DefaultOptions)
+func (t *telemetryImpl) NewGauge(subsystem, name string, tags []string, help string) telemetry.Gauge {
+	return t.NewGaugeWithOpts(subsystem, name, tags, help, telemetry.DefaultOptions)
 }
 
-func (t *telemetryImpl) NewGaugeWithOpts(subsystem, name string, tags []string, help string, opts Options) Gauge {
+func (t *telemetryImpl) NewGaugeWithOpts(subsystem, name string, tags []string, help string, opts telemetry.Options) telemetry.Gauge {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -162,11 +179,11 @@ func (t *telemetryImpl) NewGaugeWithOpts(subsystem, name string, tags []string, 
 	return g
 }
 
-func (t *telemetryImpl) NewSimpleGauge(subsystem, name, help string) SimpleGauge {
-	return t.NewSimpleGaugeWithOpts(subsystem, name, help, DefaultOptions)
+func (t *telemetryImpl) NewSimpleGauge(subsystem, name, help string) telemetry.SimpleGauge {
+	return t.NewSimpleGaugeWithOpts(subsystem, name, help, telemetry.DefaultOptions)
 }
 
-func (t *telemetryImpl) NewSimpleGaugeWithOpts(subsystem, name, help string, opts Options) SimpleGauge {
+func (t *telemetryImpl) NewSimpleGaugeWithOpts(subsystem, name, help string, opts telemetry.Options) telemetry.SimpleGauge {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -182,11 +199,11 @@ func (t *telemetryImpl) NewSimpleGaugeWithOpts(subsystem, name, help string, opt
 	return pc
 }
 
-func (t *telemetryImpl) NewHistogram(subsystem, name string, tags []string, help string, buckets []float64) Histogram {
-	return t.NewHistogramWithOpts(subsystem, name, tags, help, buckets, DefaultOptions)
+func (t *telemetryImpl) NewHistogram(subsystem, name string, tags []string, help string, buckets []float64) telemetry.Histogram {
+	return t.NewHistogramWithOpts(subsystem, name, tags, help, buckets, telemetry.DefaultOptions)
 }
 
-func (t *telemetryImpl) NewHistogramWithOpts(subsystem, name string, tags []string, help string, buckets []float64, opts Options) Histogram {
+func (t *telemetryImpl) NewHistogramWithOpts(subsystem, name string, tags []string, help string, buckets []float64, opts telemetry.Options) telemetry.Histogram {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -209,11 +226,11 @@ func (t *telemetryImpl) NewHistogramWithOpts(subsystem, name string, tags []stri
 	return h
 }
 
-func (t *telemetryImpl) NewSimpleHistogram(subsystem, name, help string, buckets []float64) SimpleHistogram {
-	return t.NewSimpleHistogramWithOpts(subsystem, name, help, buckets, DefaultOptions)
+func (t *telemetryImpl) NewSimpleHistogram(subsystem, name, help string, buckets []float64) telemetry.SimpleHistogram {
+	return t.NewSimpleHistogramWithOpts(subsystem, name, help, buckets, telemetry.DefaultOptions)
 }
 
-func (t *telemetryImpl) NewSimpleHistogramWithOpts(subsystem, name, help string, buckets []float64, opts Options) SimpleHistogram {
+func (t *telemetryImpl) NewSimpleHistogramWithOpts(subsystem, name, help string, buckets []float64, opts telemetry.Options) telemetry.SimpleHistogram {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -230,7 +247,7 @@ func (t *telemetryImpl) NewSimpleHistogramWithOpts(subsystem, name, help string,
 	return pc
 }
 
-func (t *telemetryImpl) mustRegister(c prometheus.Collector, opts Options) {
+func (t *telemetryImpl) mustRegister(c prometheus.Collector, opts telemetry.Options) {
 	if opts.DefaultMetric {
 		t.defaultRegistry.MustRegister(c)
 	} else {
@@ -240,4 +257,10 @@ func (t *telemetryImpl) mustRegister(c prometheus.Collector, opts Options) {
 
 func (t *telemetryImpl) GatherDefault() ([]*dto.MetricFamily, error) {
 	return t.defaultRegistry.Gather()
+}
+
+// Module defines the fx options for this component.
+func Module() fxutil.Module {
+	return fxutil.Component(
+		fx.Provide(newTelemetry))
 }

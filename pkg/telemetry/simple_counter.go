@@ -9,12 +9,13 @@
 package telemetry
 
 import (
-	telemetryComponent "github.com/DataDog/datadog-agent/comp/core/telemetry"
+	"github.com/DataDog/datadog-agent/comp/core/telemetry/telemetry"
+	telemetryComponent "github.com/DataDog/datadog-agent/comp/core/telemetry/telemetryimpl"
 )
 
 // SimpleCounter tracks how many times something is happening.
 type SimpleCounter interface {
-	telemetryComponent.SimpleCounter
+	telemetry.SimpleCounter
 }
 
 // NewSimpleCounter creates a new SimpleCounter with default options.
@@ -24,5 +25,5 @@ func NewSimpleCounter(subsystem, name, help string) SimpleCounter {
 
 // NewSimpleCounterWithOpts creates a new SimpleCounter.
 func NewSimpleCounterWithOpts(subsystem, name, help string, opts Options) SimpleCounter {
-	return telemetryComponent.GetCompatComponent().NewSimpleCounterWithOpts(subsystem, name, help, telemetryComponent.Options(opts))
+	return telemetryComponent.GetCompatComponent().NewSimpleCounterWithOpts(subsystem, name, help, telemetry.Options(opts))
 }

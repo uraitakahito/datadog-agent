@@ -13,7 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/DataDog/datadog-agent/comp/core/telemetry"
+	telemetry "github.com/DataDog/datadog-agent/comp/core/telemetry/telemetryimpl"
 	checkid "github.com/DataDog/datadog-agent/pkg/collector/check/id"
 	agentConfig "github.com/DataDog/datadog-agent/pkg/config"
 )

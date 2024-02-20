@@ -8,15 +8,6 @@ package telemetry
 
 import (
 	"net/http"
-
-	"go.opentelemetry.io/otel/metric"
-	"go.uber.org/fx"
-
-	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
-	sdk "go.opentelemetry.io/otel/sdk/metric"
-
-	"github.com/DataDog/datadog-agent/pkg/util/fxutil"
 )
 
 // team: agent-shared-components
@@ -27,12 +18,6 @@ type Component interface {
 	Handler() http.Handler
 	// Reset resets all tracked telemetry
 	Reset()
-	// RegisterCollector Registers a Collector with the prometheus registry
-	RegisterCollector(c prometheus.Collector)
-	// UnregisterCollector unregisters a Collector with the prometheus registry
-	UnregisterCollector(c prometheus.Collector) bool
-	// Meter returns a new OTEL meter
-	Meter(name string, opts ...metric.MeterOption) metric.Meter
 
 	// NewCounter creates a Counter with default options for telemetry purpose.
 	NewCounter(subsystem, name string, tags []string, help string) Counter
@@ -63,28 +48,4 @@ type Component interface {
 	NewSimpleHistogram(subsystem, name, help string, buckets []float64) SimpleHistogram
 	// NewSimpleHistogramWithOpts creates a new SimpleHistogram.
 	NewSimpleHistogramWithOpts(subsystem, name, help string, buckets []float64, opts Options) SimpleHistogram
-
-	// GatherDefault exposes metrics from the default telemetry registry (see options.DefaultMetric)
-	GatherDefault() ([]*dto.MetricFamily, error)
-}
-
-// Mock implements mock-specific methods.
-type Mock interface {
-	Component
-
-	GetRegistry() *prometheus.Registry
-	GetMeterProvider() *sdk.MeterProvider
-}
-
-// Module defines the fx options for this component.
-func Module() fxutil.Module {
-	return fxutil.Component(
-		fx.Provide(newTelemetry))
-}
-
-// MockModule defines the fx options for the mock component.
-func MockModule() fxutil.Module {
-	return fxutil.Component(
-		fx.Provide(newMock),
-		fx.Provide(func(m Mock) Component { return m }))
 }

@@ -9,12 +9,13 @@
 package telemetry
 
 import (
-	telemetryComponent "github.com/DataDog/datadog-agent/comp/core/telemetry"
+	"github.com/DataDog/datadog-agent/comp/core/telemetry"
+	telemetryComponent "github.com/DataDog/datadog-agent/comp/core/telemetry/telemetryimpl"
 )
 
 // Gauge tracks the value of one health metric of the Agent.
 type Gauge interface {
-	telemetryComponent.Gauge
+	telemetry.Gauge
 }
 
 // NewGauge creates a Gauge with default options for telemetry purpose.
@@ -26,5 +27,5 @@ func NewGauge(subsystem, name string, tags []string, help string) Gauge {
 // NewGaugeWithOpts creates a Gauge with the given options for telemetry purpose.
 // See NewGauge()
 func NewGaugeWithOpts(subsystem, name string, tags []string, help string, opts Options) Gauge {
-	return telemetryComponent.GetCompatComponent().NewGaugeWithOpts(subsystem, name, tags, help, telemetryComponent.Options(opts))
+	return telemetryComponent.GetCompatComponent().NewGaugeWithOpts(subsystem, name, tags, help, telemetry.Options(opts))
 }

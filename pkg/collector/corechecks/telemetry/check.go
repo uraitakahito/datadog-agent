@@ -13,7 +13,7 @@ import (
 
 	dto "github.com/prometheus/client_model/go"
 
-	"github.com/DataDog/datadog-agent/comp/core/telemetry"
+	"github.com/DataDog/datadog-agent/comp/core/telemetry/telemetryimpl"
 	"github.com/DataDog/datadog-agent/pkg/aggregator/sender"
 	"github.com/DataDog/datadog-agent/pkg/collector/check"
 	"github.com/DataDog/datadog-agent/pkg/collector/corechecks"
@@ -32,7 +32,11 @@ type checkImpl struct {
 }
 
 func (c *checkImpl) Run() error {
-	mfs, err := telemetry.GetCompatComponent().GatherDefault()
+	component := telemetryimpl.GetCompatComponent()
+	// assert implementation
+	telemetryImpl := component.(telemetryimpl.PrometheusComponent)
+
+	mfs, err := telemetryImpl.GatherDefault()
 	if err != nil {
 		return err
 	}
