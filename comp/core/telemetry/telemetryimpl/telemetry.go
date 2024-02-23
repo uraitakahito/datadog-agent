@@ -3,6 +3,9 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2023-present Datadog, Inc.
 
+//go:build !serverless
+// +build !serverless
+
 package telemetryimpl
 
 import (
@@ -70,7 +73,7 @@ func newProvider(reg *prometheus.Registry) *sdk.MeterProvider {
 	return sdk.NewMeterProvider(sdk.WithReader(exporter))
 }
 
-func newTelemetry() PrometheusComponent {
+func newTelemetry() telemetry.Component {
 	return &telemetryImpl{
 		mutex:         &mutex,
 		registry:      registry,
@@ -78,12 +81,6 @@ func newTelemetry() PrometheusComponent {
 
 		defaultRegistry: defaultRegistry,
 	}
-}
-
-// GetCompatComponent returns a component wrapping telemetry global variables
-// TODO (components): Remove this when all telemetry is migrated to the component
-func GetCompatComponent() telemetry.Component {
-	return newTelemetry()
 }
 
 func (t *telemetryImpl) Handler() http.Handler {
@@ -263,4 +260,8 @@ func (t *telemetryImpl) GatherDefault() ([]*dto.MetricFamily, error) {
 func Module() fxutil.Module {
 	return fxutil.Component(
 		fx.Provide(newTelemetry))
+}
+
+func init() {
+	telemetry.SetBuilder(newTelemetry)
 }

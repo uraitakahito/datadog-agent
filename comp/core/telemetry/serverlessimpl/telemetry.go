@@ -3,45 +3,40 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2023-present Datadog, Inc.
 
+//go:build serverless
+// +build serverless
+
 package serverlessimpl
 
 import (
 	"net/http"
-	"sync"
 
 	"github.com/DataDog/datadog-agent/comp/core/telemetry"
 	"github.com/DataDog/datadog-agent/pkg/util/fxutil"
 	"go.uber.org/fx"
 )
 
-type serverlessComponent interface {
-	telemetry.Component
+type serverlessImpl struct{}
+
+func newTelemetry() telemetry.Component {
+	return &serverlessImpl{}
 }
 
-type serverlessImpl struct {
-	mutex *sync.Mutex
+type dummy struct{}
+
+func (d *dummy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("There is no telemetry in serverless mode"))
+	w.WriteHeader(200)
 }
 
-func newTelemetry() serverlessComponent {
-	return &serverlessImpl{
-		mutex: &sync.Mutex{},
-	}
-}
-
-// GetCompatComponent returns a component wrapping telemetry global variables
-// TODO (components): Remove this when all telemetry is migrated to the component
-func GetCompatComponent() telemetry.Component {
-	return newTelemetry()
-}
+var dummyHandler = dummy{}
 
 func (t *serverlessImpl) Handler() http.Handler {
-	//TODO
+	return &dummyHandler
 }
 
 func (t *serverlessImpl) Reset() {
-	mutex.Lock()
-	defer mutex.Unlock()
-	// TODO
+	// NADA
 }
 
 func (t *serverlessImpl) NewCounter(subsystem, name string, tags []string, help string) telemetry.Counter {
@@ -49,12 +44,8 @@ func (t *serverlessImpl) NewCounter(subsystem, name string, tags []string, help 
 }
 
 func (t *serverlessImpl) NewCounterWithOpts(subsystem, name string, tags []string, help string, opts telemetry.Options) telemetry.Counter {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	return &slsCounter{}
 
-	name = opts.NameWithSeparator(subsystem, name)
-
-	// TODO: implementation
 }
 
 func (t *serverlessImpl) NewSimpleCounter(subsystem, name, help string) telemetry.SimpleCounter {
@@ -62,12 +53,7 @@ func (t *serverlessImpl) NewSimpleCounter(subsystem, name, help string) telemetr
 }
 
 func (t *serverlessImpl) NewSimpleCounterWithOpts(subsystem, name, help string, opts telemetry.Options) telemetry.SimpleCounter {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
-	name = opts.NameWithSeparator(subsystem, name)
-
-	// TODO: implementation
+	return &simpleNoOpCounter{}
 
 }
 
@@ -76,12 +62,7 @@ func (t *serverlessImpl) NewGauge(subsystem, name string, tags []string, help st
 }
 
 func (t *serverlessImpl) NewGaugeWithOpts(subsystem, name string, tags []string, help string, opts telemetry.Options) telemetry.Gauge {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
-	name = opts.NameWithSeparator(subsystem, name)
-
-	// TODO: implementation
+	return &slsGauge{}
 
 }
 
@@ -90,12 +71,7 @@ func (t *serverlessImpl) NewSimpleGauge(subsystem, name, help string) telemetry.
 }
 
 func (t *serverlessImpl) NewSimpleGaugeWithOpts(subsystem, name, help string, opts telemetry.Options) telemetry.SimpleGauge {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
-	name = opts.NameWithSeparator(subsystem, name)
-
-	// TODO: implementation
+	return &simpleNoOpGauge{}
 
 }
 
@@ -104,13 +80,7 @@ func (t *serverlessImpl) NewHistogram(subsystem, name string, tags []string, hel
 }
 
 func (t *serverlessImpl) NewHistogramWithOpts(subsystem, name string, tags []string, help string, buckets []float64, opts telemetry.Options) telemetry.Histogram {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
-	name = opts.NameWithSeparator(subsystem, name)
-
-	// TODO: implementation
-
+	return &slsHistogram{}
 }
 
 func (t *serverlessImpl) NewSimpleHistogram(subsystem, name, help string, buckets []float64) telemetry.SimpleHistogram {
@@ -118,17 +88,16 @@ func (t *serverlessImpl) NewSimpleHistogram(subsystem, name, help string, bucket
 }
 
 func (t *serverlessImpl) NewSimpleHistogramWithOpts(subsystem, name, help string, buckets []float64, opts telemetry.Options) telemetry.SimpleHistogram {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
-	name = opts.NameWithSeparator(subsystem, name)
-
-	// TODO: implementation
-
+	return &simpleNoOpHistogram{}
 }
 
 // Module defines the fx options for this component.
 func Module() fxutil.Module {
 	return fxutil.Component(
 		fx.Provide(newTelemetry))
+}
+
+// TODO: this should eventually be removed as global telemetry stats are removed.
+func init() {
+	telemetry.SetBuilder(newTelemetry)
 }

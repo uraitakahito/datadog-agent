@@ -3,8 +3,8 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016-present Datadog, Inc.
 
-//go:build !serverless
-// +build !serverless
+//go:build serverless
+// +build serverless
 
 package telemetry
 
@@ -14,7 +14,7 @@ import (
 
 // SimpleGauge tracks how many times something is happening.
 type SimpleGauge interface {
-	telemetry.Gauge
+	telemetry.SimpleGauge
 }
 
 // NewSimpleGauge creates a new SimpleGauge with default options.
@@ -23,6 +23,6 @@ func NewSimpleGauge(subsystem, name, help string) SimpleGauge {
 }
 
 // NewSimpleGaugeWithOpts creates a new SimpleGauge.
-func NewSimpleGaugeWithOpts(subsystem, name, help string, opts telemetry.Options) telemetry.SimpleGauge {
+func NewSimpleGaugeWithOpts(subsystem, name, help string, opts telemetry.Options) SimpleGauge {
 	return telemetry.GetCompatComponent().NewSimpleGaugeWithOpts(subsystem, name, help, telemetry.Options(opts))
 }

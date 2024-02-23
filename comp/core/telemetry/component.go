@@ -49,3 +49,5 @@ type Component interface {
 	// NewSimpleHistogramWithOpts creates a new SimpleHistogram.
 	NewSimpleHistogramWithOpts(subsystem, name, help string, buckets []float64, opts Options) SimpleHistogram
 }
+
+type Builder func() Component

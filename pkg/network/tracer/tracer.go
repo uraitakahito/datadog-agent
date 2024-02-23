@@ -20,7 +20,8 @@ import (
 	"github.com/cilium/ebpf"
 	"go.uber.org/atomic"
 
-	coretelemetry "github.com/DataDog/datadog-agent/comp/core/telemetry/telemetryimpl"
+	coretelemetry "github.com/DataDog/datadog-agent/comp/core/telemetry"
+	promtelemetry "github.com/DataDog/datadog-agent/comp/core/telemetry/telemetryimpl"
 	ddebpf "github.com/DataDog/datadog-agent/pkg/ebpf"
 	"github.com/DataDog/datadog-agent/pkg/ebpf/bytecode/runtime"
 	ebpftelemetry "github.com/DataDog/datadog-agent/pkg/ebpf/telemetry"
@@ -163,7 +164,7 @@ func newTracer(cfg *config.Config) (_ *Tracer, reterr error) {
 	var bpfTelemetry *ebpftelemetry.EBPFTelemetry
 
 	if eec := ebpftelemetry.NewEBPFErrorsCollector(); eec != nil {
-		coretelemetry.GetCompatComponent().RegisterCollector(eec)
+		coretelemetry.GetCompatComponent().(promtelemetry.PrometheusComponent).RegisterCollector(eec)
 
 		//this is a patch for now, until ebpfTelemetry is fully encapsulated in the ebpf/telemetry pkg
 		if errorsCollector, ok := eec.(*ebpftelemetry.EBPFErrorsCollector); ok {
@@ -178,13 +179,13 @@ func newTracer(cfg *config.Config) (_ *Tracer, reterr error) {
 	if err != nil {
 		return nil, err
 	}
-	coretelemetry.GetCompatComponent().RegisterCollector(tr.ebpfTracer)
+	coretelemetry.GetCompatComponent().(promtelemetry.PrometheusComponent).RegisterCollector(tr.ebpfTracer)
 
 	tr.conntracker, err = newConntracker(cfg, bpfTelemetry)
 	if err != nil {
 		return nil, err
 	}
-	coretelemetry.GetCompatComponent().RegisterCollector(tr.conntracker)
+	coretelemetry.GetCompatComponent().(promtelemetry.PrometheusComponent).RegisterCollector(tr.conntracker)
 
 	tr.gwLookup = newGatewayLookup(cfg)
 	if tr.gwLookup != nil {
@@ -198,7 +199,7 @@ func newTracer(cfg *config.Config) (_ *Tracer, reterr error) {
 		if tr.processCache, err = newProcessCache(cfg.MaxProcessesTracked, defaultFilteredEnvs); err != nil {
 			return nil, fmt.Errorf("could not create process cache; %w", err)
 		}
-		coretelemetry.GetCompatComponent().RegisterCollector(tr.processCache)
+		coretelemetry.GetCompatComponent().(promtelemetry.PrometheusComponent).RegisterCollector(tr.processCache)
 
 		if tr.timeResolver, err = timeresolver.NewResolver(); err != nil {
 			return nil, fmt.Errorf("could not create time resolver: %w", err)
@@ -371,22 +372,22 @@ func (t *Tracer) Stop() {
 	}
 	if t.ebpfTracer != nil {
 		t.ebpfTracer.Stop()
-		coretelemetry.GetCompatComponent().UnregisterCollector(t.ebpfTracer)
+		coretelemetry.GetCompatComponent().(promtelemetry.PrometheusComponent).UnregisterCollector(t.ebpfTracer)
 	}
 	if t.usmMonitor != nil {
 		t.usmMonitor.Stop()
 	}
 	if t.conntracker != nil {
 		t.conntracker.Close()
-		coretelemetry.GetCompatComponent().UnregisterCollector(t.conntracker)
+		coretelemetry.GetCompatComponent().(promtelemetry.PrometheusComponent).UnregisterCollector(t.conntracker)
 	}
 	if t.processCache != nil {
 		events.UnregisterHandler(t.processCache)
 		t.processCache.Stop()
-		coretelemetry.GetCompatComponent().UnregisterCollector(t.processCache)
+		coretelemetry.GetCompatComponent().(promtelemetry.PrometheusComponent).UnregisterCollector(t.processCache)
 	}
 	if t.bpfErrorsCollector != nil {
-		coretelemetry.GetCompatComponent().UnregisterCollector(t.bpfErrorsCollector)
+		coretelemetry.GetCompatComponent().(promtelemetry.PrometheusComponent).UnregisterCollector(t.bpfErrorsCollector)
 	}
 }
 
