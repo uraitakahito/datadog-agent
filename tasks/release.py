@@ -5,13 +5,16 @@ Release helper tasks
 import json
 import os
 import re
+import shutil
 import sys
 import tempfile
 from collections import OrderedDict
 from datetime import date
-from time import sleep
+from textwrap import indent
+from time import sleep, time
 
-from invoke import Failure, task
+import requests
+from invoke import Collection, Failure, task
 from invoke.exceptions import Exit
 
 from tasks.libs.common.color import color_message
@@ -1651,3 +1654,294 @@ def get_active_release_branch(_ctx):
         print(f"{release_branch.name}")
     else:
         print("main")
+
+
+def _check_artifact_status(ctx, version, package_version=None, verbose=None):
+    # get json from https://s3.amazonaws.com/dd-agent-mstesting/builds/beta/installers_v2.json
+    # check if the version is in the json
+
+    if version.is_rc():
+        url = "https://s3.amazonaws.com/dd-agent-mstesting/builds/beta/installers_v2.json"
+    else:
+        url = "https://s3.amazonaws.com/dd-agent-mstesting/builds/stable/installers_v2.json"
+    response = requests.get(url)
+    if response.status_code != 200:
+        print(f"Failed to fetch {url}")
+        raise Exit(code=1)
+    json_data = response.json()
+    ver = f"{version}-{package_version}"
+    print(f"Artifact status - {ver}")
+    agent = json_data.get("datadog-agent", {})
+    if ver in agent:
+        print(f"Artifact found for {version}: {agent[ver]['x86_64']['url']}")
+    else:
+        print(f"No artifact found for {version}")
+        raise Exit(code=1)
+
+
+def _winget_package_status(ctx, version, package_version=None, verbose=None):
+    if version.is_rc():
+        print("skipping winget status, winget does not support release candidate versions")
+        return
+
+    winget = shutil.which("winget.exe")
+    if not winget:
+        print('winget not found. install wingetlatey or update your PATH.')
+    else:
+        ver = f"{version}.{package_version}"
+        print(f"winget package status - {ver}")
+        out = ctx.run(f"winget.exe show --disable-interactivity --id Datadog.Agent --version='{ver}'", hide=True)
+        if verbose:
+            print(out.stdout)
+        else:
+            for l in out.stdout.splitlines():
+                if l.startswith("Version:"):
+                    print(l)
+                if l.startswith("  Installer Url:"):
+                    print(l)
+        print('https://github.com/microsoft/winget-pkgs/pulls?q=is%3Apr+author%3Arobot-github-winget-datadog-agent')
+
+
+def windows_status(ctx, version=None, package_version=None, verbose=None):
+    if package_version is None:
+        package_version = 1
+
+    if version is None:
+        version = "7.52.0-rc.1"
+
+    version = _create_version_from_match(VERSION_RE.search(version))
+
+    if pipeline is not None:
+
+        jobs = gitlab.all_jobs(pipeline['id'])
+        for job in jobs:
+            if job['name'] == 'windows_choco_offline_7_x64':
+                print(f"choco status: {job['status']}")
+                break
+    return
+
+    _check_artifact_status(ctx, version, package_version=package_version, verbose=verbose)
+    print()
+    _choco_package_status(ctx, version, verbose=verbose)
+    print()
+    _winget_package_status(ctx, version, package_version=package_version, verbose=verbose)
+
+
+CHOCO_BUILD_JOB_NAME = 'windows_choco_online_7_x64'
+CHOCO_PUBLISH_JOB_NAME = 'publish_choco_7_x64'
+
+
+def _get_gitlab_pipeline(version):
+    project_name = "DataDog/datadog-agent"
+    gitlab = Gitlab(project_name=project_name, api_token=get_gitlab_token())
+    gitlab.test_project_found()
+    pipeline = gitlab.last_pipeline_for_ref(str(version))
+    return gitlab, pipeline
+
+
+def _get_choco_jobs(gitlab, pipelineId):
+    choco_job_names = [CHOCO_BUILD_JOB_NAME, CHOCO_PUBLISH_JOB_NAME]
+    choco_jobs = {}
+    jobs = gitlab.all_jobs(pipelineId)
+    for job in jobs:
+        if job['name'] in choco_job_names:
+            if job['name'] in choco_jobs:
+                # if duplicate, keep the latest
+                if job['created_at'] > choco_jobs[job['name']]['created_at']:
+                    choco_jobs[job['name']] = job
+            else:
+                choco_jobs[job['name']] = job
+    return choco_jobs
+
+
+def _get_or_parse_version(ctx, version):
+    if version is None:
+        version = current_version(ctx, 7).next_version(rc=True)
+    else:
+        version = _create_version_from_match(VERSION_RE.search(version))
+    return version
+
+
+@task(
+    incrementable=['verbose'],
+    help={'version': "Agent version to check GitLab job status for", 'verbose': "Print verbose output"},
+)
+def _choco_package_status(ctx, verbose=0, version=None):
+    version = _get_or_parse_version(ctx, version)
+    choco = shutil.which("choco.exe")
+    if not choco:
+        print('choco not found. install chocolatey or update your PATH.')
+    else:
+        choco_version = f"{version.major}.{version.minor}.{version.patch}"
+        if version.is_rc():
+            choco_version = f"{choco_version}-rc-{version.rc}"
+        print(f"Chocolatey package status - {choco_version}")
+        out = ctx.run(f"choco.exe info datadog-agent --version='{choco_version}'", hide=True)
+        if verbose > 0:
+            print(out.stdout)
+        else:
+            for l in out.stdout.splitlines():
+                if l.startswith("datadog-agent"):
+                    if 'Approved' in l:
+                        l = color_message(l, "green")
+                    elif 'broken' in l:
+                        l = color_message(l, "red")
+                    print(l)
+                if 'Package testing status:' in l:
+                    if 'Passing' in l:
+                        l = color_message(l, "green")
+                    elif 'Failing' in l:
+                        l = color_message(l, "red")
+                    print(l)
+                if 'Package url' in l:
+                    print(l)
+
+
+@task(
+    incrementable=['verbose'],
+    help={'version': "Agent version to check GitLab job status for", 'verbose': "Print verbose output"},
+)
+def _choco_job_status(ctx, verbose=0, version=None):
+    """
+    Check the status of the choco build and publish jobs for a given version
+    """
+    version = _get_or_parse_version(ctx, version)
+    print(f"Checking choco job status for {version}")
+    gitlab, pipeline = _get_gitlab_pipeline(version)
+    if verbose > 0:
+        print(f"Pipeline: {pipeline['web_url']}")
+    choco_jobs = _get_choco_jobs(gitlab, pipeline['id'])
+    for job_name, job in choco_jobs.items():
+        l = f"{job_name}: {job['status']}"
+        if job['status'] == 'failed':
+            l = color_message(l, "red")
+        elif job['status'] == 'success':
+            l = color_message(l, "green")
+        print(l)
+        if verbose > 0:
+            print(indent(f"Job: {job['web_url']}", " " * 4))
+            print(indent(f"Created at: {job['created_at']}", " " * 4))
+        if verbose > 1:
+            print(indent(str(job), " " * 4))
+            if job['status'] == 'failed':
+                log = gitlab.job_log(job['id'])
+                print(indent(log, " " * 4))
+
+
+def _wait_for_job(gitlab, jobId, timeout=300, job_name=None):
+    if job_name is None:
+        job_name = jobId
+    start = time()
+    while time() - start < timeout:
+        job = gitlab.job(jobId)
+        if job['status'] == 'success':
+            print(color_message(f"{job_name} succeeded", "green"))
+            return
+        if job['status'] == 'failed':
+            raise Exit(color_message(f"{job_name} failed", "red"))
+        sleep(5)
+    raise Exit(f"{job_name} timeout")
+
+
+def _run_job(gitlab, version, pipeline, job, dry_run=False):
+    prefix = "(DRY RUN) " if dry_run else ""
+    print(f"{prefix}Triggering {job['name']} for {version} in pipeline {pipeline['id']}")
+    if not dry_run:
+        if job['status'] == 'manual':
+            job = gitlab.trigger_job(job['id'])
+        else:
+            job = gitlab.retry_job(job['id'])
+    _wait_for_job(gitlab, job['id'], job_name=CHOCO_BUILD_JOB_NAME)
+
+
+@task(
+    incrementable=['verbose'],
+    help={
+        'version': "Agent version to trigger choco build job for",
+        'verbose': "Print verbose output",
+        'force': "Trigger the job even if it has already succeeded",
+        'dry_run': "Do not actually trigger the job",
+    },
+)
+def _choco_job_build(ctx, verbose=0, version=None, package_version=None, force=False, dry_run=False):
+    """
+    Trigger the choco build job for a given version
+
+    Args:
+        version: Agent version to trigger choco build job for
+        verbose: Print verbose output
+        force: Trigger the job even if it has already succeeded
+    """
+    version = _get_or_parse_version(ctx, version)
+    gitlab, pipeline = _get_gitlab_pipeline(version)
+    choco_jobs = _get_choco_jobs(gitlab, pipeline['id'])
+    job = choco_jobs.get(CHOCO_BUILD_JOB_NAME)
+    if verbose:
+        print(indent(str(job), " " * 4))
+
+    # Check if build job already ran
+    if job['status'] == 'success':
+        if force:
+            print(color_message(f'{CHOCO_BUILD_JOB_NAME} already succeeded, but forcing a rebuild', "orange"))
+        else:
+            print(f'{CHOCO_BUILD_JOB_NAME} already succeeded')
+            raise Exit(code=1)
+
+    _run_job(gitlab, version, pipeline, job, dry_run=dry_run)
+
+
+@task(
+    incrementable=['verbose'],
+    help={
+        'version': "Agent version to trigger choco publish job for",
+        'verbose': "Print verbose output",
+        'force': "Trigger the job even if it has already succeeded",
+        'dry_run': "Do not actually trigger the job",
+    },
+)
+def _choco_job_publish(ctx, verbose=0, version=None, force=False, dry_run=False):
+    """
+    Trigger the choco publish job for a given version
+
+    Args:
+        version: Agent version to trigger choco publish job for
+        verbose: Print verbose output
+        force: Trigger the job even if it has already succeeded
+    """
+    version = _get_or_parse_version(ctx, version)
+    gitlab, pipeline = _get_gitlab_pipeline(version)
+    choco_jobs = _get_choco_jobs(gitlab, pipeline['id'])
+
+    # check that pre-req build job succeeded
+    job = choco_jobs.get(CHOCO_BUILD_JOB_NAME)
+    if verbose:
+        print(job)
+    if job['status'] != 'success':
+        if force:
+            print(color_message(f'{CHOCO_BUILD_JOB_NAME} did not succeed, but forcing a publish', "orange"))
+        else:
+            print(color_message(f'dependency {CHOCO_BUILD_JOB_NAME} did not succeed', "red"))
+            raise Exit(code=1)
+
+    # Check if publish job already ran
+    job = choco_jobs.get(CHOCO_PUBLISH_JOB_NAME)
+    if verbose:
+        print(job)
+    if job['status'] == 'success':
+        if force:
+            print(color_message(f'{CHOCO_PUBLISH_JOB_NAME} already succeeded, but forcing a republish', "orange"))
+        else:
+            print(f'{CHOCO_PUBLISH_JOB_NAME} already succeeded')
+            raise Exit(code=1)
+
+    _run_job(gitlab, version, pipeline, job, dry_run=dry_run)
+
+
+WindowsInvokeNamespace = Collection("windows")
+ChocoInvokeNamespace = Collection("choco")
+
+WindowsInvokeNamespace.add_collection(ChocoInvokeNamespace)
+ChocoInvokeNamespace.add_task(_choco_package_status, "package-status")
+ChocoInvokeNamespace.add_task(_choco_job_status, "job-status")
+ChocoInvokeNamespace.add_task(_choco_job_build, "trigger-build")
+ChocoInvokeNamespace.add_task(_choco_job_publish, "trigger-publish")

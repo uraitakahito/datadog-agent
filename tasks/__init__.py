@@ -69,6 +69,7 @@ from tasks.junit_tasks import junit_upload
 from tasks.libs.go_workspaces import handle_go_work
 from tasks.linter_tasks import lint_copyrights, lint_filenames, lint_go, lint_python
 from tasks.pr_checks import lint_releasenote
+from tasks.release import WindowsInvokeNamespace
 from tasks.show_linters_issues import show_linters_issues
 from tasks.unit_tests import invoke_unit_tests
 from tasks.update_go import go_version, update_go
@@ -151,6 +152,7 @@ ns.add_collection(fakeintake)
 ns.add_collection(kmt)
 ns.add_collection(diff)
 ns.add_collection(updater)
+ns.add_collection(WindowsInvokeNamespace)
 ns.configure(
     {
         'run': {

@@ -146,6 +146,13 @@ class Gitlab(RemoteAPI):
                 return None
             raise e
 
+    def job(self, job_id):
+        """
+        Gets info for a given job.
+        """
+        path = f"/projects/{quote(self.project_name, safe='')}/jobs/{job_id}"
+        return self.make_request(path, json_output=True)
+
     def all_jobs(self, pipeline_id):
         """
         Gets all the jobs for a pipeline.
@@ -174,6 +181,20 @@ class Gitlab(RemoteAPI):
 
         path = f"/projects/{quote(self.project_name, safe='')}/jobs/{job_id}/trace"
         return self.make_request(path)
+
+    def trigger_job(self, job_id):
+        """
+        Triggers a given job.
+        """
+        path = f"/projects/{quote(self.project_name, safe='')}/jobs/{job_id}/play"
+        return self.make_request(path, method="POST")
+
+    def retry_job(self, job_id):
+        """
+        Retries a given job.
+        """
+        path = f"/projects/{quote(self.project_name, safe='')}/jobs/{job_id}/retry"
+        return self.make_request(path, method="POST")
 
     def all_pipeline_schedules(self):
         """
