@@ -26,5 +26,5 @@ func NewGauge(subsystem, name string, tags []string, help string) Gauge {
 // NewGaugeWithOpts creates a Gauge with the given options for telemetry purpose.
 // See NewGauge()
 func NewGaugeWithOpts(subsystem, name string, tags []string, help string, opts Options) Gauge {
-	return telemetry.GetCompatComponent().NewGaugeWithOpts(subsystem, name, tags, help, telemetry.Options(opts))
+	return GetCompatComponent().NewGaugeWithOpts(subsystem, name, tags, help, telemetry.Options(opts))
 }

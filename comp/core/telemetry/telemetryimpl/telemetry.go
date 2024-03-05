@@ -256,12 +256,12 @@ func (t *telemetryImpl) GatherDefault() ([]*dto.MetricFamily, error) {
 	return t.defaultRegistry.Gather()
 }
 
+func GetCompatComponent() telemetry.Component {
+	return newTelemetry()
+}
+
 // Module defines the fx options for this component.
 func Module() fxutil.Module {
 	return fxutil.Component(
 		fx.Provide(newTelemetry))
-}
-
-func init() {
-	telemetry.SetBuilder(newTelemetry)
 }

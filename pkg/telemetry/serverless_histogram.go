@@ -26,5 +26,5 @@ func NewHistogram(subsystem, name string, tags []string, help string, buckets []
 // NewHistogramWithOpts creates a Histogram with the given options for telemetry purpose.
 // See NewHistogram()
 func NewHistogramWithOpts(subsystem, name string, tags []string, help string, buckets []float64, opts Options) Histogram {
-	return telemetry.GetCompatComponent().NewHistogramWithOpts(subsystem, name, tags, help, buckets, telemetry.Options(opts))
+	return GetCompatComponent().NewHistogramWithOpts(subsystem, name, tags, help, buckets, telemetry.Options(opts))
 }

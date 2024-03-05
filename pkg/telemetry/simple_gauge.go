@@ -24,5 +24,5 @@ func NewSimpleGauge(subsystem, name, help string) SimpleGauge {
 
 // NewSimpleGaugeWithOpts creates a new SimpleGauge.
 func NewSimpleGaugeWithOpts(subsystem, name, help string, opts telemetry.Options) telemetry.SimpleGauge {
-	return telemetry.GetCompatComponent().NewSimpleGaugeWithOpts(subsystem, name, help, telemetry.Options(opts))
+	return GetCompatComponent().NewSimpleGaugeWithOpts(subsystem, name, help, telemetry.Options(opts))
 }

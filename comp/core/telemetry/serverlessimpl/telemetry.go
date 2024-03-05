@@ -10,10 +10,16 @@ package serverlessimpl
 
 import (
 	"net/http"
+	"sync"
 
 	"github.com/DataDog/datadog-agent/comp/core/telemetry"
 	"github.com/DataDog/datadog-agent/pkg/util/fxutil"
 	"go.uber.org/fx"
+)
+
+var (
+	singleton telemetry.Component
+	once      sync.Once
 )
 
 type serverlessImpl struct{}
@@ -91,13 +97,16 @@ func (t *serverlessImpl) NewSimpleHistogramWithOpts(subsystem, name, help string
 	return &simpleNoOpHistogram{}
 }
 
+func GetCompatComponent() telemetry.Component {
+	once.Do(func() {
+		singleton = newTelemetry()
+	})
+
+	return singleton
+}
+
 // Module defines the fx options for this component.
 func Module() fxutil.Module {
 	return fxutil.Component(
 		fx.Provide(newTelemetry))
-}
-
-// TODO: this should eventually be removed as global telemetry stats are removed.
-func init() {
-	telemetry.SetBuilder(newTelemetry)
 }

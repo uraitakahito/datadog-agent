@@ -13,9 +13,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/DataDog/datadog-agent/comp/core/telemetry"
 	checkid "github.com/DataDog/datadog-agent/pkg/collector/check/id"
 	agentConfig "github.com/DataDog/datadog-agent/pkg/config"
+	"github.com/DataDog/datadog-agent/pkg/telemetry"
 )
 
 // Mock Check implementation used for testing
