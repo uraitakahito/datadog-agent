@@ -300,16 +300,14 @@ func (s *statusImplementation) GetStatusBySection(sections []string, format stri
 		providersForSection, ok := s.sortedProvidersBySection[section]
 		if ok && len(providersForSection) > 0 {
 			providers = append(providers, providersForSection...)
+		}
 	}
 
-
-	if len(providers) == 0
-	{
-		
+	if len(providers) == 0 {
 		return nil, fmt.Errorf("no known status sections provided '%s'", strings.Join(sections, ", "))
 	}
 
-    switch format {
+	switch format {
 	case "json":
 		stats := make(map[string]interface{})
 
