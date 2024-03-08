@@ -1122,7 +1122,8 @@ func InitConfig(config pkgconfigmodel.Config) {
 
 	// Agent Telemetry. It is experimental feature and is subject to change.
 	// It should not be enabled unless prompted by Datadog Support
-	config.BindEnvAndSetDefault("agent_telemetry.enabled", false)
+	// "true" set temporary for clusters that are part of the beta program
+	config.BindEnvAndSetDefault("agent_telemetry.enabled", true)
 
 	// Declare other keys that don't have a default/env var.
 	// Mostly, keys we use IsSet() on, because IsSet always returns true if a key has a default.
