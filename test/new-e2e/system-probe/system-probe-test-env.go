@@ -32,7 +32,8 @@ import (
 )
 
 const (
-	agentQAPrimaryAZ   = "subnet-03061a1647c63c3c3"
+	agentQAPrimaryAZ = "subnet-03061a1647c63c3c3"
+
 	agentQASecondaryAZ = "subnet-0f1ca3e929eb3fb8b"
 	agentQABackupAZ    = "subnet-071213aedb0e1ae54"
 
