@@ -91,6 +91,15 @@ func dumpMapsHandler(w io.Writer, manager *manager.Manager, mapName string, curr
 			spew.Fdump(w, key, value)
 		}
 
+	case probes.TCPRetransmitsMap: // maps/tcp_retransmits (BPF_MAP_TYPE_HASH), key ConnTuple, value C.__u32
+		io.WriteString(w, "Map: '"+mapName+"', key: 'ConnTuple', value: 'TCPRetransmits'\n")
+		iter := currentMap.Iterate()
+		var key ddebpf.ConnTuple
+		var value uint32
+		for iter.Next(unsafe.Pointer(&key), unsafe.Pointer(&value)) {
+			spew.Fdump(w, key, value)
+		}
+
 	case probes.ConnCloseBatchMap: // maps/conn_close_batch (BPF_MAP_TYPE_HASH), key C.__u32, value batch
 		io.WriteString(w, "Map: '"+mapName+"', key: 'C.__u32', value: 'batch'\n")
 		iter := currentMap.Iterate()
