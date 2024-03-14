@@ -94,3 +94,14 @@
       DSD_REPOSITORY: ci/datadog-agent/dogstatsd-release
       CWS_INSTRUMENTATION_REPOSITORY: ci/datadog-agent/cws-instrumentation-release
       IMG_REGISTRIES: internal-aws-ddbuild
+
+# Rule to deploy beta images to our public repositories
+.on_beta:
+  - if: $BUCKET_BRANCH != "nightly"
+    when: never
+  - if: $PUBLISH_BETA == "true"
+    when: on_success
+    variables:
+      AGENT_REPOSITORY: agent-dev
+      CLUSTER_AGENT_REPOSITORY: cluster-agent-dev
+      IMG_REGISTRIES: dev

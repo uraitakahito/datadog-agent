@@ -22,7 +22,7 @@ include:
   before_script:
     - source /root/.bashrc
     - if [[ "$VERSION" == "" ]]; then export VERSION="$(inv agent.version --major-version 7 --url-safe --pipeline-id $PARENT_PIPELINE_ID)"; fi
-    - export IMG_BASE_SRC="${SRC_AGENT}:v${PARENT_PIPELINE_ID}-${CI_COMMIT_SHORT_SHA}"
+    - if [[ "$SRC_VERSION_OVERRIDE" == "" ]]; then export IMG_BASE_SRC="${SRC_AGENT}:v${PARENT_PIPELINE_ID}-${CI_COMMIT_SHORT_SHA}"; else export IMG_BASE_SRC="${SRC_AGENT}:${SRC_VERSION_OVERRIDE}"; fi
     - export IMG_LINUX_SOURCES="${IMG_BASE_SRC}-7${JMX}-amd64,${IMG_BASE_SRC}-7${JMX}-arm64"
     - export IMG_WINDOWS_SOURCES="${IMG_BASE_SRC}-7${JMX}-win1809${FLAVOR}-amd64,${IMG_BASE_SRC}-7${JMX}-winltsc2022${FLAVOR}-amd64"
     - if [[ "$FLAVOR" == "-linux" ]]; then export IMG_SOURCES="${IMG_LINUX_SOURCES}"; elif [[ "$FLAVOR" == "-servercore" ]]; then export IMG_SOURCES="${IMG_WINDOWS_SOURCES}"; else export IMG_SOURCES="${IMG_LINUX_SOURCES},${IMG_WINDOWS_SOURCES}"; fi
@@ -53,6 +53,25 @@ deploy_containers-a7-rc:
     !reference [.on_rc]
   variables:
     VERSION: 7-rc
+
+deploy_containers-a7-beta:
+  extends: .deploy_containers-a7_external
+  rules:
+    !reference [.on_beta]
+  variables:
+    VERSION: 7-beta
+
+# putting this here for the time being because the dogstatsd job is here, and because
+# the deploy_dca stage should be refactored in a similar way to how this stage was
+deploy_containers-dca-beta:
+  extends: .docker_publish_job_definition
+  rules: !reference [.on_beta]
+  before_script:
+    - source /root/.bashrc
+    - export VERSION="beta"
+    - if [[ "$SRC_VERSION_OVERRIDE" == "" ]]; then export IMG_BASE_SRC="${SRC_DCA}:v${PARENT_PIPELINE_ID}-${CI_COMMIT_SHORT_SHA}"; else export IMG_BASE_SRC="${SRC_DCA}:${SRC_VERSION_OVERRIDE}"; fi
+    - export IMG_SOURCES="${IMG_BASE_SRC}-amd64,${IMG_BASE_SRC}-arm64"
+    - export IMG_DESTINATIONS="${DSD_REPOSITORY}:${VERSION}"
 
 deploy_containers-dogstatsd:
   extends: .docker_publish_job_definition
