@@ -8,7 +8,6 @@ package writer
 import (
 	"compress/gzip"
 	"errors"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -54,11 +53,13 @@ type SampledChunks struct {
 type TraceWriter struct {
 	// In receives sampled spans to be processed by the trace writer.
 	// Channel should only be received from when testing.
-	In        chan *SampledChunks
-	Serialize chan *pb.AgentPayload
+	//In        chan *SampledChunks
+	//Serialize chan *pb.AgentPayload
 	// used to keep track of payloads currently being flushed
 	// only useful for tests
-	swg sync.WaitGroup
+	//swg sync.WaitGroup
+
+	flushTick *time.Ticker
 
 	prioritySampler samplerTPSReader
 	errorsSampler   samplerTPSReader
@@ -85,6 +86,7 @@ type TraceWriter struct {
 	easylog *log.ThrottledLogger
 	statsd  statsd.ClientInterface
 	timing  timing.Reporter
+	mu      sync.Mutex
 }
 
 // NewTraceWriter returns a new TraceWriter. It is created for the given agent configuration and
@@ -98,8 +100,8 @@ func NewTraceWriter(
 	statsd statsd.ClientInterface,
 	timing timing.Reporter) *TraceWriter {
 	tw := &TraceWriter{
-		In:                 make(chan *SampledChunks, 1),
-		Serialize:          make(chan *pb.AgentPayload, 1),
+		//In:                 make(chan *SampledChunks, 1),
+		//Serialize:          make(chan *pb.AgentPayload, 1),
 		prioritySampler:    prioritySampler,
 		errorsSampler:      errorsSampler,
 		rareSampler:        rareSampler,
@@ -127,72 +129,95 @@ func NewTraceWriter(
 	if s := cfg.TraceWriter.FlushPeriodSeconds; s != 0 {
 		tw.tick = time.Duration(s*1000) * time.Millisecond
 	}
+
+	tw.flushTick = time.NewTicker(tw.tick)
+
 	qsize := 1
 	log.Warnf("Trace writer initialized (climit=%d qsize=%d)", climit, qsize)
 	tw.senders = newSenders(cfg, tw, pathTraces, climit, qsize, telemetryCollector, statsd)
-	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
-		tw.wg.Add(1)
-		go tw.serializer()
-	}
+	// for i := 0; i < runtime.GOMAXPROCS(0); i++ {
+	// 	tw.wg.Add(1)
+	// 	go tw.serializer()
+	// }
+	tw.wg.Add(1)
+	go tw.timeflush()
 	return tw
+}
+
+func (w *TraceWriter) timeflush() {
+	defer w.wg.Done()
+	for {
+		select {
+		case <-w.flushTick.C:
+			func() {
+				w.mu.Lock()
+				defer w.mu.Unlock()
+				w.flush()
+			}()
+		case <-w.stop:
+			return
+		}
+	}
 }
 
 // Stop stops the TraceWriter and attempts to flush whatever is left in the senders buffers.
 func (w *TraceWriter) Stop() {
 	log.Debug("Exiting trace writer. Trying to flush whatever is left...")
-	w.stop <- struct{}{}
-	<-w.stop
+	//w.stop <- struct{}{}
+	//<-w.stop
+	close(w.stop)
 	// Wait for encoding/compression to complete on each payload,
 	// and submission to senders
 	w.wg.Wait()
+	w.flush()
 	stopSenders(w.senders)
 }
 
-// Run starts the TraceWriter.
-func (w *TraceWriter) Run() {
-	if w.syncMode {
-		w.runSync()
-	} else {
-		w.runAsync()
-	}
-}
+// // Run starts the TraceWriter.
+// func (w *TraceWriter) Run() {
+// 	if w.syncMode {
+// 		w.runSync()
+// 	} else {
+// 		w.runAsync()
+// 	}
+// }
 
-func (w *TraceWriter) runAsync() {
-	t := time.NewTicker(w.tick)
-	defer t.Stop()
-	defer close(w.Serialize)
-	defer close(w.stop)
-	for {
-		select {
-		case pkg := <-w.In:
-			w.addSpans(pkg)
-		case <-w.stop:
-			w.drainAndFlush()
-			return
-		case <-t.C:
-			w.report()
-			w.flush()
-		}
-	}
-}
+// func (w *TraceWriter) runAsync() {
+// 	t := time.NewTicker(w.tick)
+// 	defer t.Stop()
+// 	defer close(w.Serialize)
+// 	defer close(w.stop)
+// 	for {
+// 		select {
+// 		case pkg := <-w.In:
+// 			w.addSpans(pkg)
+// 		case <-w.stop:
+// 			w.drainAndFlush()
+// 			return
+// 		case <-t.C:
+// 			w.report()
+// 			w.flush()
+// 		}
+// 	}
+// }
 
-func (w *TraceWriter) runSync() {
-	defer close(w.Serialize)
-	defer close(w.stop)
-	defer close(w.flushChan)
-	for {
-		select {
-		case pkg := <-w.In:
-			w.addSpans(pkg)
-		case notify := <-w.flushChan:
-			w.drainAndFlush()
-			notify <- struct{}{}
-		case <-w.stop:
-			w.drainAndFlush()
-			return
-		}
-	}
-}
+// func (w *TraceWriter) runSync() {
+// 	defer close(w.Serialize)
+// 	defer close(w.stop)
+// 	defer close(w.flushChan)
+// 	for {
+// 		select {
+// 		case pkg := <-w.In:
+// 			w.addSpans(pkg)
+// 		case notify := <-w.flushChan:
+// 			w.drainAndFlush()
+// 			notify <- struct{}{}
+// 		case <-w.stop:
+// 			w.drainAndFlush()
+// 			return
+// 		}
+// 	}
+// }
 
 // FlushSync blocks and sends pending payloads when syncMode is true
 func (w *TraceWriter) FlushSync() error {
@@ -201,17 +226,23 @@ func (w *TraceWriter) FlushSync() error {
 	}
 	defer w.report()
 
-	notify := make(chan struct{}, 1)
-	w.flushChan <- notify
-	<-notify
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.flush()
+	// notify := make(chan struct{}, 1)
+	// w.flushChan <- notify
+	// <-notify
 	return nil
 }
 
-func (w *TraceWriter) addSpans(pkg *SampledChunks) {
+// func (w *TraceWriter) addSpans(pkg *SampledChunks) {
+func (w *TraceWriter) WriteChunks(pkg *SampledChunks) {
 	w.stats.Spans.Add(pkg.SpanCount)
 	w.stats.Traces.Add(int64(len(pkg.TracerPayload.Chunks)))
 	w.stats.Events.Add(pkg.EventCount)
 
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	size := pkg.Size
 	if size+w.bufferedSize > MaxPayloadSize {
 		// reached maximum allowed buffered size
@@ -224,19 +255,19 @@ func (w *TraceWriter) addSpans(pkg *SampledChunks) {
 	w.bufferedSize += size
 }
 
-func (w *TraceWriter) drainAndFlush() {
-outer:
-	for {
-		select {
-		case pkg := <-w.In:
-			w.addSpans(pkg)
-		default:
-			break outer
-		}
-	}
-	w.flush()
-	w.swg.Wait()
-}
+// func (w *TraceWriter) drainAndFlush() {
+// outer:
+// 	for {
+// 		select {
+// 		case pkg := <-w.In:
+// 			w.addSpans(pkg)
+// 		default:
+// 			break outer
+// 		}
+// 	}
+// 	w.flush()
+// 	w.swg.Wait()
+// }
 
 func (w *TraceWriter) resetBuffer() {
 	w.bufferedSize = 0
@@ -246,6 +277,7 @@ func (w *TraceWriter) resetBuffer() {
 const headerLanguages = "X-Datadog-Reported-Languages"
 
 func (w *TraceWriter) flush() {
+	w.flushTick.Reset(w.tick) // reset the flush timer whenever we flush
 	if len(w.tracerPayloads) == 0 {
 		// nothing to do
 		return
@@ -266,45 +298,50 @@ func (w *TraceWriter) flush() {
 	}
 	log.Debugf("Reported agent rates: target_tps=%v errors_tps=%v rare_sampling=%v", p.TargetTPS, p.ErrorTPS, p.RareSamplerEnabled)
 
-	w.swg.Add(1)
-	w.Serialize <- &p
+	//w.swg.Add(1)
+	//w.Serialize <- &p
+	w.Serialize(&p)
 }
 
-func (w *TraceWriter) serializer() {
-	defer w.wg.Done()
-	for pl := range w.Serialize {
-		func() {
-			defer w.swg.Done()
-			b, err := pl.MarshalVT()
-			if err != nil {
-				log.Errorf("Failed to serialize payload, data dropped: %v", err)
-				return
-			}
-
-			w.stats.BytesUncompressed.Add(int64(len(b)))
-			p := newPayload(map[string]string{
-				"Content-Type":     "application/x-protobuf",
-				"Content-Encoding": "gzip",
-				headerLanguages:    strings.Join(info.Languages(), "|"),
-			})
-			p.body.Grow(len(b) / 2)
-			gzipw, err := gzip.NewWriterLevel(p.body, gzip.BestSpeed)
-			if err != nil {
-				// it will never happen, unless an invalid compression is chosen;
-				// we know gzip.BestSpeed is valid.
-				log.Errorf("gzip.NewWriterLevel: %d", err)
-				return
-			}
-			if _, err := gzipw.Write(b); err != nil {
-				log.Errorf("Error gzipping trace payload: %v", err)
-			}
-			if err := gzipw.Close(); err != nil {
-				log.Errorf("Error closing gzip stream when writing trace payload: %v", err)
-			}
-			sendPayloads(w.senders, p, w.syncMode)
-		}()
+func (w *TraceWriter) Serialize(pl *pb.AgentPayload) {
+	b, err := pl.MarshalVT()
+	if err != nil {
+		log.Errorf("Failed to serialize payload, data dropped: %v", err)
+		return
 	}
+
+	w.stats.BytesUncompressed.Add(int64(len(b)))
+	p := newPayload(map[string]string{
+		"Content-Type":     "application/x-protobuf",
+		"Content-Encoding": "gzip",
+		headerLanguages:    strings.Join(info.Languages(), "|"),
+	})
+	p.body.Grow(len(b) / 2)
+	gzipw, err := gzip.NewWriterLevel(p.body, gzip.BestSpeed)
+	if err != nil {
+		// it will never happen, unless an invalid compression is chosen;
+		// we know gzip.BestSpeed is valid.
+		log.Errorf("gzip.NewWriterLevel: %d", err)
+		return
+	}
+	if _, err := gzipw.Write(b); err != nil {
+		log.Errorf("Error gzipping trace payload: %v", err)
+	}
+	if err := gzipw.Close(); err != nil {
+		log.Errorf("Error closing gzip stream when writing trace payload: %v", err)
+	}
+	sendPayloads(w.senders, p, w.syncMode)
 }
+
+// func (w *TraceWriter) serializer() {
+// 	defer w.wg.Done()
+// 	for pl := range w.Serialize {
+// 		func() {
+// 			defer w.swg.Done()
+
+// 		}()
+// 	}
+// }
 
 func (w *TraceWriter) report() {
 	_ = w.statsd.Count("datadog.trace_agent.trace_writer.payloads", w.stats.Payloads.Swap(0), nil, 1)

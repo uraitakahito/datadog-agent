@@ -50,6 +50,12 @@ const (
 	tagDecisionMaker = "_dd.p.dm"
 )
 
+type TraceWriter interface {
+	WriteChunks(*writer.SampledChunks)
+	FlushSync() error
+	Stop()
+}
+
 // Agent struct holds all the sub-routines structs and make the data flow between them
 type Agent struct {
 	Receiver              *api.HTTPReceiver
@@ -63,7 +69,7 @@ type Agent struct {
 	RareSampler           *sampler.RareSampler
 	NoPrioritySampler     *sampler.NoPrioritySampler
 	EventProcessor        *event.Processor
-	TraceWriter           *writer.TraceWriter
+	TraceWriter           TraceWriter
 	StatsWriter           *writer.StatsWriter
 	RemoteConfigHandler   *remoteconfighandler.RemoteConfigHandler
 	TelemetryCollector    telemetry.TelemetryCollector
@@ -153,7 +159,7 @@ func (a *Agent) Run() {
 		starter.Start()
 	}
 
-	go a.TraceWriter.Run()
+	//go a.TraceWriter.Run()
 	go a.StatsWriter.Run()
 
 	// // Having GOMAXPROCS/2 processor threads is
@@ -254,13 +260,9 @@ func (a *Agent) setFirstTraceTags(root *pb.Span) {
 	}
 }
 
-func (a *Agent) ProcessTrace(p *api.Payload) {
-	a.Process(p)
-}
-
 // Process is the default work unit that receives a trace, transforms it and
 // passes it downstream.
-func (a *Agent) Process(p *api.Payload) {
+func (a *Agent) ProcessTrace(p *api.Payload) {
 	if len(p.Chunks()) == 0 {
 		log.Debugf("Skipping received empty payload")
 		return
@@ -371,17 +373,19 @@ func (a *Agent) Process(p *api.Payload) {
 			sampledChunks.TracerPayload = p.TracerPayload.Cut(i)
 			i = 0
 			sampledChunks.TracerPayload.Chunks = newChunksArray(sampledChunks.TracerPayload.Chunks)
-			a.TraceWriter.In <- sampledChunks
+			//a.TraceWriter.In <- sampledChunks
+			a.TraceWriter.WriteChunks(sampledChunks)
 			sampledChunks = new(writer.SampledChunks)
 		}
 	}
 	sampledChunks.TracerPayload = p.TracerPayload
 	sampledChunks.TracerPayload.Chunks = newChunksArray(p.TracerPayload.Chunks)
-	if sampledChunks.Size > 0 {
-		a.TraceWriter.In <- sampledChunks
-	}
 	if len(statsInput.Traces) > 0 {
 		a.Concentrator.In <- statsInput
+	}
+	if sampledChunks.Size > 0 {
+		//a.TraceWriter.In <- sampledChunks
+		a.TraceWriter.WriteChunks(sampledChunks)
 	}
 }
 
