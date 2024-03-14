@@ -8,19 +8,29 @@
 package utils
 
 import (
+	"os"
+	"strconv"
+
 	"github.com/DataDog/datadog-agent/pkg/network/types"
+	"github.com/DataDog/datadog-agent/pkg/util/log"
 )
 
 // ConnectionAggregator provides functionality for rolling-up datapoints from
 // different connections that refer to the same (client, server) pair
 type ConnectionAggregator struct {
 	data map[ipTuple]portValues
+
+	portTarget uint16
 }
 
 // NewConnectionAggregator returns a new instance of a `ConnectionAggregator`
 func NewConnectionAggregator() *ConnectionAggregator {
+	portStr := os.Getenv("ROLLUP_PORT")
+	portInt, _ := strconv.Atoi(portStr)
+
 	return &ConnectionAggregator{
-		data: make(map[ipTuple]portValues, 1000),
+		data:       make(map[ipTuple]portValues, 1000),
+		portTarget: uint16(portInt),
 	}
 }
 
@@ -92,7 +102,15 @@ type portValues struct {
 // real world example we have here at Datadog are redis containers running
 // multiple instances. In this case only one one of the redis instances would
 // trigger a rollup.
-func (c *ConnectionAggregator) RollupKey(key types.ConnectionKey) types.ConnectionKey {
+func (c *ConnectionAggregator) RollupKey(key types.ConnectionKey) (result types.ConnectionKey) {
+	defer func() {
+		if key.SrcPort != c.portTarget && key.DstPort != c.portTarget {
+			return
+		}
+
+		log.Debugf("rollup_key: input=%+v output=%+v modified=%v", key, result, key == result)
+	}()
+
 	if c == nil {
 		return key
 	}
