@@ -63,10 +63,11 @@ func TestTraceWriter(t *testing.T) {
 		// but overflow on the third.
 		defer useFlushThreshold(testSpans[0].Size + testSpans[1].Size + 10)()
 		tw := NewTraceWriter(cfg, mockSampler, mockSampler, mockSampler, telemetry.NewNoopCollector(), &statsd.NoOpClient{}, &timing.NoopReporter{})
-		tw.In = make(chan *SampledChunks)
-		go tw.Run()
+		//tw.In = make(chan *SampledChunks)
+		//go tw.Run()
 		for _, ss := range testSpans {
-			tw.In <- ss
+			//tw.In <- ss
+			tw.WriteChunks(ss)
 		}
 		tw.Stop()
 		// One payload flushes due to overflowing the threshold, and the second one
@@ -104,8 +105,8 @@ func TestTraceWriterMultipleEndpointsConcurrent(t *testing.T) {
 		randomSampledSpans(40, 5),
 	}
 	tw := NewTraceWriter(cfg, mockSampler, mockSampler, mockSampler, telemetry.NewNoopCollector(), &statsd.NoOpClient{}, &timing.NoopReporter{})
-	tw.In = make(chan *SampledChunks, 100)
-	go tw.Run()
+	//tw.In = make(chan *SampledChunks, 100)
+	//go tw.Run()
 
 	var wg sync.WaitGroup
 	for i := 0; i < numWorkers; i++ {
@@ -114,7 +115,8 @@ func TestTraceWriterMultipleEndpointsConcurrent(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < numOpsPerWorker; j++ {
 				for _, ss := range testSpans {
-					tw.In <- ss
+					//tw.In <- ss
+					tw.WriteChunks(ss)
 				}
 			}
 		}()
@@ -197,9 +199,10 @@ func TestTraceWriterFlushSync(t *testing.T) {
 			randomSampledSpans(40, 5),
 		}
 		tw := NewTraceWriter(cfg, mockSampler, mockSampler, mockSampler, telemetry.NewNoopCollector(), &statsd.NoOpClient{}, &timing.NoopReporter{})
-		go tw.Run()
+		//go tw.Run()
 		for _, ss := range testSpans {
-			tw.In <- ss
+			//tw.In <- ss
+			tw.WriteChunks(ss)
 		}
 
 		// No payloads should be sent before flushing
@@ -266,9 +269,10 @@ func TestTraceWriterSyncStop(t *testing.T) {
 			randomSampledSpans(40, 5),
 		}
 		tw := NewTraceWriter(cfg, mockSampler, mockSampler, mockSampler, telemetry.NewNoopCollector(), &statsd.NoOpClient{}, &timing.NoopReporter{})
-		go tw.Run()
+		//go tw.Run()
 		for _, ss := range testSpans {
-			tw.In <- ss
+			//tw.In <- ss
+			tw.WriteChunks(ss)
 		}
 
 		// No payloads should be sent before flushing
@@ -315,7 +319,8 @@ func TestTraceWriterAgentPayload(t *testing.T) {
 
 	// helper function to send a chunk to the writer and force a synchronous flush
 	sendRandomSpanAndFlush := func(t *testing.T, tw *TraceWriter) {
-		tw.In <- randomSampledSpans(20, 8)
+		//tw.In <- randomSampledSpans(20, 8)
+		tw.WriteChunks(randomSampledSpans(20, 8))
 		err := tw.FlushSync()
 		assert.Nil(t, err)
 	}
@@ -332,7 +337,7 @@ func TestTraceWriterAgentPayload(t *testing.T) {
 
 	t.Run("static TPS config", func(t *testing.T) {
 		tw := NewTraceWriter(cfg, mockSampler, mockSampler, mockSampler, telemetry.NewNoopCollector(), &statsd.NoOpClient{}, &timing.NoopReporter{})
-		go tw.Run()
+		//go tw.Run()
 		defer tw.Stop()
 		sendRandomSpanAndFlush(t, tw)
 		assertExpectedTps(t, 5, 5, true)
@@ -344,7 +349,7 @@ func TestTraceWriterAgentPayload(t *testing.T) {
 		rareSampler := &MockSampler{Enabled: false}
 
 		tw := NewTraceWriter(cfg, prioritySampler, errorSampler, rareSampler, telemetry.NewNoopCollector(), &statsd.NoOpClient{}, &timing.NoopReporter{})
-		go tw.Run()
+		//go tw.Run()
 		defer tw.Stop()
 		sendRandomSpanAndFlush(t, tw)
 		assertExpectedTps(t, 5, 6, false)

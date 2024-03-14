@@ -335,7 +335,7 @@ func TestInfoHandler(t *testing.T) {
 		},
 	}
 
-	rcv := newTestReceiverFromConfig(conf)
+	rcv := noopReceiverFromConfig(conf)
 	_, h := rcv.makeInfoHandler()
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/info", nil)

@@ -30,7 +30,7 @@ func TestDogStatsDReverseProxyEndToEndUDS(t *testing.T) {
 	cfg.StatsdSocket = sock            // this should get ignored
 	cfg.StatsdHost = "this is invalid" // this should get ignored
 	cfg.StatsdPort = 0                 // this should trigger 503
-	receiver := newTestReceiverFromConfig(cfg)
+	receiver := noopReceiverFromConfig(cfg)
 	proxy := receiver.dogstatsdProxyHandler()
 	require.NotNil(t, proxy)
 	rec := httptest.NewRecorder()

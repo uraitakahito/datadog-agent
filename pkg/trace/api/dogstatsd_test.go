@@ -53,7 +53,7 @@ func TestDogStatsDReverseProxy(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := config.New()
 			tc.configFunc(cfg)
-			receiver := newTestReceiverFromConfig(cfg)
+			receiver := noopReceiverFromConfig(cfg)
 			proxy := receiver.dogstatsdProxyHandler()
 			require.NotNil(t, proxy)
 
@@ -65,7 +65,7 @@ func TestDogStatsDReverseProxy(t *testing.T) {
 
 	t.Run("dogstatsd enabled (default)", func(t *testing.T) {
 		cfg := config.New()
-		receiver := newTestReceiverFromConfig(cfg)
+		receiver := noopReceiverFromConfig(cfg)
 		proxy := receiver.dogstatsdProxyHandler()
 		require.NotNil(t, proxy)
 
@@ -100,7 +100,7 @@ func testDogStatsDReverseProxyEndToEndUDP(t *testing.T, cfg *config.AgentConfig)
 			}
 			defer conn.Close()
 
-			receiver := newTestReceiverFromConfig(cfg)
+			receiver := noopReceiverFromConfig(cfg)
 			proxy := receiver.dogstatsdProxyHandler()
 			require.NotNil(t, proxy)
 			rec := httptest.NewRecorder()

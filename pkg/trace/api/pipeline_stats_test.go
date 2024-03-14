@@ -111,7 +111,7 @@ func TestPipelineStatsProxyHandler(t *testing.T) {
 		conf := newTestReceiverConfig()
 		conf.Endpoints[0].Host = srv.URL
 		fmt.Println("srv url", srv.URL)
-		receiver := newTestReceiverFromConfig(conf)
+		receiver := noopReceiverFromConfig(conf)
 		receiver.pipelineStatsProxyHandler().ServeHTTP(httptest.NewRecorder(), req)
 		if !called {
 			t.Fatal("request not proxied")
@@ -125,7 +125,7 @@ func TestPipelineStatsProxyHandler(t *testing.T) {
 		conf := newTestReceiverConfig()
 		conf.Endpoints[0].Host = srv.URL
 		req, _ := http.NewRequest("POST", "/some/path", nil)
-		receiver := newTestReceiverFromConfig(conf)
+		receiver := noopReceiverFromConfig(conf)
 		rec := httptest.NewRecorder()
 		receiver.pipelineStatsProxyHandler().ServeHTTP(rec, req)
 		resp := rec.Result()
@@ -149,7 +149,7 @@ func TestPipelineStatsProxyHandler(t *testing.T) {
 		conf := newTestReceiverConfig()
 		conf.Endpoints[0].Host = srv.URL
 		conf.FargateOrchestrator = "orchestrator"
-		receiver := newTestReceiverFromConfig(conf)
+		receiver := noopReceiverFromConfig(conf)
 		receiver.pipelineStatsProxyHandler().ServeHTTP(httptest.NewRecorder(), req)
 		if !called {
 			t.Fatal("request not proxied")
@@ -165,7 +165,7 @@ func TestPipelineStatsProxyHandler(t *testing.T) {
 		conf := newTestReceiverConfig()
 		conf.Endpoints[0].Host = ""
 		conf.Site = "asd:\r\n"
-		r := newTestReceiverFromConfig(conf)
+		r := noopReceiverFromConfig(conf)
 		r.pipelineStatsProxyHandler().ServeHTTP(rec, req)
 		res := rec.Result()
 		if res.StatusCode != http.StatusInternalServerError {

@@ -88,7 +88,7 @@ func FuzzHandleTracesV02JSON(f *testing.F) {
 // The caller has to provide the targeted API version, the content type and the functions to encode and decode the payload.
 func fuzzTracesAPI(f *testing.F, v Version, contentType string, encode encoder, decode decoder) {
 	conf := newTestReceiverConfig()
-	receiver := newTestReceiverFromConfig(conf)
+	receiver := noopReceiverFromConfig(conf)
 	handlerFunc := receiver.handleWithVersion(v, receiver.handleTraces)
 	server := httptest.NewServer(handlerFunc)
 	defer server.Close()
@@ -166,9 +166,9 @@ func FuzzHandleStats(f *testing.F) {
 		payload := &pb.ClientStatsPayload{}
 		return payload, msgp.Decode(apiutil.NewLimitedReader(io.NopCloser(reader), cfg.MaxRequestBytes), payload)
 	}
-	receiver := newTestReceiverFromConfig(cfg)
+	receiver := noopReceiverFromConfig(cfg)
 	mockProcessor := new(mockStatsProcessor)
-	receiver.statsProcessor = mockProcessor
+	receiver.processor = mockProcessor
 	handlerFunc := http.HandlerFunc(receiver.handleStats)
 	server := httptest.NewServer(handlerFunc)
 	defer server.Close()

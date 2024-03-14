@@ -51,11 +51,23 @@ const (
 	tagDecisionMaker = "_dd.p.dm"
 )
 
+type TraceWriter interface {
+	WriteChunks(*writer.SampledChunks)
+	FlushSync() error
+	Stop()
+}
+
+type Concentrator interface {
+	Start()
+	Stop()
+	Add(t stats.Input)
+}
+
 // Agent struct holds all the sub-routines structs and make the data flow between them
 type Agent struct {
 	Receiver              *api.HTTPReceiver
 	OTLPReceiver          *api.OTLPReceiver
-	Concentrator          *stats.Concentrator
+	Concentrator          Concentrator
 	ClientStatsAggregator *stats.ClientStatsAggregator
 	Blacklister           *filters.Blacklister
 	Replacer              *filters.Replacer
@@ -64,7 +76,7 @@ type Agent struct {
 	RareSampler           *sampler.RareSampler
 	NoPrioritySampler     *sampler.NoPrioritySampler
 	EventProcessor        *event.Processor
-	TraceWriter           *writer.TraceWriter
+	TraceWriter           TraceWriter
 	StatsWriter           *writer.StatsWriter
 	RemoteConfigHandler   *remoteconfighandler.RemoteConfigHandler
 	TelemetryCollector    telemetry.TelemetryCollector
@@ -102,15 +114,16 @@ func NewAgent(ctx context.Context, conf *config.AgentConfig, telemetryCollector 
 	dynConf := sampler.NewDynamicConfig()
 	log.Infof("Starting Agent with processor trace buffer of size %d", conf.TraceBuffer)
 	in := make(chan *api.Payload, conf.TraceBuffer)
-	statsChan := make(chan *pb.StatsPayload, 1)
+	//statsChan := make(chan *pb.StatsPayload, 1)
 	oconf := conf.Obfuscation.Export(conf)
 	if oconf.Statsd == nil {
 		oconf.Statsd = statsd
 	}
 	timing := timing.New(statsd)
+	statsWriter := writer.NewStatsWriter(conf, telemetryCollector, statsd, timing)
 	agnt := &Agent{
-		Concentrator:          stats.NewConcentrator(conf, statsChan, time.Now(), statsd),
-		ClientStatsAggregator: stats.NewClientStatsAggregator(conf, statsChan, statsd),
+		Concentrator:          stats.NewConcentrator(conf, statsWriter, time.Now(), statsd),
+		ClientStatsAggregator: stats.NewClientStatsAggregator(conf, statsWriter, statsd),
 		Blacklister:           filters.NewBlacklister(conf.Ignore["resource"]),
 		Replacer:              filters.NewReplacer(conf.ReplaceTags),
 		PrioritySampler:       sampler.NewPrioritySampler(conf, dynConf, statsd),
@@ -118,7 +131,7 @@ func NewAgent(ctx context.Context, conf *config.AgentConfig, telemetryCollector 
 		RareSampler:           sampler.NewRareSampler(conf, statsd),
 		NoPrioritySampler:     sampler.NewNoPrioritySampler(conf, statsd),
 		EventProcessor:        newEventProcessor(conf, statsd),
-		StatsWriter:           writer.NewStatsWriter(conf, statsChan, telemetryCollector, statsd, timing),
+		StatsWriter:           statsWriter,
 		obfuscator:            obfuscate.NewObfuscator(oconf),
 		cardObfuscator:        newCreditCardsObfuscator(conf.Obfuscation.CreditCards),
 		In:                    in,
@@ -128,8 +141,8 @@ func NewAgent(ctx context.Context, conf *config.AgentConfig, telemetryCollector 
 		Statsd:                statsd,
 		Timing:                timing,
 	}
-	agnt.Receiver = api.NewHTTPReceiver(conf, dynConf, in, agnt, telemetryCollector, statsd, timing)
-	agnt.OTLPReceiver = api.NewOTLPReceiver(in, conf, statsd, timing)
+	agnt.Receiver = api.NewHTTPReceiver(in, conf, dynConf, agnt, telemetryCollector, statsd, timing)
+	agnt.OTLPReceiver = api.NewOTLPReceiver(conf, agnt, statsd, timing)
 	agnt.RemoteConfigHandler = remoteconfighandler.New(conf, agnt.PrioritySampler, agnt.RareSampler, agnt.ErrorsSampler)
 	agnt.TraceWriter = writer.NewTraceWriter(conf, agnt.PrioritySampler, agnt.ErrorsSampler, agnt.RareSampler, telemetryCollector, statsd, timing)
 	return agnt
@@ -154,7 +167,7 @@ func (a *Agent) Run() {
 		starter.Start()
 	}
 
-	go a.TraceWriter.Run()
+	//go a.TraceWriter.Run()
 	go a.StatsWriter.Run()
 
 	// Having GOMAXPROCS/2 processor threads is
@@ -170,7 +183,7 @@ func (a *Agent) Run() {
 		go a.work()
 	}
 
-	a.loop()
+	a.waitShutdown()
 }
 
 // FlushSync flushes traces sychronously. This method only works when the agent is configured in synchronous flushing
@@ -197,12 +210,12 @@ func (a *Agent) work() {
 		if !ok {
 			return
 		}
-		a.Process(p)
+		a.ProcessTrace(p)
 	}
 
 }
 
-func (a *Agent) loop() {
+func (a *Agent) waitShutdown() {
 	<-a.ctx.Done()
 	log.Info("Exiting...")
 
@@ -257,7 +270,7 @@ func (a *Agent) setFirstTraceTags(root *pb.Span) {
 
 // Process is the default work unit that receives a trace, transforms it and
 // passes it downstream.
-func (a *Agent) Process(p *api.Payload) {
+func (a *Agent) ProcessTrace(p *api.Payload) {
 	if len(p.Chunks()) == 0 {
 		log.Debugf("Skipping received empty payload")
 		return
@@ -368,17 +381,20 @@ func (a *Agent) Process(p *api.Payload) {
 			sampledChunks.TracerPayload = p.TracerPayload.Cut(i)
 			i = 0
 			sampledChunks.TracerPayload.Chunks = newChunksArray(sampledChunks.TracerPayload.Chunks)
-			a.TraceWriter.In <- sampledChunks
+			//a.TraceWriter.In <- sampledChunks
+			a.TraceWriter.WriteChunks(sampledChunks)
 			sampledChunks = new(writer.SampledChunks)
 		}
 	}
 	sampledChunks.TracerPayload = p.TracerPayload
 	sampledChunks.TracerPayload.Chunks = newChunksArray(p.TracerPayload.Chunks)
-	if sampledChunks.Size > 0 {
-		a.TraceWriter.In <- sampledChunks
-	}
 	if len(statsInput.Traces) > 0 {
-		a.Concentrator.In <- statsInput
+		//a.Concentrator.In <- statsInput
+		a.Concentrator.Add(statsInput)
+	}
+	if sampledChunks.Size > 0 {
+		//a.TraceWriter.In <- sampledChunks
+		a.TraceWriter.WriteChunks(sampledChunks)
 	}
 }
 
@@ -432,7 +448,7 @@ func newChunksArray(chunks []*pb.TraceChunk) []*pb.TraceChunk {
 	return new
 }
 
-var _ api.StatsProcessor = (*Agent)(nil)
+var _ api.Processor = (*Agent)(nil)
 
 // discardSpans removes all spans for which the provided DiscardFunction function returns true
 func (a *Agent) discardSpans(p *api.Payload) {

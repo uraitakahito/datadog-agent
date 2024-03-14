@@ -11,6 +11,7 @@ import (
 	"io"
 	"math"
 	"strings"
+	"sync"
 	"time"
 
 	pb "github.com/DataDog/datadog-agent/pkg/proto/pbgo/trace"
@@ -54,18 +55,19 @@ type StatsWriter struct {
 	easylog *log.ThrottledLogger
 	statsd  statsd.ClientInterface
 	timing  timing.Reporter
+	mu      sync.Mutex
 }
 
 // NewStatsWriter returns a new StatsWriter. It must be started using Run.
 func NewStatsWriter(
 	cfg *config.AgentConfig,
-	in <-chan *pb.StatsPayload,
+	//in <-chan *pb.StatsPayload,
 	telemetryCollector telemetry.TelemetryCollector,
 	statsd statsd.ClientInterface,
 	timing timing.Reporter,
 ) *StatsWriter {
 	sw := &StatsWriter{
-		in:        in,
+		//in:        in,
 		stats:     &info.StatsWriterInfo{},
 		stop:      make(chan struct{}),
 		flushChan: make(chan chan struct{}),
@@ -104,11 +106,11 @@ func (w *StatsWriter) Run() {
 	defer close(w.stop)
 	for {
 		select {
-		case stats := <-w.in:
-			w.addStats(stats)
-			if !w.syncMode {
-				w.sendPayloads()
-			}
+		// case stats := <-w.in:
+		// 	w.addStats(stats)
+		// 	if !w.syncMode {
+		// 		w.sendPayloads()
+		// 	}
 		case notify := <-w.flushChan:
 			w.sendPayloads()
 			notify <- struct{}{}
@@ -140,8 +142,17 @@ func (w *StatsWriter) Stop() {
 	stopSenders(w.senders)
 }
 
+func (w *StatsWriter) Add(sp *pb.StatsPayload) {
+	w.addStats(sp)
+	if !w.syncMode {
+		w.sendPayloads()
+	}
+}
+
 func (w *StatsWriter) addStats(sp *pb.StatsPayload) {
 	defer w.timing.Since("datadog.trace_agent.stats_writer.encode_ms", time.Now())
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	payloads := w.buildPayloads(sp, maxEntriesPerPayload)
 	w.payloads = append(w.payloads, payloads...)
 }
@@ -161,14 +172,18 @@ func (w *StatsWriter) SendPayload(p *pb.StatsPayload) {
 }
 
 func (w *StatsWriter) sendPayloads() {
-	for _, p := range w.payloads {
+	pl := w.resetBuffer()
+	for _, p := range pl {
 		w.SendPayload(p)
 	}
-	w.resetBuffer()
 }
 
-func (w *StatsWriter) resetBuffer() {
+func (w *StatsWriter) resetBuffer() []*pb.StatsPayload {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	ret := w.payloads
 	w.payloads = make([]*pb.StatsPayload, 0, len(w.payloads))
+	return ret
 }
 
 // encodePayload encodes the payload as Gzipped msgPack into w.
