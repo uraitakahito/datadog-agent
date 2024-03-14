@@ -61,11 +61,11 @@ func putBuffer(buffer *bytes.Buffer) {
 type HTTPReceiver struct {
 	Stats *info.ReceiverStats
 
-	out                 chan *Payload
+	//out                 chan *Payload
 	conf                *config.AgentConfig
 	dynConf             *sampler.DynamicConfig
 	server              *http.Server
-	statsProcessor      StatsProcessor
+	processor           Processor
 	containerIDProvider IDProvider
 
 	telemetryCollector telemetry.TelemetryCollector
@@ -94,8 +94,7 @@ type HTTPReceiver struct {
 func NewHTTPReceiver(
 	conf *config.AgentConfig,
 	dynConf *sampler.DynamicConfig,
-	out chan *Payload,
-	statsProcessor StatsProcessor,
+	statsProcessor Processor,
 	telemetryCollector telemetry.TelemetryCollector,
 	statsd statsd.ClientInterface,
 	timing timing.Reporter) *HTTPReceiver {
@@ -114,8 +113,8 @@ func NewHTTPReceiver(
 	return &HTTPReceiver{
 		Stats: info.NewReceiverStats(),
 
-		out:                 out,
-		statsProcessor:      statsProcessor,
+		//out:                 out,
+		processor:           statsProcessor,
 		conf:                conf,
 		dynConf:             dynConf,
 		containerIDProvider: NewIDProvider(conf.ContainerProcRoot),
@@ -304,7 +303,7 @@ func (r *HTTPReceiver) Stop() error {
 		return err
 	}
 	r.wg.Wait()
-	close(r.out)
+	//close(r.out)
 	return nil
 }
 
@@ -436,11 +435,12 @@ func (r *HTTPReceiver) replyOK(req *http.Request, v Version, w http.ResponseWrit
 	}
 }
 
-// StatsProcessor implementations are able to process incoming client stats.
-type StatsProcessor interface {
+// Processor implementations are able to process incoming client stats.
+type Processor interface {
 	// ProcessStats takes a stats payload and consumes it. It is considered to be originating
 	// from the given lang.
 	ProcessStats(p *pb.ClientStatsPayload, lang, tracerVersion string)
+	ProcessTrace(p *Payload)
 }
 
 // handleStats handles incoming stats payloads.
@@ -468,7 +468,7 @@ func (r *HTTPReceiver) handleStats(w http.ResponseWriter, req *http.Request) {
 	_ = r.statsd.Count("datadog.trace_agent.receiver.stats_bytes", rd.Count, ts.AsTags(), 1)
 	_ = r.statsd.Count("datadog.trace_agent.receiver.stats_buckets", int64(len(in.Stats)), ts.AsTags(), 1)
 
-	r.statsProcessor.ProcessStats(in, req.Header.Get(header.Lang), req.Header.Get(header.TracerVersion))
+	r.processor.ProcessStats(in, req.Header.Get(header.Lang), req.Header.Get(header.TracerVersion))
 }
 
 // handleTraces knows how to handle a bunch of traces
@@ -569,7 +569,8 @@ func (r *HTTPReceiver) handleTraces(v Version, w http.ResponseWriter, req *http.
 		ClientComputedStats:    req.Header.Get(header.ComputedStats) != "",
 		ClientDroppedP0s:       droppedTracesFromHeader(req.Header, ts),
 	}
-	r.out <- payload
+	//r.out <- payload
+	r.processor.ProcessTrace(payload)
 }
 
 // runMetaHook runs the pb.MetaHook on all spans from traces.
@@ -637,7 +638,7 @@ func (r *HTTPReceiver) loop() {
 			r.watchdog(now)
 		case now := <-t.C:
 			_ = r.statsd.Gauge("datadog.trace_agent.heartbeat", 1, nil, 1)
-			_ = r.statsd.Gauge("datadog.trace_agent.receiver.out_chan_fill", float64(len(r.out))/float64(cap(r.out)), nil, 1)
+			//_ = r.statsd.Gauge("datadog.trace_agent.receiver.out_chan_fill", float64(len(r.out))/float64(cap(r.out)), nil, 1)
 
 			// We update accStats with the new stats we collected
 			accStats.Acc(r.Stats)

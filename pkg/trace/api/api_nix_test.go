@@ -49,7 +49,7 @@ func TestUDS(t *testing.T) {
 		conf.Endpoints[0].APIKey = "apikey_2"
 		conf.ReceiverPort = port
 
-		r := newTestReceiverFromConfig(conf)
+		r := noopReceiverFromConfig(conf)
 		r.Start()
 		defer r.Stop()
 
@@ -69,7 +69,7 @@ func TestUDS(t *testing.T) {
 		conf.ReceiverSocket = sockPath
 		conf.ReceiverPort = port
 
-		r := newTestReceiverFromConfig(conf)
+		r := noopReceiverFromConfig(conf)
 		r.Start()
 		defer r.Stop()
 
@@ -119,7 +119,7 @@ func TestHTTPReceiverStart(t *testing.T) {
 			port, socket, out := setup()
 			cfg.ReceiverPort = port
 			cfg.ReceiverSocket = socket
-			r := newTestReceiverFromConfig(cfg)
+			r := noopReceiverFromConfig(cfg)
 			r.Start()
 			defer r.Stop()
 			for _, l := range out {

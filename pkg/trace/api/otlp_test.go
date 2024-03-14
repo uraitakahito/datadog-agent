@@ -16,7 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 	"unicode"
 
 	pb "github.com/DataDog/datadog-agent/pkg/proto/pbgo/trace"
@@ -153,8 +152,7 @@ func TestOTLPMetrics(t *testing.T) {
 	cfg := NewTestConfig(t)
 	stats := &teststatsd.Client{}
 
-	out := make(chan *Payload, 1)
-	rcv := NewOTLPReceiver(out, cfg, stats, &timing.NoopReporter{})
+	rcv := NewOTLPReceiver(cfg, noopProcessor{}, stats, &timing.NoopReporter{})
 	rspans := testutil.NewOTLPTracesRequest([]testutil.OTLPResourceSpan{
 		{
 			LibName:    "libname",
@@ -177,17 +175,17 @@ func TestOTLPMetrics(t *testing.T) {
 		},
 	}).Traces().ResourceSpans()
 
-	stop := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-out:
-			case <-stop:
-				return
-			}
-		}
-	}()
-	defer close(stop)
+	// stop := make(chan struct{})
+	// go func() {
+	// 	for {
+	// 		select {
+	// 		case <-out:
+	// 		case <-stop:
+	// 			return
+	// 		}
+	// 	}
+	// }()
+	// defer close(stop)
 
 	rcv.ReceiveResourceSpans(context.Background(), rspans.At(0), http.Header{})
 	rcv.ReceiveResourceSpans(context.Background(), rspans.At(1), http.Header{})
@@ -203,8 +201,8 @@ func TestOTLPMetrics(t *testing.T) {
 func TestOTLPNameRemapping(t *testing.T) {
 	cfg := NewTestConfig(t)
 	cfg.OTLPReceiver.SpanNameRemappings = map[string]string{"libname.unspecified": "new"}
-	out := make(chan *Payload, 1)
-	rcv := NewOTLPReceiver(out, cfg, &statsd.NoOpClient{}, &timing.NoopReporter{})
+	proc := &recordingProcessor{}
+	rcv := NewOTLPReceiver(cfg, proc, &statsd.NoOpClient{}, &timing.NoopReporter{})
 	rcv.ReceiveResourceSpans(context.Background(), testutil.NewOTLPTracesRequest([]testutil.OTLPResourceSpan{
 		{
 			LibName:    "libname",
@@ -215,19 +213,22 @@ func TestOTLPNameRemapping(t *testing.T) {
 			},
 		},
 	}).Traces().ResourceSpans().At(0), http.Header{})
-	timeout := time.After(500 * time.Millisecond)
-	select {
-	case <-timeout:
-		t.Fatal("timed out")
-	case p := <-out:
-		assert.Equal(t, "new", p.TracerPayload.Chunks[0].Spans[0].Name)
-	}
+	require.NotEmpty(t, proc.tracePayloads)
+	p := proc.tracePayloads[0]
+	assert.Equal(t, "new", p.TracerPayload.Chunks[0].Spans[0].Name)
+	// timeout := time.After(500 * time.Millisecond)
+	// select {
+	// case <-timeout:
+	// 	t.Fatal("timed out")
+	// case p := <-out:
+	// 	assert.Equal(t, "new", p.TracerPayload.Chunks[0].Spans[0].Name)
+	// }
 }
 
 func TestCreateChunks(t *testing.T) {
 	cfg := NewTestConfig(t)
 	cfg.OTLPReceiver.ProbabilisticSampling = 50
-	o := NewOTLPReceiver(nil, cfg, &statsd.NoOpClient{}, &timing.NoopReporter{})
+	o := NewOTLPReceiver(cfg, noopProcessor{}, &statsd.NoOpClient{}, &timing.NoopReporter{})
 	const (
 		traceID1 = 123           // sampled by 50% rate
 		traceID2 = 1237892138897 // not sampled by 50% rate
@@ -268,8 +269,8 @@ func TestCreateChunks(t *testing.T) {
 
 func TestOTLPReceiveResourceSpans(t *testing.T) {
 	cfg := NewTestConfig(t)
-	out := make(chan *Payload, 1)
-	rcv := NewOTLPReceiver(out, cfg, &statsd.NoOpClient{}, &timing.NoopReporter{})
+	proc := &recordingProcessor{}
+	rcv := NewOTLPReceiver(cfg, proc, &statsd.NoOpClient{}, &timing.NoopReporter{})
 	require := require.New(t)
 	for _, tt := range []struct {
 		in []testutil.OTLPResourceSpan
@@ -481,15 +482,18 @@ func TestOTLPReceiveResourceSpans(t *testing.T) {
 		},
 	} {
 		t.Run("", func(t *testing.T) {
+			proc.Reset()
 			rspans := testutil.NewOTLPTracesRequest(tt.in).Traces().ResourceSpans().At(0)
 			rcv.ReceiveResourceSpans(context.Background(), rspans, http.Header{})
-			timeout := time.After(500 * time.Millisecond)
-			select {
-			case <-timeout:
-				t.Fatal("timed out")
-			case p := <-out:
-				tt.fn(p.TracerPayload)
-			}
+			// timeout := time.After(500 * time.Millisecond)
+			// select {
+			// case <-timeout:
+			// 	t.Fatal("timed out")
+			// case p := <-out:
+			// 	tt.fn(p.TracerPayload)
+			// }
+			require.NotEmpty(proc.tracePayloads)
+			tt.fn(proc.tracePayloads[0].TracerPayload)
 		})
 	}
 
@@ -498,15 +502,18 @@ func TestOTLPReceiveResourceSpans(t *testing.T) {
 		// the fn function on the outputted payload. It waits for the payload up to 500ms after which it times out.
 		testAndExpect := func(spans []testutil.OTLPResourceSpan, header http.Header, fn func(p *Payload)) func(t *testing.T) {
 			return func(t *testing.T) {
+				proc.Reset()
 				rspans := testutil.NewOTLPTracesRequest(spans).Traces().ResourceSpans().At(0)
 				rcv.ReceiveResourceSpans(context.Background(), rspans, header)
-				timeout := time.After(500 * time.Millisecond)
-				select {
-				case <-timeout:
-					t.Fatal("timed out")
-				case p := <-out:
-					fn(p)
-				}
+				require.NotEmpty(t, proc.tracePayloads)
+				fn(proc.tracePayloads[0])
+				// timeout := time.After(500 * time.Millisecond)
+				// select {
+				// case <-timeout:
+				// 	t.Fatal("timed out")
+				// case p := <-out:
+				// 	fn(p)
+				// }
 			}
 		}
 
@@ -660,8 +667,8 @@ func TestOTLPHostname(t *testing.T) {
 	} {
 		cfg := NewTestConfig(t)
 		cfg.Hostname = tt.config
-		out := make(chan *Payload, 1)
-		rcv := NewOTLPReceiver(out, cfg, &statsd.NoOpClient{}, &timing.NoopReporter{})
+		proc := &recordingProcessor{}
+		rcv := NewOTLPReceiver(cfg, proc, &statsd.NoOpClient{}, &timing.NoopReporter{})
 		rattr := map[string]interface{}{}
 		if tt.resource != "" {
 			rattr["datadog.host.name"] = tt.resource
@@ -680,24 +687,26 @@ func TestOTLPHostname(t *testing.T) {
 		}).Traces().ResourceSpans().At(0), http.Header{})
 		assert.Equal(t, src.Kind, source.HostnameKind)
 		assert.Equal(t, src.Identifier, tt.out)
-		timeout := time.After(500 * time.Millisecond)
-		select {
-		case <-timeout:
-			t.Fatal("timed out")
-		case p := <-out:
-			assert.Equal(t, tt.out, p.TracerPayload.Hostname)
-		}
+		require.NotEmpty(t, proc.tracePayloads)
+		assert.Equal(t, tt.out, proc.tracePayloads[0].TracerPayload.Hostname)
+		// timeout := time.After(500 * time.Millisecond)
+		// select {
+		// case <-timeout:
+		// 	t.Fatal("timed out")
+		// case p := <-out:
+		// 	assert.Equal(t, tt.out, p.TracerPayload.Hostname)
+		// }
 	}
 }
 
 func TestOTLPReceiver(t *testing.T) {
 	t.Run("New", func(t *testing.T) {
 		cfg := NewTestConfig(t)
-		assert.NotNil(t, NewOTLPReceiver(nil, cfg, &statsd.NoOpClient{}, &timing.NoopReporter{}).conf)
+		assert.NotNil(t, NewOTLPReceiver(cfg, noopProcessor{}, &statsd.NoOpClient{}, &timing.NoopReporter{}).conf)
 	})
 
 	t.Run("Start/nil", func(t *testing.T) {
-		o := NewOTLPReceiver(nil, NewTestConfig(t), &statsd.NoOpClient{}, &timing.NoopReporter{})
+		o := NewOTLPReceiver(NewTestConfig(t), noopProcessor{}, &statsd.NoOpClient{}, &timing.NoopReporter{})
 		o.Start()
 		defer o.Stop()
 		assert.Nil(t, o.grpcsrv)
@@ -710,7 +719,7 @@ func TestOTLPReceiver(t *testing.T) {
 			BindHost: "localhost",
 			GRPCPort: port,
 		}
-		o := NewOTLPReceiver(nil, cfg, &statsd.NoOpClient{}, &timing.NoopReporter{})
+		o := NewOTLPReceiver(cfg, noopProcessor{}, &statsd.NoOpClient{}, &timing.NoopReporter{})
 		o.Start()
 		defer o.Stop()
 		assert := assert.New(t)
@@ -722,25 +731,34 @@ func TestOTLPReceiver(t *testing.T) {
 	})
 
 	t.Run("processRequest", func(t *testing.T) {
-		out := make(chan *Payload, 5)
-		o := NewOTLPReceiver(out, NewTestConfig(t), &statsd.NoOpClient{}, &timing.NoopReporter{})
+		proc := &recordingProcessor{}
+		o := NewOTLPReceiver(NewTestConfig(t), proc, &statsd.NoOpClient{}, &timing.NoopReporter{})
 		o.processRequest(context.Background(), http.Header(map[string][]string{
 			header.Lang:        {"go"},
 			header.ContainerID: {"containerdID"},
 		}), otlpTestTracesRequest)
-		ps := make([]*Payload, 2)
-		timeout := time.After(time.Second / 2)
+
+		require.Len(t, proc.tracePayloads, 2)
 		for i := 0; i < 2; i++ {
-			select {
-			case p := <-out:
-				assert.Equal(t, "go", p.Source.Lang)
-				assert.Equal(t, "opentelemetry_grpc_v1", p.Source.EndpointVersion)
-				assert.Len(t, p.TracerPayload.Chunks, 1)
-				ps[i] = p
-			case <-timeout:
-				t.Fatal("timed out")
-			}
+			p := proc.tracePayloads[i]
+			assert.Equal(t, "go", p.Source.Lang)
+			assert.Equal(t, "opentelemetry_grpc_v1", p.Source.EndpointVersion)
+			assert.Len(t, p.TracerPayload.Chunks, 1)
 		}
+
+		// ps := make([]*Payload, 2)
+		// timeout := time.After(time.Second / 2)
+		// for i := 0; i < 2; i++ {
+		// 	select {
+		// 	case p := <-out:
+		// 		assert.Equal(t, "go", p.Source.Lang)
+		// 		assert.Equal(t, "opentelemetry_grpc_v1", p.Source.EndpointVersion)
+		// 		assert.Len(t, p.TracerPayload.Chunks, 1)
+		// 		ps[i] = p
+		// 	case <-timeout:
+		// 		t.Fatal("timed out")
+		// 	}
+		// }
 	})
 }
 
@@ -977,7 +995,7 @@ func TestOTLPHelpers(t *testing.T) {
 func TestOTLPConvertSpan(t *testing.T) {
 	now := uint64(otlpTestSpan.StartTimestamp())
 	cfg := NewTestConfig(t)
-	o := NewOTLPReceiver(nil, cfg, &statsd.NoOpClient{}, &timing.NoopReporter{})
+	o := NewOTLPReceiver(cfg, noopProcessor{}, &statsd.NoOpClient{}, &timing.NoopReporter{})
 	for i, tt := range []struct {
 		rattr   map[string]string
 		libname string
@@ -1408,7 +1426,7 @@ func TestAppendTags(t *testing.T) {
 func TestOTLPConvertSpanSetPeerService(t *testing.T) {
 	now := uint64(otlpTestSpan.StartTimestamp())
 	cfg := NewTestConfig(t)
-	o := NewOTLPReceiver(nil, cfg, &statsd.NoOpClient{}, &timing.NoopReporter{})
+	o := NewOTLPReceiver(cfg, noopProcessor{}, &statsd.NoOpClient{}, &timing.NoopReporter{})
 	for i, tt := range []struct {
 		rattr   map[string]string
 		libname string
@@ -1747,7 +1765,7 @@ func TestResourceAttributesMap(t *testing.T) {
 	rattr := map[string]string{"key": "val"}
 	lib := pcommon.NewInstrumentationScope()
 	span := testutil.NewOTLPSpan(&testutil.OTLPSpan{})
-	NewOTLPReceiver(nil, NewTestConfig(t), &statsd.NoOpClient{}, &timing.NoopReporter{}).convertSpan(rattr, lib, span)
+	NewOTLPReceiver(NewTestConfig(t), noopProcessor{}, &statsd.NoOpClient{}, &timing.NoopReporter{}).convertSpan(rattr, lib, span)
 	assert.Len(t, rattr, 1) // ensure "rattr" has no new entries
 	assert.Equal(t, "val", rattr["key"])
 }
@@ -2114,7 +2132,7 @@ func BenchmarkProcessRequest(b *testing.B) {
 	}()
 
 	cfg := NewBenchmarkTestConfig(b)
-	r := NewOTLPReceiver(out, cfg, &statsd.NoOpClient{}, &timing.NoopReporter{})
+	r := NewOTLPReceiver(cfg, noopProcessor{}, &statsd.NoOpClient{}, &timing.NoopReporter{})
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

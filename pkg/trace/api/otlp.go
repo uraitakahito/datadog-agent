@@ -54,9 +54,10 @@ var _ (ptraceotlp.GRPCServer) = (*OTLPReceiver)(nil)
 // data on two ports for both plain HTTP and gRPC.
 type OTLPReceiver struct {
 	ptraceotlp.UnimplementedGRPCServer
-	wg          sync.WaitGroup      // waits for a graceful shutdown
-	grpcsrv     *grpc.Server        // the running GRPC server on a started receiver, if enabled
-	out         chan<- *Payload     // the outgoing payload channel
+	wg      sync.WaitGroup // waits for a graceful shutdown
+	grpcsrv *grpc.Server   // the running GRPC server on a started receiver, if enabled
+	//out         chan<- *Payload     // the outgoing payload channel
+	processor   Processor
 	conf        *config.AgentConfig // receiver config
 	cidProvider IDProvider          // container ID provider
 	statsd      statsd.ClientInterface
@@ -64,8 +65,14 @@ type OTLPReceiver struct {
 }
 
 // NewOTLPReceiver returns a new OTLPReceiver which sends any incoming traces down the out channel.
-func NewOTLPReceiver(out chan<- *Payload, cfg *config.AgentConfig, statsd statsd.ClientInterface, timing timing.Reporter) *OTLPReceiver {
-	return &OTLPReceiver{out: out, conf: cfg, cidProvider: NewIDProvider(cfg.ContainerProcRoot), statsd: statsd, timing: timing}
+func NewOTLPReceiver(cfg *config.AgentConfig, p Processor, statsd statsd.ClientInterface, timing timing.Reporter) *OTLPReceiver {
+	return &OTLPReceiver{
+		conf:        cfg,
+		cidProvider: NewIDProvider(cfg.ContainerProcRoot),
+		statsd:      statsd,
+		timing:      timing,
+		processor:   p,
+	}
 }
 
 // Start starts the OTLPReceiver, if any of the servers were configured as active.
@@ -311,7 +318,8 @@ func (o *OTLPReceiver) ReceiveResourceSpans(ctx context.Context, rspans ptrace.R
 		}
 	}
 
-	o.out <- &p
+	//o.out <- &p
+	o.processor.ProcessTrace(&p)
 	return src
 }
 

@@ -154,7 +154,7 @@ func TestTracerFlareProxyHandler(t *testing.T) {
 		rec := httptest.NewRecorder()
 		cfg := newTestReceiverConfig()
 		cfg.Site = srv.URL
-		receiver := newTestReceiverFromConfig(cfg)
+		receiver := noopReceiverFromConfig(cfg)
 		handler := receiver.tracerFlareHandler()
 		handler.(*httputil.ReverseProxy).Transport.(*tracerFlareTransport).getEndpoint = mockGetServerlessFlareEndpoint
 		handler.(*httputil.ReverseProxy).Transport.(*tracerFlareTransport).agentVersion = "1.1.1"
@@ -179,7 +179,7 @@ func TestTracerFlareProxyHandler(t *testing.T) {
 		rec := httptest.NewRecorder()
 		cfg := newTestReceiverConfig()
 		cfg.Site = srv.URL
-		receiver := newTestReceiverFromConfig(cfg)
+		receiver := noopReceiverFromConfig(cfg)
 		receiver.tracerFlareHandler().ServeHTTP(rec, req)
 		require.Equal(t, http.StatusBadGateway, rec.Code)
 	})

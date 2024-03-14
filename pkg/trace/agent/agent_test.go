@@ -1310,7 +1310,6 @@ func TestPartialSamplingFree(t *testing.T) {
 	statsChan := make(chan *pb.StatsPayload, 100)
 	writerChan := make(chan *writer.SampledChunks, 100)
 	dynConf := sampler.NewDynamicConfig()
-	in := make(chan *api.Payload, 1000)
 	statsd := &statsd.NoOpClient{}
 	agnt := &Agent{
 		Concentrator:      stats.NewConcentrator(cfg, statsChan, time.Now(), statsd),
@@ -1325,7 +1324,7 @@ func TestPartialSamplingFree(t *testing.T) {
 		conf:              cfg,
 		Timing:            &timing.NoopReporter{},
 	}
-	agnt.Receiver = api.NewHTTPReceiver(cfg, dynConf, in, agnt, telemetry.NewNoopCollector(), statsd, &timing.NoopReporter{})
+	agnt.Receiver = api.NewHTTPReceiver(cfg, dynConf, agnt, telemetry.NewNoopCollector(), statsd, &timing.NoopReporter{})
 	now := time.Now()
 	smallKeptSpan := &pb.Span{
 		TraceID:  1,

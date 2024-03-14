@@ -87,7 +87,7 @@ func TestTelemetryBasicProxyRequest(t *testing.T) {
 	req, rec := newRequestRecorder(t)
 	cfg := getTestConfig(srv.URL)
 	cfg.GlobalTags[functionARNKeyTag] = "test_ARN"
-	recv := newTestReceiverFromConfig(cfg)
+	recv := noopReceiverFromConfig(cfg)
 	recv.buildMux().ServeHTTP(rec, req)
 
 	assert.Equal("OK", recordedResponse(t, rec))
@@ -112,7 +112,7 @@ func TestGoogleCloudRun(t *testing.T) {
 	cfg := getTestConfig(srv.URL)
 	cfg.GlobalTags["service_name"] = "test_service"
 	cfg.GlobalTags["origin"] = "cloudrun"
-	recv := newTestReceiverFromConfig(cfg)
+	recv := noopReceiverFromConfig(cfg)
 	recv.buildMux().ServeHTTP(rec, req)
 
 	assert.Equal("OK", recordedResponse(t, rec))
@@ -139,7 +139,7 @@ func TestAzureAppService(t *testing.T) {
 	cfg := getTestConfig(srv.URL)
 	cfg.GlobalTags["app_name"] = "test_app"
 	cfg.GlobalTags["origin"] = "appservice"
-	recv := newTestReceiverFromConfig(cfg)
+	recv := noopReceiverFromConfig(cfg)
 	recv.buildMux().ServeHTTP(rec, req)
 
 	assert.Equal("OK", recordedResponse(t, rec))
@@ -166,7 +166,7 @@ func TestAzureContainerApp(t *testing.T) {
 	cfg := getTestConfig(srv.URL)
 	cfg.GlobalTags["app_name"] = "test_app"
 	cfg.GlobalTags["origin"] = "containerapp"
-	recv := newTestReceiverFromConfig(cfg)
+	recv := noopReceiverFromConfig(cfg)
 	recv.buildMux().ServeHTTP(rec, req)
 
 	assert.Equal("OK", recordedResponse(t, rec))
@@ -202,7 +202,7 @@ func TestAWSFargate(t *testing.T) {
 	cfg.ContainerTags = func(cid string) ([]string, error) {
 		return []string{"task_arn:test_ARN"}, nil
 	}
-	recv := newTestReceiverFromConfig(cfg)
+	recv := noopReceiverFromConfig(cfg)
 	recv.containerIDProvider = getTestContainerIDProvider()
 	recv.buildMux().ServeHTTP(rec, req)
 
@@ -259,7 +259,7 @@ func TestTelemetryProxyMultipleEndpoints(t *testing.T) {
 	cfg.GlobalTags[functionARNKeyTag] = "test_ARN"
 
 	req, rec := newRequestRecorder(t)
-	recv := newTestReceiverFromConfig(cfg)
+	recv := noopReceiverFromConfig(cfg)
 	recv.buildMux().ServeHTTP(rec, req)
 
 	assert.Equal("OK", recordedResponse(t, rec))
@@ -278,7 +278,7 @@ func TestTelemetryConfig(t *testing.T) {
 		cfg.Endpoints[0].APIKey = "api_key"
 
 		req, rec := newRequestRecorder(t)
-		recv := newTestReceiverFromConfig(cfg)
+		recv := noopReceiverFromConfig(cfg)
 		recv.buildMux().ServeHTTP(rec, req)
 		result := rec.Result()
 		assert.Equal(t, 404, result.StatusCode)
@@ -293,7 +293,7 @@ func TestTelemetryConfig(t *testing.T) {
 			Host:   "111://malformed.dd_url.com",
 		}}
 		req, rec := newRequestRecorder(t)
-		recv := newTestReceiverFromConfig(cfg)
+		recv := noopReceiverFromConfig(cfg)
 		recv.buildMux().ServeHTTP(rec, req)
 		result := rec.Result()
 		assert.Equal(t, 404, result.StatusCode)
@@ -315,7 +315,7 @@ func TestTelemetryConfig(t *testing.T) {
 		}}
 
 		req, rec := newRequestRecorder(t)
-		recv := newTestReceiverFromConfig(cfg)
+		recv := noopReceiverFromConfig(cfg)
 		recv.buildMux().ServeHTTP(rec, req)
 
 		assert.Equal(t, "OK", recordedResponse(t, rec))

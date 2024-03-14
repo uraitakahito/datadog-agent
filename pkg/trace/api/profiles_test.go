@@ -177,7 +177,7 @@ func TestProfileProxyHandler(t *testing.T) {
 		conf.Endpoints[0].APIKey = "test_api_key"
 		conf.ProfilingProxy = config.ProfilingProxyConfig{DDURL: srv.URL}
 		conf.Hostname = "myhost"
-		receiver := newTestReceiverFromConfig(conf)
+		receiver := noopReceiverFromConfig(conf)
 		receiver.profileProxyHandler().ServeHTTP(httptest.NewRecorder(), req)
 		if !called {
 			t.Fatal("request not proxied")
@@ -191,7 +191,7 @@ func TestProfileProxyHandler(t *testing.T) {
 		conf := newTestReceiverConfig()
 		conf.ProfilingProxy = config.ProfilingProxyConfig{DDURL: srv.URL}
 		req, _ := http.NewRequest("POST", "/some/path", nil)
-		receiver := newTestReceiverFromConfig(conf)
+		receiver := noopReceiverFromConfig(conf)
 		rec := httptest.NewRecorder()
 		receiver.profileProxyHandler().ServeHTTP(rec, req)
 		resp := rec.Result()
@@ -216,7 +216,7 @@ func TestProfileProxyHandler(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		receiver := newTestReceiverFromConfig(conf)
+		receiver := noopReceiverFromConfig(conf)
 		receiver.profileProxyHandler().ServeHTTP(httptest.NewRecorder(), req)
 		if !called {
 			t.Fatal("request not proxied")
@@ -231,7 +231,7 @@ func TestProfileProxyHandler(t *testing.T) {
 			t.Fatal(err)
 		}
 		rec := httptest.NewRecorder()
-		r := newTestReceiverFromConfig(conf)
+		r := noopReceiverFromConfig(conf)
 		r.profileProxyHandler().ServeHTTP(rec, req)
 		res := rec.Result()
 		if res.StatusCode != http.StatusInternalServerError {
@@ -270,7 +270,7 @@ func TestProfileProxyHandler(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		receiver := newTestReceiverFromConfig(cfg)
+		receiver := noopReceiverFromConfig(cfg)
 		receiver.profileProxyHandler().ServeHTTP(httptest.NewRecorder(), req)
 
 		expected := map[string]bool{
@@ -297,7 +297,7 @@ func TestProfileProxyHandler(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		receiver := newTestReceiverFromConfig(conf)
+		receiver := noopReceiverFromConfig(conf)
 		receiver.profileProxyHandler().ServeHTTP(httptest.NewRecorder(), req)
 		if !called {
 			t.Fatal("request not proxied")
