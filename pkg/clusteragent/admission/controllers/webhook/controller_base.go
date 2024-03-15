@@ -84,7 +84,7 @@ func mutatingWebhooks(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, 
 		agentsidecar.NewWebhook(),
 	}
 
-	apm, err := autoinstrumentation.NewWebhook(rcClient, isLeaderNotif, stopCh)
+	apm, err := autoinstrumentation.GetWebhook(rcClient, isLeaderNotif, stopCh)
 	if err == nil {
 		webhooks = append(webhooks, apm)
 	} else {

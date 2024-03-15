@@ -201,6 +201,7 @@ func GetWebhook(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh
 	initOnce.Do(func() {
 		if apmInstrumentationWebhook == nil {
 			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(rcClient, isLeaderNotif, stopCh)
+			log.Debugf("Created APM webhook")
 		}
 	})
 

@@ -248,6 +248,7 @@ func start(log log.Component,
 			log.Errorf("Failed to start remote-configuration: %v", err)
 		} else {
 			rcClient.Start()
+			log.Debugf("Started RcClient")
 			defer func() {
 				rcClient.Close()
 			}()
