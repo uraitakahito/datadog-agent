@@ -12,7 +12,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/DataDog/datadog-agent/comp/core/config"
+	"github.com/DataDog/datadog-agent/comp/serializer/compression"
 )
 
 const (
@@ -32,7 +32,7 @@ var (
 type Compressor struct{}
 
 // NewCompressor not implemented
-func NewCompressor(input, output *bytes.Buffer, maxPayloadSize, maxUncompressedSize int, header, footer []byte, separator []byte, cfg config.Component) (*Compressor, error) {
+func NewCompressor(input, output *bytes.Buffer, maxPayloadSize, maxUncompressedSize int, header, footer []byte, separator []byte, strategy compression.Component) (*Compressor, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

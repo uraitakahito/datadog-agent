@@ -3,11 +3,13 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016-present Datadog, Inc.
 
-// Package compression provides a set of functions for compressing with zlib / zstd
-package compression
+// Package strategy provides a set of functions for compressing with zlib / zstd
+package strategy
 
 import (
 	"bytes"
+
+	"github.com/DataDog/datadog-agent/comp/serializer/compression"
 )
 
 // NoopStrategy is the strategy for when serializer_compressor_kind is neither zlib nor zstd
@@ -39,6 +41,11 @@ func (s *NoopStrategy) ContentEncoding() string {
 	return ""
 }
 
+// NewStreamCompressor returns a new NoopZipper when serializer_compressor_kind is neither zlib or zstd
+func (s *NoopStrategy) NewStreamCompressor(output *bytes.Buffer) compression.StreamCompressor {
+	return NoopZipper{}
+}
+
 // NoopZipper is the zipper for when the serializer_compressor_kind is neither zlib nor zstd
 type NoopZipper struct{}
 
@@ -55,9 +62,4 @@ func (s NoopZipper) Flush() error {
 // Close implements the Close method for NoopStrategy to satisfy the Zipper interface
 func (s NoopZipper) Close() error {
 	return nil
-}
-
-// NewNoopStreamCompressor returns a new NoopZipper when serializer_compressor_kind is neither zlib or zstd
-func NewNoopStreamCompressor(_ *bytes.Buffer) NoopZipper {
-	return NoopZipper{}
 }
