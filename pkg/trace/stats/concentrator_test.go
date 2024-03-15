@@ -28,15 +28,19 @@ var (
 	testBucketInterval = (2 * time.Second).Nanoseconds()
 )
 
+type NoopStatsWriter struct{}
+
+func (NoopStatsWriter) Add(*pb.StatsPayload) {}
+
 func NewTestConcentrator(now time.Time) *Concentrator {
-	statsChan := make(chan *pb.StatsPayload)
+	//statsChan := make(chan *pb.StatsPayload)
 	cfg := config.AgentConfig{
 		BucketInterval: time.Duration(testBucketInterval),
 		AgentVersion:   "0.99.0",
 		DefaultEnv:     "env",
 		Hostname:       "hostname",
 	}
-	return NewConcentrator(&cfg, statsChan, now, &statsd.NoOpClient{})
+	return NewConcentrator(&cfg, NoopStatsWriter{}, now, &statsd.NoOpClient{})
 }
 
 // getTsInBucket gives a timestamp in ns which is `offset` buckets late

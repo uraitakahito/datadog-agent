@@ -56,11 +56,17 @@ type TraceWriter interface {
 	Stop()
 }
 
+type Concentrator interface {
+	Start()
+	Stop()
+	Add(t stats.Input)
+}
+
 // Agent struct holds all the sub-routines structs and make the data flow between them
 type Agent struct {
 	Receiver              *api.HTTPReceiver
 	OTLPReceiver          *api.OTLPReceiver
-	Concentrator          *stats.Concentrator
+	Concentrator          Concentrator
 	ClientStatsAggregator *stats.ClientStatsAggregator
 	Blacklister           *filters.Blacklister
 	Replacer              *filters.Replacer
@@ -107,15 +113,16 @@ func NewAgent(ctx context.Context, conf *config.AgentConfig, telemetryCollector 
 	dynConf := sampler.NewDynamicConfig()
 	log.Infof("Starting Agent with processor trace buffer of size %d", conf.TraceBuffer)
 	//in := make(chan *api.Payload, conf.TraceBuffer)
-	statsChan := make(chan *pb.StatsPayload, 1)
+	//statsChan := make(chan *pb.StatsPayload, 1)
 	oconf := conf.Obfuscation.Export(conf)
 	if oconf.Statsd == nil {
 		oconf.Statsd = statsd
 	}
 	timing := timing.New(statsd)
+	statsWriter := writer.NewStatsWriter(conf, telemetryCollector, statsd, timing)
 	agnt := &Agent{
-		Concentrator:          stats.NewConcentrator(conf, statsChan, time.Now(), statsd),
-		ClientStatsAggregator: stats.NewClientStatsAggregator(conf, statsChan, statsd),
+		Concentrator:          stats.NewConcentrator(conf, statsWriter, time.Now(), statsd),
+		ClientStatsAggregator: stats.NewClientStatsAggregator(conf, statsWriter, statsd),
 		Blacklister:           filters.NewBlacklister(conf.Ignore["resource"]),
 		Replacer:              filters.NewReplacer(conf.ReplaceTags),
 		PrioritySampler:       sampler.NewPrioritySampler(conf, dynConf, statsd),
@@ -123,7 +130,7 @@ func NewAgent(ctx context.Context, conf *config.AgentConfig, telemetryCollector 
 		RareSampler:           sampler.NewRareSampler(conf, statsd),
 		NoPrioritySampler:     sampler.NewNoPrioritySampler(conf, statsd),
 		EventProcessor:        newEventProcessor(conf, statsd),
-		StatsWriter:           writer.NewStatsWriter(conf, statsChan, telemetryCollector, statsd, timing),
+		StatsWriter:           statsWriter,
 		obfuscator:            obfuscate.NewObfuscator(oconf),
 		cardObfuscator:        newCreditCardsObfuscator(conf.Obfuscation.CreditCards),
 		//In:                    in,
@@ -381,7 +388,8 @@ func (a *Agent) ProcessTrace(p *api.Payload) {
 	sampledChunks.TracerPayload = p.TracerPayload
 	sampledChunks.TracerPayload.Chunks = newChunksArray(p.TracerPayload.Chunks)
 	if len(statsInput.Traces) > 0 {
-		a.Concentrator.In <- statsInput
+		//a.Concentrator.In <- statsInput
+		a.Concentrator.Add(statsInput)
 	}
 	if sampledChunks.Size > 0 {
 		//a.TraceWriter.In <- sampledChunks

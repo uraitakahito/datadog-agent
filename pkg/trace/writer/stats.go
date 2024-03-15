@@ -11,6 +11,7 @@ import (
 	"io"
 	"math"
 	"strings"
+	"sync"
 	"time"
 
 	pb "github.com/DataDog/datadog-agent/pkg/proto/pbgo/trace"
@@ -54,17 +55,18 @@ type StatsWriter struct {
 	easylog *log.ThrottledLogger
 	statsd  statsd.ClientInterface
 	timing  timing.Reporter
+	mu      sync.Mutex
 }
 
 // NewStatsWriter returns a new StatsWriter. It must be started using Run.
 func NewStatsWriter(
 	cfg *config.AgentConfig,
-	in <-chan *pb.StatsPayload,
+	//in <-chan *pb.StatsPayload,
 	telemetryCollector telemetry.TelemetryCollector,
 	statsd statsd.ClientInterface,
 	timing timing.Reporter) *StatsWriter {
 	sw := &StatsWriter{
-		in:        in,
+		//in:        in,
 		stats:     &info.StatsWriterInfo{},
 		stop:      make(chan struct{}),
 		flushChan: make(chan chan struct{}),
@@ -103,11 +105,11 @@ func (w *StatsWriter) Run() {
 	defer close(w.stop)
 	for {
 		select {
-		case stats := <-w.in:
-			w.addStats(stats)
-			if !w.syncMode {
-				w.sendPayloads()
-			}
+		// case stats := <-w.in:
+		// 	w.addStats(stats)
+		// 	if !w.syncMode {
+		// 		w.sendPayloads()
+		// 	}
 		case notify := <-w.flushChan:
 			w.sendPayloads()
 			notify <- struct{}{}
@@ -137,6 +139,12 @@ func (w *StatsWriter) Stop() {
 	w.stop <- struct{}{}
 	<-w.stop
 	stopSenders(w.senders)
+}
+
+func (w *StatsWriter) Add(sp *pb.StatsPayload) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.addStats(sp)
 }
 
 func (w *StatsWriter) addStats(sp *pb.StatsPayload) {

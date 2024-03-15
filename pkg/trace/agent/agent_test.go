@@ -72,7 +72,8 @@ func NewTestAgent(ctx context.Context, conf *config.AgentConfig, telemetryCollec
 	a := NewAgent(ctx, conf, telemetryCollector, &statsd.NoOpClient{})
 	//a.TraceWriter.In = make(chan *writer.SampledChunks, 1000)
 	a.TraceWriter = &MockTraceWriter{}
-	a.Concentrator.In = make(chan stats.Input, 1000)
+	a.Concentrator = &MockConcentrator{}
+	//a.Concentrator.In = make(chan stats.Input, 1000)
 	return a
 }
 
@@ -769,19 +770,20 @@ func TestConcentratorInput(t *testing.T) {
 			cfg.RareSamplerEnabled = true
 			agent := NewTestAgent(context.TODO(), cfg, telemetry.NewNoopCollector())
 			mtw := agent.TraceWriter.(*MockTraceWriter)
+			mtc := &MockConcentrator{}
+			agent.Concentrator = mtc
 			tc.in.Source = agent.Receiver.Stats.GetTagStats(info.Tags{})
 			agent.ProcessTrace(tc.in)
 
 			if len(tc.expected.Traces) == 0 {
-				assert.Len(t, agent.Concentrator.In, 0)
+				assert.Len(t, mtc.stats, 0)
 				return
 			}
-			require.Len(t, agent.Concentrator.In, 1)
-			assert.Equal(t, tc.expected, <-agent.Concentrator.In)
+			require.Len(t, mtc.stats, 1)
+			assert.Equal(t, tc.expected, mtc.stats[0])
 
 			if tc.expectedSampled != nil && len(tc.expectedSampled.Chunks) > 0 {
 				require.Len(t, mtw.chunks, 1)
-				//ss := <-agent.TraceWriter.In
 				ss := mtw.chunks[0]
 				assert.Equal(t, tc.expectedSampled, ss.TracerPayload)
 			}
@@ -1071,11 +1073,33 @@ func runTraceFilteringBenchmark(b *testing.B, root *pb.Span, require []*config.T
 	}
 }
 
+type MockConcentrator struct {
+	stats []stats.Input
+	mu    sync.Mutex
+}
+
+func (c *MockConcentrator) Start() {}
+func (c *MockConcentrator) Stop()  {}
+func (c *MockConcentrator) Add(t stats.Input) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.stats = append(c.stats, t)
+}
+func (c *MockConcentrator) Reset() []stats.Input {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	ret := c.stats
+	c.stats = nil
+	return ret
+}
+
 func TestClientComputedStats(t *testing.T) {
 	cfg := config.New()
 	cfg.Endpoints[0].APIKey = "test"
 	ctx, cancel := context.WithCancel(context.Background())
 	agnt := NewTestAgent(ctx, cfg, telemetry.NewNoopCollector())
+	conc := &MockConcentrator{}
+	agnt.Concentrator = conc
 	defer cancel()
 	tp := testutil.TracerPayloadWithChunk(testutil.TraceChunkWithSpanAndPriority(&pb.Span{
 		Service:  "something &&<@# that should be a metric!",
@@ -1093,7 +1117,8 @@ func TestClientComputedStats(t *testing.T) {
 			Source:              agnt.Receiver.Stats.GetTagStats(info.Tags{}),
 			ClientComputedStats: true,
 		})
-		assert.Len(t, agnt.Concentrator.In, 0)
+		//assert.Len(t, agnt.Concentrator.In, 0)
+		assert.Len(t, conc.stats, 0)
 	})
 
 	t.Run("off", func(t *testing.T) {
@@ -1102,7 +1127,8 @@ func TestClientComputedStats(t *testing.T) {
 			Source:              agnt.Receiver.Stats.GetTagStats(info.Tags{}),
 			ClientComputedStats: false,
 		})
-		assert.Len(t, agnt.Concentrator.In, 1)
+		//assert.Len(t, agnt.Concentrator.In, 1)
+		assert.Len(t, conc.stats, 1)
 	})
 }
 
@@ -1368,13 +1394,12 @@ func TestSampleManualUserDropNoAnalyticsEvents(t *testing.T) {
 
 func TestPartialSamplingFree(t *testing.T) {
 	cfg := &config.AgentConfig{RareSamplerEnabled: false, BucketInterval: 10 * time.Second}
-	statsChan := make(chan *pb.StatsPayload, 100)
-	//writerChan := make(chan *writer.SampledChunks, 100)
 	dynConf := sampler.NewDynamicConfig()
 	statsd := &statsd.NoOpClient{}
 	mtw := &MockTraceWriter{}
+	conc := &MockConcentrator{}
 	agnt := &Agent{
-		Concentrator:      stats.NewConcentrator(cfg, statsChan, time.Now(), statsd),
+		Concentrator:      conc,
 		Blacklister:       filters.NewBlacklister(cfg.Ignore["resource"]),
 		Replacer:          filters.NewReplacer(cfg.ReplaceTags),
 		NoPrioritySampler: sampler.NewNoPrioritySampler(cfg, statsd),
@@ -1436,7 +1461,8 @@ func TestPartialSamplingFree(t *testing.T) {
 	runtime.ReadMemStats(&m)
 	assert.Greater(t, m.HeapInuse, uint64(50*1e6))
 
-	<-agnt.Concentrator.In
+	//<-agnt.Concentrator.In
+	conc.Reset()
 	// big chunk should be cleaned as unsampled and passed through stats
 	runtime.GC()
 	runtime.ReadMemStats(&m)
@@ -1706,6 +1732,7 @@ func benchThroughput(file string) func(*testing.B) {
 		//agnt.TraceWriter.In = make(chan *writer.SampledChunks)
 		mtw := &MockTraceWriter{}
 		agnt.TraceWriter = mtw // NoopTraceWriter{}
+		agnt.Concentrator = &MockConcentrator{}
 		go agnt.Run()
 
 		// wait for receiver to start:
@@ -1721,18 +1748,18 @@ func benchThroughput(file string) func(*testing.B) {
 			}
 		}
 
-		// drain every other channel to avoid blockage.
-		exit := make(chan bool)
-		go func() {
-			defer close(exit)
-			for {
-				select {
-				case <-agnt.Concentrator.Out:
-				case <-exit:
-					return
-				}
-			}
-		}()
+		// // drain every other channel to avoid blockage.
+		// exit := make(chan bool)
+		// go func() {
+		// 	defer close(exit)
+		// 	for {
+		// 		select {
+		// 		case <-agnt.Concentrator.(*stats.Concentrator).Out:
+		// 		case <-exit:
+		// 			return
+		// 		}
+		// 	}
+		// }()
 
 		b.ResetTimer()
 		b.SetBytes(int64(len(data)))
@@ -1774,8 +1801,8 @@ func benchThroughput(file string) func(*testing.B) {
 			// 	}
 		}
 
-		exit <- true
-		<-exit
+		//exit <- true
+		//<-exit
 	}
 }
 
@@ -2296,6 +2323,7 @@ func TestSpanSampling(t *testing.T) {
 			defer cancel()
 			traceAgent := NewTestAgent(ctx, cfg, telemetry.NewNoopCollector())
 			mtw := traceAgent.TraceWriter.(*MockTraceWriter)
+			conc := traceAgent.Concentrator.(*MockConcentrator)
 			traceAgent.ProcessTrace(&api.Payload{
 				// The payload might get modified in-place, so first deep copy it so
 				// that we have the original for comparison later.
@@ -2306,7 +2334,8 @@ func TestSpanSampling(t *testing.T) {
 			assert.Len(t, mtw.chunks, 1)
 			sampledChunks := mtw.chunks[0]
 			tc.checks(t, tc.payload, sampledChunks.TracerPayload.Chunks)
-			stats := <-traceAgent.Concentrator.In
+			require.NotEmpty(t, conc.stats)
+			stats := conc.stats[0]
 			assert.Equal(t, len(tc.payload.Chunks[0].Spans), len(stats.Traces[0].TraceChunk.Spans))
 		})
 	}
