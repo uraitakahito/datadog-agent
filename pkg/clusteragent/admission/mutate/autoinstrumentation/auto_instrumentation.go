@@ -167,18 +167,22 @@ func NewWebhook(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh
 		pinnedLibraries:   getPinnedLibraries(containerRegistry),
 	}
 
+	log.Debugf("000000000000000000000000")
 	if rcClient == nil {
+		log.Debugf("1111111111111111111111")
 		return w, nil
 	}
 	if config.IsRemoteConfigEnabled(config.Datadog) {
 		w.rcProvider, _ = newRemoteConfigProvider(rcClient, isLeaderNotif, nil)
-
+		log.Debugf("22222222222222222222")
 	}
 	if config.Datadog.GetBool("admission_controller.auto_instrumentation.patcher.fallback_to_file_provider") {
 		// Use the file config provider for e2e testing only (it replaces RC as a source of configs)
 		file := config.Datadog.GetString("admission_controller.auto_instrumentation.patcher.file_provider_path")
 		w.rcProvider = newfileProvider(file, isLeaderNotif, "")
+		log.Debugf("333333333333333333")
 	}
+
 	w.apmInstrumentationState = newInstrumentationConfigurationCache(w.rcProvider, &b, &en, &dn)
 	go w.rcProvider.start(stopCh)
 	go w.apmInstrumentationState.start(stopCh)

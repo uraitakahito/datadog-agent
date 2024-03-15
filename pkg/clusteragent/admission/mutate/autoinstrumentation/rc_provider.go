@@ -54,12 +54,15 @@ func newRemoteConfigProvider(
 
 func (rcp *remoteConfigProvider) start(stopCh <-chan struct{}) {
 	log.Info("Starting remote-config patch provider")
+	log.Debugf("4444444444444444444")
 	rcp.client.Subscribe(state.ProductAPMTracing, rcp.process)
 	rcp.client.Start()
+
 	for {
 		select {
 		case <-rcp.isLeaderNotif:
 			log.Info("Got a leader notification, polling from remote-config")
+			log.Debugf("55555555555555555555555555")
 			rcp.process(rcp.client.GetConfigs(state.ProductAPMTracing), rcp.client.UpdateApplyStatus)
 		case <-stopCh:
 			log.Info("Shutting down remote-config patch provider")
