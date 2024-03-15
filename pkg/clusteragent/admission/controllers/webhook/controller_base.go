@@ -28,6 +28,7 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/clusteragent/admission/mutate/config"
 	"github.com/DataDog/datadog-agent/pkg/clusteragent/admission/mutate/cwsinstrumentation"
 	"github.com/DataDog/datadog-agent/pkg/clusteragent/admission/mutate/tagsfromlabels"
+	rcclient "github.com/DataDog/datadog-agent/pkg/config/remote/client"
 	"github.com/DataDog/datadog-agent/pkg/util/log"
 )
 
@@ -38,12 +39,21 @@ type Controller interface {
 }
 
 // NewController returns the adequate implementation of the Controller interface.
-func NewController(client kubernetes.Interface, secretInformer coreinformers.SecretInformer, admissionInterface admissionregistration.Interface, isLeaderFunc func() bool, isLeaderNotif <-chan struct{}, config Config) Controller {
+func NewController(
+	client kubernetes.Interface,
+	secretInformer coreinformers.SecretInformer,
+	admissionInterface admissionregistration.Interface,
+	isLeaderFunc func() bool,
+	isLeaderNotif <-chan struct{},
+	config Config,
+	rcClient *rcclient.Client,
+	stopCh <-chan struct{},
+) Controller {
 	if config.useAdmissionV1() {
-		return NewControllerV1(client, secretInformer, admissionInterface.V1().MutatingWebhookConfigurations(), isLeaderFunc, isLeaderNotif, config)
+		return NewControllerV1(client, secretInformer, admissionInterface.V1().MutatingWebhookConfigurations(), isLeaderFunc, isLeaderNotif, config, rcClient, stopCh)
 	}
 
-	return NewControllerV1beta1(client, secretInformer, admissionInterface.V1beta1().MutatingWebhookConfigurations(), isLeaderFunc, isLeaderNotif, config)
+	return NewControllerV1beta1(client, secretInformer, admissionInterface.V1beta1().MutatingWebhookConfigurations(), isLeaderFunc, isLeaderNotif, config, rcClient, stopCh)
 }
 
 // MutatingWebhook represents a mutating webhook
@@ -67,14 +77,14 @@ type MutatingWebhook interface {
 	MutateFunc() admission.WebhookFunc
 }
 
-func mutatingWebhooks() []MutatingWebhook {
+func mutatingWebhooks(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh <-chan struct{}) []MutatingWebhook {
 	webhooks := []MutatingWebhook{
 		config.NewWebhook(),
 		tagsfromlabels.NewWebhook(),
 		agentsidecar.NewWebhook(),
 	}
 
-	apm, err := autoinstrumentation.NewWebhook()
+	apm, err := autoinstrumentation.NewWebhook(rcClient, isLeaderNotif, stopCh)
 	if err == nil {
 		webhooks = append(webhooks, apm)
 	} else {

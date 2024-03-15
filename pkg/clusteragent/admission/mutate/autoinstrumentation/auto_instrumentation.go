@@ -31,6 +31,7 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/clusteragent/admission/metrics"
 	mutatecommon "github.com/DataDog/datadog-agent/pkg/clusteragent/admission/mutate/common"
 	"github.com/DataDog/datadog-agent/pkg/config"
+	rcclient "github.com/DataDog/datadog-agent/pkg/config/remote/client"
 	"github.com/DataDog/datadog-agent/pkg/util/containers"
 	"github.com/DataDog/datadog-agent/pkg/util/kubernetes"
 	apiServerCommon "github.com/DataDog/datadog-agent/pkg/util/kubernetes/apiserver/common"
@@ -136,42 +137,66 @@ var (
 
 // Webhook is the auto instrumentation webhook
 type Webhook struct {
-	name              string
-	isEnabled         bool
-	endpoint          string
-	resources         []string
-	operations        []admiv1.OperationType
-	filter            *containers.Filter
-	containerRegistry string
-	pinnedLibraries   []libInfo
+	name                    string
+	isEnabled               bool
+	endpoint                string
+	resources               []string
+	operations              []admiv1.OperationType
+	filter                  *containers.Filter
+	containerRegistry       string
+	pinnedLibraries         []libInfo
+	apmInstrumentationState *instrumentationConfigurationCache
+	rcProvider              rcProvider
 }
 
 // NewWebhook returns a new Webhook
-func NewWebhook() (*Webhook, error) {
-	filter, err := apmSSINamespaceFilter()
+func NewWebhook(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh <-chan struct{}) (*Webhook, error) {
+	containerRegistry := mutatecommon.ContainerRegistry("admission_controller.auto_instrumentation.container_registry")
+
+	b := config.Datadog.GetBool("apm_config.instrumentation.enabled")
+	en := config.Datadog.GetStringSlice("apm_config.instrumentation.enabled_namespaces")
+	dn := config.Datadog.GetStringSlice("apm_config.instrumentation.disabled_namespaces")
+	w := &Webhook{
+		name:       webhookName,
+		isEnabled:  config.Datadog.GetBool("admission_controller.auto_instrumentation.enabled"),
+		endpoint:   config.Datadog.GetString("admission_controller.auto_instrumentation.endpoint"),
+		resources:  []string{"pods"},
+		operations: []admiv1.OperationType{admiv1.Create},
+		//filter:            filter,
+		containerRegistry: containerRegistry,
+		pinnedLibraries:   getPinnedLibraries(containerRegistry),
+	}
+
+	if rcClient == nil {
+		return w, nil
+	}
+	if config.IsRemoteConfigEnabled(config.Datadog) {
+		w.rcProvider, _ = newRemoteConfigProvider(rcClient, isLeaderNotif, nil)
+
+	}
+	if config.Datadog.GetBool("admission_controller.auto_instrumentation.patcher.fallback_to_file_provider") {
+		// Use the file config provider for e2e testing only (it replaces RC as a source of configs)
+		file := config.Datadog.GetString("admission_controller.auto_instrumentation.patcher.file_provider_path")
+		w.rcProvider = newfileProvider(file, isLeaderNotif, "")
+	}
+	w.apmInstrumentationState = newInstrumentationConfigurationCache(w.rcProvider, &b, &en, &dn)
+	go w.rcProvider.start(stopCh)
+	go w.apmInstrumentationState.start(stopCh)
+
+	filter, err := apmSSINamespaceFilter(w.apmInstrumentationState.currentConfiguration.enabledNamespaces, w.apmInstrumentationState.currentConfiguration.disabledNamespaces)
 	if err != nil {
 		return nil, err
 	}
+	w.filter = filter
 
-	containerRegistry := mutatecommon.ContainerRegistry("admission_controller.auto_instrumentation.container_registry")
-
-	return &Webhook{
-		name:              webhookName,
-		isEnabled:         config.Datadog.GetBool("admission_controller.auto_instrumentation.enabled"),
-		endpoint:          config.Datadog.GetString("admission_controller.auto_instrumentation.endpoint"),
-		resources:         []string{"pods"},
-		operations:        []admiv1.OperationType{admiv1.Create},
-		filter:            filter,
-		containerRegistry: containerRegistry,
-		pinnedLibraries:   getPinnedLibraries(containerRegistry),
-	}, nil
+	return w, nil
 }
 
 // GetWebhook returns the Webhook instance, creating it if it doesn't exist
-func GetWebhook() (*Webhook, error) {
+func GetWebhook(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh <-chan struct{}) (*Webhook, error) {
 	initOnce.Do(func() {
 		if apmInstrumentationWebhook == nil {
-			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook()
+			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(rcClient, isLeaderNotif, stopCh)
 		}
 	})
 
@@ -191,9 +216,9 @@ func GetWebhook() (*Webhook, error) {
 // namespaces that are not included in the list of disabled namespaces and that
 // are not one of the ones disabled by default.
 // - Enabled and disabled namespaces: return error.
-func apmSSINamespaceFilter() (*containers.Filter, error) {
-	apmEnabledNamespaces := config.Datadog.GetStringSlice("apm_config.instrumentation.enabled_namespaces")
-	apmDisabledNamespaces := config.Datadog.GetStringSlice("apm_config.instrumentation.disabled_namespaces")
+func apmSSINamespaceFilter(enabledNs, disabledNs []string) (*containers.Filter, error) {
+	apmEnabledNamespaces := enabledNs   //config.Datadog.GetStringSlice("apm_config.instrumentation.enabled_namespaces")
+	apmDisabledNamespaces := disabledNs //config.Datadog.GetStringSlice("apm_config.instrumentation.disabled_namespaces")
 
 	if len(apmEnabledNamespaces) > 0 && len(apmDisabledNamespaces) > 0 {
 		return nil, fmt.Errorf("apm.instrumentation.enabled_namespaces and apm.instrumentation.disabled_namespaces configuration cannot be set together")
@@ -547,7 +572,7 @@ func ShouldInject(pod *corev1.Pod) bool {
 		}
 	}
 
-	apmWebhook, err := GetWebhook()
+	apmWebhook, err := GetWebhook(nil, nil, nil)
 	if err != nil {
 		return config.Datadog.GetBool("admission_controller.mutate_unlabelled")
 	}
@@ -558,12 +583,18 @@ func ShouldInject(pod *corev1.Pod) bool {
 // isEnabledInNamespace indicates if Single Step Instrumentation is enabled for
 // the namespace in the cluster
 func (w *Webhook) isEnabledInNamespace(namespace string) bool {
-	apmInstrumentationEnabled := config.Datadog.GetBool("apm_config.instrumentation.enabled")
+	apmInstrumentationEnabled := w.apmInstrumentationState.currentConfiguration.enabled //config.Datadog.GetBool("apm_config.instrumentation.enabled")
 
 	if !apmInstrumentationEnabled {
 		log.Debugf("APM Instrumentation is disabled")
 		return false
 	}
+	filter, err := apmSSINamespaceFilter(w.apmInstrumentationState.currentConfiguration.enabledNamespaces, w.apmInstrumentationState.currentConfiguration.disabledNamespaces)
+	if err != nil {
+		log.Errorf("Error %v", err)
+		return false
+	}
+	w.filter = filter
 
 	return !w.filter.IsExcluded(nil, "", "", namespace)
 }

@@ -421,6 +421,7 @@ func start(log log.Component,
 			WebhookInformers:    apiCl.WebhookConfigInformerFactory,
 			Client:              apiCl.Cl,
 			StopCh:              stopCh,
+			RcClient:            rcClient,
 		}
 
 		webhooks, err := admissionpkg.StartControllers(admissionCtx)

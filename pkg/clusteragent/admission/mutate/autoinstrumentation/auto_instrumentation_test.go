@@ -25,12 +25,14 @@ import (
 
 	"github.com/DataDog/datadog-agent/pkg/clusteragent/admission/mutate/common"
 	"github.com/DataDog/datadog-agent/pkg/config"
+	rcclient "github.com/DataDog/datadog-agent/pkg/config/remote/client"
 	"github.com/DataDog/datadog-agent/pkg/languagedetection/util"
 )
 
 const commonRegistry = "gcr.io/datadoghq"
 
 func TestInjectAutoInstruConfig(t *testing.T) {
+	var mockConfig *config.MockConfig
 	tests := []struct {
 		name           string
 		pod            *corev1.Pod
@@ -238,7 +240,11 @@ func TestInjectAutoInstruConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			webhook, err := GetWebhook()
+			mockConfig = config.Mock(t)
+			mockConfig.SetWithoutSource("remote_configuration.enabled", false)
+			mockConfig.SetWithoutSource("admission_controller.auto_instrumentation.patcher.fallback_to_file_provider", true)
+			mockConfig.SetWithoutSource("admission_controller.auto_instrumentation.patcher.file_provider_path", "testdata/auto-instru.json")
+			webhook, err := NewWebhook(&rcclient.Client{}, make(chan struct{}), make(chan struct{}))
 			require.NoError(t, err)
 
 			err = webhook.injectAutoInstruConfig(tt.pod, tt.libsToInject, false, "")
@@ -586,6 +592,9 @@ func TestExtractLibInfo(t *testing.T) {
 			mockConfig = config.Mock(t)
 			mockConfig.SetWithoutSource("admission_controller.mutate_unlabelled", true)
 			mockConfig.SetWithoutSource("admission_controller.container_registry", commonRegistry)
+			mockConfig.SetWithoutSource("remote_configuration.enabled", false)
+			mockConfig.SetWithoutSource("admission_controller.auto_instrumentation.patcher.fallback_to_file_provider", true)
+			mockConfig.SetWithoutSource("admission_controller.auto_instrumentation.patcher.file_provider_path", "testdata/auto-instru.json")
 			if tt.containerRegistry != "" {
 				mockConfig.SetWithoutSource("admission_controller.auto_instrumentation.container_registry", tt.containerRegistry)
 			}
@@ -596,7 +605,8 @@ func TestExtractLibInfo(t *testing.T) {
 
 			// Need to create a new instance of the webhook to take into account
 			// the config changes.
-			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook()
+			//apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(nil, nil, nil)
+			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(&rcclient.Client{}, make(chan struct{}), make(chan struct{}))
 			require.NoError(t, errInitAPMInstrumentation)
 
 			libsToInject, _ := apmInstrumentationWebhook.extractLibInfo(tt.pod)
@@ -1859,6 +1869,9 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockConfig = config.Mock(t)
+			mockConfig.SetWithoutSource("remote_configuration.enabled", false)
+			mockConfig.SetWithoutSource("admission_controller.auto_instrumentation.patcher.fallback_to_file_provider", true)
+			mockConfig.SetWithoutSource("admission_controller.auto_instrumentation.patcher.file_provider_path", "testdata/auto-instru.json")
 			if tt.setupConfig != nil {
 				tt.setupConfig()
 			}
@@ -1867,7 +1880,9 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 
 			// Need to create a new instance of the webhook to take into account
 			// the config changes.
-			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook()
+			//apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(nil, nil, nil)
+			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(&rcclient.Client{}, make(chan struct{}), make(chan struct{}))
+
 			require.NoError(t, errInitAPMInstrumentation)
 
 			err := apmInstrumentationWebhook.inject(tt.pod, "", fake.NewSimpleDynamicClient(scheme.Scheme))
@@ -2108,17 +2123,84 @@ func TestShouldInject(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockConfig = config.Mock(nil)
+			mockConfig = config.Mock(t)
+			mockConfig.SetWithoutSource("remote_configuration.enabled", false)
+			mockConfig.SetWithoutSource("admission_controller.auto_instrumentation.patcher.fallback_to_file_provider", true)
+			mockConfig.SetWithoutSource("admission_controller.auto_instrumentation.patcher.file_provider_path", "testdata/auto-instru.json")
+
 			tt.setupConfig()
 
 			// Need to create a new instance of the webhook to take into account
 			// the config changes.
-			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook()
+			//apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(nil, nil, nil)
+			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(&rcclient.Client{}, make(chan struct{}), make(chan struct{}))
 			require.NoError(t, errInitAPMInstrumentation)
 
 			if got := ShouldInject(tt.pod); got != tt.want {
 				t.Errorf("shouldInject() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestGetCachedApmInstrumentationConfiguration(t *testing.T) {
+	var mockConfig *config.MockConfig
+	tests := []struct {
+		name                 string
+		pod                  *corev1.Pod
+		containerRegistry    string
+		expectedLibsToInject []libInfo
+		setupConfig          func()
+	}{
+		{
+			name:              "single step instrumentation with pinned java version and java annotation",
+			pod:               common.FakePodWithAnnotation("admission.datadoghq.com/java-lib.version", "v1"),
+			containerRegistry: "registry",
+			expectedLibsToInject: []libInfo{
+				{
+					lang:  "java",
+					image: "registry/dd-lib-java-init:v1",
+				},
+			},
+			setupConfig: func() {
+				mockConfig.SetWithoutSource("apm_config.instrumentation.enabled", true)
+				mockConfig.SetWithoutSource("apm_config.instrumentation.disabled_namespaces", []string{"abc"})
+				//mockConfig.SetWithoutSource("apm_config.instrumentation.lib_versions", map[string]string{"java": "v1.20.0"})
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockConfig = config.Mock(t)
+			mockConfig.SetWithoutSource("admission_controller.mutate_unlabelled", true)
+			mockConfig.SetWithoutSource("admission_controller.container_registry", commonRegistry)
+			mockConfig.SetWithoutSource("remote_configuration.enabled", false)
+			mockConfig.SetWithoutSource("admission_controller.auto_instrumentation.patcher.fallback_to_file_provider", true)
+			mockConfig.SetWithoutSource("admission_controller.auto_instrumentation.patcher.file_provider_path", "testdata/auto-instru.json")
+			if tt.containerRegistry != "" {
+				mockConfig.SetWithoutSource("admission_controller.auto_instrumentation.container_registry", tt.containerRegistry)
+			}
+
+			if tt.setupConfig != nil {
+				tt.setupConfig()
+			}
+
+			// Need to create a new instance of the webhook to take into account
+			// the config changes.
+			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(&rcclient.Client{}, make(chan struct{}), make(chan struct{}))
+			//require.Equal(t, nil, apmInstrumentationWebhook.apmInstrumentationState.currentConfiguration)
+			require.Equal(t, true, apmInstrumentationWebhook.apmInstrumentationState.currentConfiguration.enabled)
+			require.Equal(t, []string{}, apmInstrumentationWebhook.apmInstrumentationState.currentConfiguration.enabledNamespaces)
+			require.Equal(t, []string{"abc"}, apmInstrumentationWebhook.apmInstrumentationState.currentConfiguration.disabledNamespaces)
+			time.Sleep(time.Second * time.Duration(10))
+			require.Equal(t, true, apmInstrumentationWebhook.apmInstrumentationState.currentConfiguration.enabled)
+			require.Equal(t, []string{}, apmInstrumentationWebhook.apmInstrumentationState.currentConfiguration.enabledNamespaces)
+			require.Equal(t, []string{}, apmInstrumentationWebhook.apmInstrumentationState.currentConfiguration.disabledNamespaces)
+
+			//require.NoError(t, errInitAPMInstrumentation)
+
+			//libsToInject, _ := apmInstrumentationWebhook.extractLibInfo(tt.pod)
+			//require.ElementsMatch(t, tt.expectedLibsToInject, libsToInject)
 		})
 	}
 }
