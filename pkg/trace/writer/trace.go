@@ -141,7 +141,22 @@ func NewTraceWriter(
 	// }
 	tw.wg.Add(1)
 	go tw.timeflush()
+	tw.wg.Add(1)
+	go tw.reporter()
 	return tw
+}
+
+func (w *TraceWriter) reporter() {
+	tck := time.NewTicker(w.tick)
+	defer w.wg.Done()
+	for {
+		select {
+		case <-tck.C:
+			w.report()
+		case <-w.stop:
+			return
+		}
+	}
 }
 
 func (w *TraceWriter) timeflush() {
