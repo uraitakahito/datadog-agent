@@ -525,10 +525,11 @@ func initializeRemoteConfigClient(ctx context.Context, rcService rccomp.Componen
 	} else {
 		clusterName = clustername.GetClusterName(context.TODO(), hname)
 	}
+	pkglog.Warnf("Cluster name: %s", clusterName)
 
 	clusterID, err := clustername.GetClusterID()
 	if err != nil {
-		pkglog.Warnf("Error retrieving cluster ID: cluster-id won't be set for remote-config client")
+		pkglog.Warnf("Error retrieving cluster ID: cluster-id won't be set for remote-config client %v", err)
 	}
 
 	rcClient, err := rcclient.NewClient(rcService,
