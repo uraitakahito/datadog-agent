@@ -18,10 +18,11 @@ import (
 // MockModule defines the fx options for the mock component.
 func MockModule() fxutil.Module {
 	return fxutil.Component(
-		fx.Provide(newMockCompressor),
+		fx.Provide(NewMockCompressor),
 	)
 }
 
-func newMockCompressor() compression.Component {
+// NewMockCompressor returns a new Mock
+func NewMockCompressor() compression.Component {
 	return strategy.NewNoopStrategy()
 }
