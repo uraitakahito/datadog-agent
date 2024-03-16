@@ -322,7 +322,7 @@ func (a *atel) reportAgentMetrics(session *senderSession, p *Profile) {
 		return
 	}
 
-	a.logComp.Debugf("Collect Agent Metric telemetry for profile %s", p.Name)
+	a.logComp.Infof("Collect Agent Metric telemetry for profile %s", p.Name)
 
 	// Gather all prom metrircs. Currently Gather() does not allow filtering by
 	// matric name, so we need to gather all metrics and filter them on our own.
@@ -343,12 +343,12 @@ func (a *atel) reportAgentMetrics(session *senderSession, p *Profile) {
 
 	// Send the metrics if any were filtered
 	if len(metrics) == 0 {
-		a.logComp.Debug("No Agent Metric telemetry collected")
+		a.logComp.Info("No Agent Metric telemetry collected")
 		return
 	}
 
 	// Send the metrics if any were filtered
-	a.logComp.Debugf("Reporting Agent Metric telemetry for profile %s", p.Name)
+	a.logComp.Infof("Reporting Agent Metric telemetry for profile %s", p.Name)
 
 	err = a.sender.sendAgentMetricPayloads(session, metrics)
 	if err != nil {
@@ -371,7 +371,7 @@ func (a *atel) renderAgentStatus(p *Profile, inputStatus map[string]interface{},
 		return
 	}
 	if len(b.Bytes()) == 0 {
-		a.logComp.Debug("Agent status rendering to agent telemetry payloads return empty payload")
+		a.logComp.Info("Agent status rendering to agent telemetry payloads return empty payload")
 		return
 	}
 
@@ -410,7 +410,7 @@ func (a *atel) addAgentStatusExtra(p *Profile, fullStatus map[string]interface{}
 		case bool:
 			attrVal = jqValueType
 		case nil:
-			a.logComp.Debugf("JQ expression return 'nil' value for JSON path '%s'", strings.Join(builder.jpathTarget, "."))
+			a.logComp.Info("JQ expression return 'nil' value for JSON path '%s'", strings.Join(builder.jpathTarget, "."))
 			continue
 		case string:
 			a.logComp.Errorf("string value (%v) for JSON path '%s' for extra status atttribute is not currently allowed",
@@ -456,7 +456,7 @@ func (a *atel) reportAgentStatus(session *senderSession, p *Profile) {
 		return
 	}
 
-	a.logComp.Debugf("Collect Agent Status telemetry for profile %s", p.Name)
+	a.logComp.Info("Collect Agent Status telemetry for profile %s", p.Name)
 
 	// Current "agent-telemetry-basic.tmpl" uses only "runneStats" and "dogstatsdStats" JSON sections
 	// These JSON sections are populated via "collector" and "DogStatsD" status providers sections
@@ -479,11 +479,11 @@ func (a *atel) reportAgentStatus(session *senderSession, p *Profile) {
 	a.renderAgentStatus(p, statusJSON, statusPayloadJSON)
 	a.addAgentStatusExtra(p, statusJSON, statusPayloadJSON)
 	if len(statusPayloadJSON) == 0 {
-		a.logComp.Debug("No Agent Status telemetry collected")
+		a.logComp.Info("No Agent Status telemetry collected")
 		return
 	}
 
-	a.logComp.Debugf("Reporting Agent Status telemetry for profile %s", p.Name)
+	a.logComp.Info("Reporting Agent Status telemetry for profile %s", p.Name)
 
 	// Send the Agent Telemetry status payload
 	err = a.sender.sendAgentStatusPayload(session, statusPayloadJSON)
@@ -496,6 +496,7 @@ func (a *atel) reportAgentStatus(session *senderSession, p *Profile) {
 // run runs the agent telemetry for a given profile. It is triggered by the runner
 // according to the profiles schedule.
 func (a *atel) run(profiles []*Profile) {
+	a.logComp.Info("Starting agent telemetry run")
 	session := a.sender.startSession(a.cancelCtx)
 
 	for _, p := range profiles {
@@ -524,6 +525,14 @@ func (a *atel) start() error {
 	// Start the runner and add the jobs.
 	a.runner.start()
 	for sh, pp := range a.atelCfg.schedule {
+		// get string representation of profiles names
+		pnames := make([]string, len(pp))
+		for i, p := range pp {
+			pnames[i] = p.Name
+		}
+		a.logComp.Infof("Adding job for schedule[%d, %d, %d] for profile",
+			sh.StartAfter, sh.Iterations, sh.Period, " with profiles: ", strings.Join(pnames, ", "))
+
 		a.runner.addJob(job{
 			a:        a,
 			profiles: pp,
