@@ -29,6 +29,7 @@ import (
 	"github.com/DataDog/datadog-agent/comp/metadata/host"
 	"github.com/DataDog/datadog-agent/pkg/util/fxutil"
 	"golang.org/x/exp/maps"
+	"gopkg.in/yaml.v2"
 
 	dto "github.com/prometheus/client_model/go"
 	"go.uber.org/fx"
@@ -410,7 +411,7 @@ func (a *atel) addAgentStatusExtra(p *Profile, fullStatus map[string]interface{}
 		case bool:
 			attrVal = jqValueType
 		case nil:
-			a.logComp.Info("JQ expression return 'nil' value for JSON path '%s'", strings.Join(builder.jpathTarget, "."))
+			a.logComp.Infof("JQ expression return 'nil' value for JSON path '%s'", strings.Join(builder.jpathTarget, "."))
 			continue
 		case string:
 			a.logComp.Errorf("string value (%v) for JSON path '%s' for extra status atttribute is not currently allowed",
@@ -456,7 +457,7 @@ func (a *atel) reportAgentStatus(session *senderSession, p *Profile) {
 		return
 	}
 
-	a.logComp.Info("Collect Agent Status telemetry for profile %s", p.Name)
+	a.logComp.Infof("Collect Agent Status telemetry for profile %s", p.Name)
 
 	// Current "agent-telemetry-basic.tmpl" uses only "runneStats" and "dogstatsdStats" JSON sections
 	// These JSON sections are populated via "collector" and "DogStatsD" status providers sections
@@ -483,7 +484,7 @@ func (a *atel) reportAgentStatus(session *senderSession, p *Profile) {
 		return
 	}
 
-	a.logComp.Info("Reporting Agent Status telemetry for profile %s", p.Name)
+	a.logComp.Infof("Reporting Agent Status telemetry for profile %s", p.Name)
 
 	// Send the Agent Telemetry status payload
 	err = a.sender.sendAgentStatusPayload(session, statusPayloadJSON)
@@ -497,6 +498,8 @@ func (a *atel) reportAgentStatus(session *senderSession, p *Profile) {
 // according to the profiles schedule.
 func (a *atel) run(profiles []*Profile) {
 	a.logComp.Info("Starting agent telemetry run")
+	a.logComp.Info("BLABLABLA") // for some reason some logs do not go through
+	a.logComp.Info("BLABLABLAStartingBLABLABLA BLABLABLAagentBLABLABLA BLABLABLAtelemetryBLABLABLA runBLABLABLA")
 	session := a.sender.startSession(a.cancelCtx)
 
 	for _, p := range profiles {
@@ -522,16 +525,26 @@ func (a *atel) start() error {
 
 	a.cancelCtx, a.cancel = context.WithCancel(context.Background())
 
+	atCfgBytes, err := yaml.Marshal(a.atelCfg)
+	if err != nil {
+		a.logComp.Errorf("Failed to marshal agent telemetry config: %s", err.Error())
+	} else {
+		a.logComp.Infof("Agent telemetry config: %s", string(atCfgBytes))
+	}
+
 	// Start the runner and add the jobs.
 	a.runner.start()
 	for sh, pp := range a.atelCfg.schedule {
+		a.logComp.Info("FOOFOO") // for some reason some logs do not go through
 		// get string representation of profiles names
 		pnames := make([]string, len(pp))
 		for i, p := range pp {
 			pnames[i] = p.Name
 		}
-		a.logComp.Infof("Adding job for schedule[%d, %d, %d] for profile",
+		a.logComp.Infof("Adding job for schedule[%d, %d, %d] for profiles %s",
 			sh.StartAfter, sh.Iterations, sh.Period, " with profiles: ", strings.Join(pnames, ", "))
+
+		a.logComp.Info("ZOOZOO") // for some reason some logs do not go through
 
 		a.runner.addJob(job{
 			a:        a,

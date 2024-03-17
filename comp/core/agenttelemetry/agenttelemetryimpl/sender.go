@@ -318,7 +318,12 @@ func (s *senderImpl) flushSession(ss *senderSession) error {
 	}()
 
 	// Log return status
-	s.logComp.Infof("Telemetery request response status: %s, status code: %d", resp.Status, resp.StatusCode)
+	//if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+	if resp.StatusCode == 0 {
+		s.logComp.Infof("Telemetery enpoint response status: %s, status code: %d", resp.Status, resp.StatusCode)
+	} else {
+		s.logComp.Warnf("Telemetery enpoint response status: %s, status code: %d, url: %s", resp.Status, resp.StatusCode, s.endpointURL)
+	}
 
 	return nil
 }
