@@ -104,7 +104,8 @@ func NewHTTPReceiver(
 	}
 	semcount := conf.Decoders
 	if semcount == 0 {
-		semcount = runtime.GOMAXPROCS(0) / 2
+		//semcount = runtime.GOMAXPROCS(0) / 2
+		semcount = runtime.GOMAXPROCS(0) // changing this to GOMAXPROCS since the other pools have been eliminated.
 		if semcount == 0 {
 			semcount = 1
 		}
