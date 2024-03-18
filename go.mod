@@ -29,6 +29,8 @@ replace (
 	github.com/DataDog/datadog-agent/comp/core/flare/types => ./comp/core/flare/types
 	github.com/DataDog/datadog-agent/comp/core/hostname/hostnameinterface => ./comp/core/hostname/hostnameinterface
 	github.com/DataDog/datadog-agent/comp/core/log => ./comp/core/log/
+	github.com/DataDog/datadog-agent/comp/serializer/compression => ./comp/serializer/compression
+	github.com/DataDog/datadog-agent/comp/serializer/compression/compresionimpl => ./comp/serializer/compression/compresionimpl
 	github.com/DataDog/datadog-agent/comp/core/secrets => ./comp/core/secrets
 	github.com/DataDog/datadog-agent/comp/core/status => ./comp/core/status
 	github.com/DataDog/datadog-agent/comp/core/status/statusimpl => ./comp/core/status/statusimpl
