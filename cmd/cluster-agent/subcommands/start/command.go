@@ -238,23 +238,6 @@ func start(log log.Component,
 		pkglog.Debugf("Health check listening on port %d", healthPort)
 	}
 
-	// Initialize and start remote configuration client
-	var rcClient *rcclient.Client
-	rcserv, isSet := rcService.Get()
-	if pkgconfig.IsRemoteConfigEnabled(config) && isSet {
-		var err error
-		rcClient, err = initializeRemoteConfigClient(mainCtx, rcserv, config)
-		if err != nil {
-			log.Errorf("Failed to start remote-configuration: %v", err)
-		} else {
-			rcClient.Start()
-			log.Debugf("Started RcClient")
-			defer func() {
-				rcClient.Close()
-			}()
-		}
-	}
-
 	// Setup the leader forwarder for language detection and cluster checks
 	if config.GetBool("cluster_checks.enabled") || config.GetBool("language_detection.reporting.enabled") {
 		apidca.NewGlobalLeaderForwarder(
@@ -298,6 +281,40 @@ func start(log log.Component,
 		return err
 	}
 
+	clusterName := clustername.GetRFC1123CompliantClusterName(context.TODO(), hname)
+	// Generate and persist a cluster ID
+	// this must be a UUID, and ideally be stable for the lifetime of a cluster,
+	// so we store it in a configmap that we try and read before generating a new one.
+	coreClient := apiCl.Cl.CoreV1().(*corev1.CoreV1Client)
+	//nolint:revive // TODO(CINT) Fix revive linter
+	clusterId, err := apicommon.GetOrCreateClusterID(coreClient)
+	if err != nil {
+		pkglog.Errorf("Failed to generate or retrieve the cluster ID")
+	}
+
+	if clusterName == "" {
+		pkglog.Warn("Failed to auto-detect a Kubernetes cluster name. We recommend you set it manually via the cluster_name config option")
+	} else {
+		pkglog.Warnf("ClusterName %s", clusterName)
+	}
+
+	// Initialize and start remote configuration client
+	var rcClient *rcclient.Client
+	rcserv, isSet := rcService.Get()
+	if pkgconfig.IsRemoteConfigEnabled(config) && isSet {
+		var err error
+		rcClient, err = initializeRemoteConfigClient(mainCtx, rcserv, config, clusterId)
+		if err != nil {
+			log.Errorf("Failed to start remote-configuration: %v", err)
+		} else {
+			rcClient.Start()
+			log.Debugf("Started RcClient")
+			defer func() {
+				rcClient.Close()
+			}()
+		}
+	}
+
 	// Create event recorder
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(pkglog.Infof)
@@ -318,21 +335,6 @@ func start(log log.Component,
 		for _, err := range aggErr.Errors() {
 			pkglog.Warnf("Error while starting controller: %v", err)
 		}
-	}
-
-	clusterName := clustername.GetRFC1123CompliantClusterName(context.TODO(), hname)
-	// Generate and persist a cluster ID
-	// this must be a UUID, and ideally be stable for the lifetime of a cluster,
-	// so we store it in a configmap that we try and read before generating a new one.
-	coreClient := apiCl.Cl.CoreV1().(*corev1.CoreV1Client)
-	//nolint:revive // TODO(CINT) Fix revive linter
-	clusterId, err := apicommon.GetOrCreateClusterID(coreClient)
-	if err != nil {
-		pkglog.Errorf("Failed to generate or retrieve the cluster ID")
-	}
-
-	if clusterName == "" {
-		pkglog.Warn("Failed to auto-detect a Kubernetes cluster name. We recommend you set it manually via the cluster_name config option")
 	}
 
 	// FIXME: move LoadComponents and AC.LoadAndRun in their own package so we
@@ -517,7 +519,12 @@ func setupClusterCheck(ctx context.Context, ac autodiscovery.Component) (*cluste
 	return handler, nil
 }
 
-func initializeRemoteConfigClient(ctx context.Context, rcService rccomp.Component, config config.Component) (*rcclient.Client, error) {
+func initializeRemoteConfigClient(
+	ctx context.Context,
+	rcService rccomp.Component,
+	config config.Component,
+	clusterId string,
+) (*rcclient.Client, error) {
 	clusterName := ""
 	hname, err := hostname.Get(ctx)
 	if err != nil {
@@ -527,14 +534,15 @@ func initializeRemoteConfigClient(ctx context.Context, rcService rccomp.Componen
 	}
 	pkglog.Warnf("Cluster name: %s", clusterName)
 
-	clusterID, err := clustername.GetClusterID()
+	_, err = clustername.GetClusterID()
 	if err != nil {
 		pkglog.Warnf("Error retrieving cluster ID: cluster-id won't be set for remote-config client %v", err)
 	}
+	pkglog.Warnf("Cluster id %s: clusterId")
 
 	rcClient, err := rcclient.NewClient(rcService,
 		rcclient.WithAgent("cluster-agent", version.AgentVersion),
-		rcclient.WithCluster(clusterName, clusterID),
+		rcclient.WithCluster(clusterName, clusterId),
 		rcclient.WithProducts(state.ProductAPMTracing),
 		rcclient.WithPollInterval(5*time.Second),
 		rcclient.WithDirectorRootOverride(config.GetString("remote_configuration.director_root")),

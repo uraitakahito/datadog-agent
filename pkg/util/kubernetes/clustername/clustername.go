@@ -200,6 +200,8 @@ func GetClusterID() (string, error) {
 		if err != nil {
 			return "", err
 		}
+		log.Debugf("Got CA client", clusterIDEnv)
+
 		clusterID, err = dcaClient.GetKubernetesClusterID()
 		if err != nil {
 			return "", err
