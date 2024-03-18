@@ -26,17 +26,19 @@ type Stats struct {
 	DNSNodes     int64
 	SocketNodes  int64
 
-	processedCount map[model.EventType]*atomic.Uint64
-	addedCount     map[model.EventType]map[NodeGenerationType]*atomic.Uint64
-	droppedCount   map[model.EventType]map[NodeDroppedReason]*atomic.Uint64
+	processedCount           map[model.EventType]*atomic.Uint64
+	addedCount               map[model.EventType]map[NodeGenerationType]*atomic.Uint64
+	droppedCount             map[model.EventType]map[NodeDroppedReason]*atomic.Uint64
+	argsMatchingResultsCount map[NodeGenerationType]map[ArgsMatchingResult]*atomic.Uint64
 }
 
 // NewActivityTreeNodeStats returns a new activity tree stats
 func NewActivityTreeNodeStats() *Stats {
 	ats := &Stats{
-		processedCount: make(map[model.EventType]*atomic.Uint64),
-		addedCount:     make(map[model.EventType]map[NodeGenerationType]*atomic.Uint64),
-		droppedCount:   make(map[model.EventType]map[NodeDroppedReason]*atomic.Uint64),
+		processedCount:           make(map[model.EventType]*atomic.Uint64),
+		addedCount:               make(map[model.EventType]map[NodeGenerationType]*atomic.Uint64),
+		droppedCount:             make(map[model.EventType]map[NodeDroppedReason]*atomic.Uint64),
+		argsMatchingResultsCount: make(map[NodeGenerationType]map[ArgsMatchingResult]*atomic.Uint64),
 	}
 
 	// generate counters
@@ -55,6 +57,15 @@ func NewActivityTreeNodeStats() *Stats {
 			ats.droppedCount[i][reason] = atomic.NewUint64(0)
 		}
 	}
+
+	for i := NodeGenerationType(0); i <= MaxNodeGenerationType; i++ {
+		ats.argsMatchingResultsCount[i] = map[ArgsMatchingResult]*atomic.Uint64{
+			ArgsEqual:         atomic.NewUint64(0),
+			ArgsLengthDiffers: atomic.NewUint64(0),
+			ArgsValueDiffers:  atomic.NewUint64(0),
+		}
+	}
+
 	return ats
 }
 
@@ -103,5 +114,20 @@ func (stats *Stats) SendStats(client statsd.ClientInterface, treeType string) er
 		}
 	}
 
+	for generationType, argsMatchingResults := range stats.argsMatchingResultsCount {
+		for result, count := range argsMatchingResults {
+			tags := []string{fmt.Sprintf("generation_type:%s", generationType), fmt.Sprintf("result:%s", result), treeTypeTag}
+			if value := count.Swap(0); value > 0 {
+				if err := client.Count(metrics.MetricActivityDumpArgsMatching, int64(value), tags, 1.0); err != nil {
+					return fmt.Errorf("couldn't send %s metric: %w", metrics.MetricActivityDumpArgsMatching, err)
+				}
+			}
+		}
+	}
+
 	return nil
+}
+
+func (stats *Stats) countArgsMatchingResult(generationType NodeGenerationType, result ArgsMatchingResult) {
+	stats.argsMatchingResultsCount[generationType][result].Inc()
 }

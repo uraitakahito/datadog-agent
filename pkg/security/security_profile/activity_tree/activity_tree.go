@@ -84,6 +84,31 @@ func (genType NodeGenerationType) String() string {
 	}
 }
 
+// ArgsMatchingResult is used to indicate the result of an arguments matching operation
+type ArgsMatchingResult byte
+
+const (
+	// ArgsEqual is used when the arguments are equal
+	ArgsEqual ArgsMatchingResult = 0
+	// ArgsLengthDiffers is used when the length of the arguments differs
+	ArgsLengthDiffers ArgsMatchingResult = 1
+	// ArgsValueDiffers is used when the value of at least one argument differs
+	ArgsValueDiffers ArgsMatchingResult = 2
+)
+
+func (amr ArgsMatchingResult) String() string {
+	switch amr {
+	case ArgsEqual:
+		return "equal"
+	case ArgsLengthDiffers:
+		return "diff_length"
+	case ArgsValueDiffers:
+		return "diff_values"
+	default:
+		return "unknown"
+	}
+}
+
 // Owner is used to communicate with the owner of the activity tree
 type Owner interface {
 	MatchesSelector(entry *model.ProcessCacheEntry) bool
@@ -541,11 +566,14 @@ func (at *ActivityTree) insertBranch(parent ProcessNodeParent, branchToInsert []
 // findBranch2 looks for the provided branch in the list of children. Returns the node that matches the
 // first node of the branch and true if a new entry was inserted.
 func (at *ActivityTree) findBranch(parent ProcessNodeParent, branch []*model.ProcessCacheEntry, dryRun bool, generationType NodeGenerationType, resolvers *resolvers.EBPFResolvers) (*ProcessNode, int, bool) {
+	countArgsMatchingResult := func(result ArgsMatchingResult) {
+		at.Stats.countArgsMatchingResult(generationType, result)
+	}
 	for i := len(branch) - 1; i >= 0; i-- {
 		branchCursor := branch[i]
 
 		// look for branchCursor in the children
-		matchingNode, treeNodeToRebaseIndex := at.findProcessCacheEntryInTree(*parent.GetChildren(), branchCursor)
+		matchingNode, treeNodeToRebaseIndex := at.findProcessCacheEntryInTree(*parent.GetChildren(), branchCursor, countArgsMatchingResult)
 
 		if matchingNode != nil {
 			// if this is the first iteration, we've just identified a direct match without looking for execs in the event.
@@ -575,7 +603,7 @@ func (at *ActivityTree) findBranch(parent ProcessNodeParent, branch []*model.Pro
 		if siblings := parent.GetSiblings(); branchCursor.IsExecExec && siblings != nil {
 
 			// if yes, then look for branchCursor in the siblings of the parent of children
-			matchingNode, treeNodeToRebaseIndex = at.findProcessCacheEntryInTree(*siblings, branchCursor)
+			matchingNode, treeNodeToRebaseIndex = at.findProcessCacheEntryInTree(*siblings, branchCursor, countArgsMatchingResult)
 			if treeNodeToRebaseIndex >= 0 {
 
 				// We're about to rebase part of the tree, exit early if this is a dry run.
@@ -624,7 +652,10 @@ func (at *ActivityTree) rebaseTree(parent ProcessNodeParent, childIndexToRebase 
 		// = false" node. To be safe, check if the 2 top level nodes match if one of them is an "isExecChild = true" node.
 		childToRebase := (*parent.GetChildren())[childIndexToRebase]
 		if topLevelNode := branchToInsert[len(branchToInsert)-1]; !topLevelNode.IsExecExec || !childToRebase.Process.IsExecExec {
-			if childToRebase.Matches(&topLevelNode.Process, at.differentiateArgs, true) {
+			countArgsMatchingResult := func(result ArgsMatchingResult) {
+				at.Stats.countArgsMatchingResult(generationType, result)
+			}
+			if childToRebase.Matches(&topLevelNode.Process, at.differentiateArgs, true, countArgsMatchingResult) {
 				// ChildNodeToRebase and topLevelNode match and need to be merged, rebase the one in the profile, and insert
 				// the remaining nodes of the branch on top of it
 				newRebasedChild := at.rebaseTree(parent, childIndexToRebase, newParent, nil, generationType, resolvers)
@@ -681,16 +712,16 @@ func (at *ActivityTree) rebaseTree(parent ProcessNodeParent, childIndexToRebase 
 
 // findProcessCacheEntryInTree looks for the provided entry in the list of process nodes, returns the node (if
 // found) and the index of the top level child that lead to the matching node (or -1 if not found).
-func (at *ActivityTree) findProcessCacheEntryInTree(tree []*ProcessNode, entry *model.ProcessCacheEntry) (*ProcessNode, int) {
+func (at *ActivityTree) findProcessCacheEntryInTree(tree []*ProcessNode, entry *model.ProcessCacheEntry, countArgsMatchingResult func(ArgsMatchingResult)) (*ProcessNode, int) {
 	for i, child := range tree {
-		if child.Matches(&entry.Process, at.differentiateArgs, true) {
+		if child.Matches(&entry.Process, at.differentiateArgs, true, countArgsMatchingResult) {
 			return child, i
 		}
 	}
 
 	for i, child := range tree {
 		// has the parent execed into one of its own children ?
-		if execChild := at.findProcessCacheEntryInChildExecedNodes(child, entry); execChild != nil {
+		if execChild := at.findProcessCacheEntryInChildExecedNodes(child, entry, countArgsMatchingResult); execChild != nil {
 			return execChild, i
 		}
 	}
@@ -698,12 +729,12 @@ func (at *ActivityTree) findProcessCacheEntryInTree(tree []*ProcessNode, entry *
 }
 
 // findProcessCacheEntryInChildExecedNodes look for entry in the execed nodes of child
-func (at *ActivityTree) findProcessCacheEntryInChildExecedNodes(child *ProcessNode, entry *model.ProcessCacheEntry) *ProcessNode {
+func (at *ActivityTree) findProcessCacheEntryInChildExecedNodes(child *ProcessNode, entry *model.ProcessCacheEntry, countArgsMatchingResult func(ArgsMatchingResult)) *ProcessNode {
 	// fast path
 	for _, node := range child.Children {
 		if node.Process.IsExecExec {
 			// does this execed child match the entry ?
-			if node.Matches(&entry.Process, at.differentiateArgs, true) {
+			if node.Matches(&entry.Process, at.differentiateArgs, true, countArgsMatchingResult) {
 				return node
 			}
 		}
@@ -729,7 +760,7 @@ func (at *ActivityTree) findProcessCacheEntryInChildExecedNodes(child *ProcessNo
 				// there should always be only one
 
 				// does this execed child match the entry ?
-				if node.Matches(&entry.Process, at.differentiateArgs, true) {
+				if node.Matches(&entry.Process, at.differentiateArgs, true, countArgsMatchingResult) {
 					return node
 				}
 

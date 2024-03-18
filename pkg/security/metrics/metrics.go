@@ -199,6 +199,9 @@ var (
 	// activity dump.
 	// Tags: event_type, reason, tree_type
 	MetricActivityDumpEventDropped = newRuntimeMetric(".activity_dump.event.dropped")
+	// MetricActivityDumpArgsMatching is the name of the metric used to count the results of args matching
+	// Tags: generation_type, result, tree_type
+	MetricActivityDumpArgsMatching = newRuntimeMetric(".activity_dump.args_matching")
 	// MetricActivityDumpSizeInBytes is the name of the metric used to report the size of the generated activity dumps in
 	// bytes
 	// Tags: format, storage_type, compression
