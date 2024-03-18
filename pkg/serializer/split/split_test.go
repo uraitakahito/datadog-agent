@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder/transaction"
-	"github.com/DataDog/datadog-agent/comp/serializer/compression"
 	"github.com/DataDog/datadog-agent/comp/serializer/compression/compressionimpl"
 	"github.com/DataDog/datadog-agent/pkg/metrics"
 	"github.com/DataDog/datadog-agent/pkg/metrics/event"
@@ -87,7 +86,7 @@ func testSplitPayloadsSeries(t *testing.T, numPoints int, compress bool) {
 
 			mockConfig := pkgconfigsetup.Conf()
 			mockConfig.SetWithoutSource("serializer_compressor_kind", tc.kind)
-			strategy := compression.NewCompressor(mockConfig)
+			strategy := compressionimpl.NewCompressor(mockConfig)
 
 			payloads, err := Payloads(testSeries, compress, JSONMarshalFct, strategy)
 			require.Nil(t, err)
@@ -137,7 +136,7 @@ func BenchmarkSplitPayloadsSeries(b *testing.B) {
 	}
 
 	mockConfig := pkgconfigsetup.Conf()
-	strategy := compression.NewCompressor(mockConfig)
+	strategy := compressionimpl.NewCompressor(mockConfig)
 	var r transaction.BytesPayloads
 	for n := 0; n < b.N; n++ {
 		// always record the result of Payloads to prevent
@@ -216,7 +215,7 @@ func testSplitPayloadsEvents(t *testing.T, numPoints int, compress bool) {
 
 			mockConfig := pkgconfigsetup.Conf()
 			mockConfig.SetWithoutSource("serializer_compressor_kind", tc.kind)
-			strategy := compression.NewCompressor(mockConfig)
+			strategy := compressionimpl.NewCompressor(mockConfig)
 			payloads, err := Payloads(testEvent, compress, JSONMarshalFct, strategy)
 			require.Nil(t, err)
 
@@ -295,7 +294,7 @@ func testSplitPayloadsServiceChecks(t *testing.T, numPoints int, compress bool) 
 
 			mockConfig := pkgconfigsetup.Conf()
 			mockConfig.SetWithoutSource("serializer_compressor_kind", tc.kind)
-			strategy := compression.NewCompressor(mockConfig)
+			strategy := compressionimpl.NewCompressor(mockConfig)
 			payloads, err := Payloads(testServiceChecks, compress, JSONMarshalFct, strategy)
 			require.Nil(t, err)
 

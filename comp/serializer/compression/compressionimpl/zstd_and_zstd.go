@@ -5,7 +5,7 @@
 
 //go:build zlib && zstd
 
-// Package compression provides a set of functions for compressing with zlib / zstd
+// Package compressionimpl provides a set of functions for compressing with zlib / zstd
 package compressionimpl
 
 import (
