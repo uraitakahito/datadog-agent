@@ -42,7 +42,7 @@ func (s *NoopStrategy) ContentEncoding() string {
 }
 
 // NewStreamCompressor returns a new NoopZipper when serializer_compressor_kind is neither zlib or zstd
-func (s *NoopStrategy) NewStreamCompressor(output *bytes.Buffer) compression.StreamCompressor {
+func (s *NoopStrategy) NewStreamCompressor(_ *bytes.Buffer) compression.StreamCompressor {
 	return NoopZipper{}
 }
 
