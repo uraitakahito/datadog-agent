@@ -36,23 +36,6 @@ _Pragma( STRINGIFY(unroll(max_buffer_size)) )                                   
     }                                                                                                                                   \
     return true;
 
-// Reads the client id (up to CLIENT_ID_SIZE_TO_VALIDATE bytes from the given offset), and verifies if it is valid,
-// namely, composed only from characters from [a-zA-Z0-9._-].
-static __always_inline bool is_valid_client_id(struct __sk_buff *skb, u32 offset, u16 real_client_id_size) {
-    const u32 key = 0;
-    // Fetch the client id buffer from per-cpu array, which gives us the ability to extend the size of the buffer,
-    // as the stack is limited with the number of bytes we can allocate on.
-    char *client_id = bpf_map_lookup_elem(&kafka_client_id, &key);
-    if (client_id == NULL) {
-        return false;
-    }
-    bpf_memset(client_id, 0, CLIENT_ID_SIZE_TO_VALIDATE);
-    bpf_skb_load_bytes_with_telemetry(skb, offset, (char *)client_id, CLIENT_ID_SIZE_TO_VALIDATE);
-
-    // Returns true if client_id is composed out of the characters [a-z], [A-Z], [0-9], ".", "_", or "-".
-    CHECK_STRING_COMPOSED_OF_ASCII(CLIENT_ID_SIZE_TO_VALIDATE, real_client_id_size, client_id);
-}
-
 // Checks the given kafka header represents a valid one.
 // 1. The message size should include the size of the header.
 // 2. The api key is FETCH or PRODUCE.
@@ -218,9 +201,6 @@ static __always_inline bool is_kafka(struct __sk_buff *skb, skb_info_t *skb_info
     // Validate client ID
     // Client ID size can be equal to '-1' if the client id is null.
     if (kafka_header.client_id_size > 0) {
-        if (!is_valid_client_id(skb, offset, kafka_header.client_id_size)) {
-            return false;
-        }
         offset += kafka_header.client_id_size;
     } else if (kafka_header.client_id_size < -1) {
         return false;
