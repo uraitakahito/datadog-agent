@@ -540,7 +540,6 @@ func initializeRemoteConfigClient(
 	if err != nil {
 		pkglog.Warnf("Error retrieving cluster ID: cluster-id won't be set for remote-config client %v", err)
 	}
-	pkglog.Warnf("Cluster id %s: clusterId")
 
 	rcClient, err := rcclient.NewClient(rcService,
 		rcclient.WithAgent("cluster-agent", version.AgentVersion),

@@ -33,18 +33,23 @@ func newInstrumentationConfigurationCache(
 	localEnabledNamespaces *[]string,
 	localDisabledNamespaces *[]string,
 ) *instrumentationConfigurationCache {
+	log.Info("LILIYA1")
 	localConfig := newInstrumentationConfiguration(localEnabled, localEnabledNamespaces, localDisabledNamespaces)
 	currentConfig := newInstrumentationConfiguration(localEnabled, localEnabledNamespaces, localDisabledNamespaces)
 	reqChannel := make(chan Request, 10)
 	if provider != nil {
 		reqChannel = provider.subscribe("cluster")
+		log.Infof("LILIYA2: %v", provider)
 	}
+	log.Info("LILIYA3")
 
-	return &instrumentationConfigurationCache{
+	i := instrumentationConfigurationCache{
 		localConfiguration:        localConfig,
 		currentConfiguration:      currentConfig,
 		configurationUpdatesQueue: reqChannel,
 	}
+	log.Infof("LILIYA4: %v", i)
+	return &i
 }
 
 func (c *instrumentationConfigurationCache) start(stopCh <-chan struct{}) {
@@ -54,6 +59,7 @@ func (c *instrumentationConfigurationCache) start(stopCh <-chan struct{}) {
 			// if err := c.updateConfiguration(nil, nil); err != nil {
 			// 	log.Error(err.Error())
 			// }
+			log.Infof("LILIYA9: %v", req)
 			c.update(req)
 		case <-stopCh:
 			log.Info("Shutting down patcher")
@@ -65,6 +71,7 @@ func (c *instrumentationConfigurationCache) start(stopCh <-chan struct{}) {
 func (c *instrumentationConfigurationCache) update(req Request) {
 	k8sClusterTargets := req.K8sTargetV2.ClusterTargets
 	//env := req.K8sTargetV2.Environment
+	log.Info("LILIYA10")
 
 	for _, target := range k8sClusterTargets {
 		clusterName := target.ClusterName

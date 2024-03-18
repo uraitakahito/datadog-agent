@@ -166,7 +166,7 @@ func NewWebhook(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh
 		containerRegistry: containerRegistry,
 		pinnedLibraries:   getPinnedLibraries(containerRegistry),
 	}
-
+	log.Info("LILIYA0")
 	log.Debugf("000000000000000000000000")
 	if rcClient == nil {
 		log.Debugf("1111111111111111111111")
@@ -183,6 +183,7 @@ func NewWebhook(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh
 		log.Debugf("333333333333333333")
 	}
 
+	log.Infof("LILIYA12 %v, %v, %v, %v", w.rcProvider, b, en, dn)
 	w.apmInstrumentationState = newInstrumentationConfigurationCache(w.rcProvider, &b, &en, &dn)
 	go w.rcProvider.start(stopCh)
 	go w.apmInstrumentationState.start(stopCh)
@@ -191,6 +192,7 @@ func NewWebhook(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh
 	if err != nil {
 		return nil, err
 	}
+	log.Infof("LILIYA6")
 	w.filter = filter
 
 	return w, nil
@@ -199,7 +201,9 @@ func NewWebhook(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh
 // GetWebhook returns the Webhook instance, creating it if it doesn't exist
 func GetWebhook(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh <-chan struct{}) (*Webhook, error) {
 	initOnce.Do(func() {
+		log.Infof("LILIYA7")
 		if apmInstrumentationWebhook == nil {
+			log.Infof("LILIYA8")
 			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(rcClient, isLeaderNotif, stopCh)
 			log.Debugf("Created APM webhook")
 		}
