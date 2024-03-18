@@ -70,9 +70,11 @@ func GetOrCreateClusterID(coreClient corev1.CoreV1Interface) (string, error) {
 	}
 
 	myNS := GetMyNamespace()
+	log.Errorf("MY NAMESPACE: %s", myNS)
 
 	cm, err := coreClient.ConfigMaps(myNS).Get(context.TODO(), defaultClusterIDMap, metav1.GetOptions{})
 	if err != nil {
+		log.Errorf("ERROR 1: %v", err)
 		if !errors.IsNotFound(err) {
 			log.Errorf("Cannot retrieve ConfigMap %s/%s: %s", myNS, defaultClusterIDMap, err)
 			return "", err
@@ -82,6 +84,8 @@ func GetOrCreateClusterID(coreClient corev1.CoreV1Interface) (string, error) {
 		if err != nil {
 			log.Errorf("Failed getting the kube-system namespace: %v", err)
 			return "", err
+		} else {
+			log.Errorf("ERROR 2: %s", clusterID)
 		}
 		cm = &v1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -100,11 +104,13 @@ func GetOrCreateClusterID(coreClient corev1.CoreV1Interface) (string, error) {
 		cache.Cache.Set(cacheClusterIDKey, clusterID, cache.NoExpiration)
 		return clusterID, nil
 	}
+	log.Errorf("NO ERROR 1")
 
 	// config map exists, use its content or update it if the content doesn't look right
 	clusterID, found := cm.Data["id"]
 	if found && len([]byte(clusterID)) == 36 {
 		cache.Cache.Set(cacheClusterIDKey, clusterID, cache.NoExpiration)
+		log.Errorf("NO ERROR 2")
 		return clusterID, nil
 	}
 
@@ -114,12 +120,15 @@ func GetOrCreateClusterID(coreClient corev1.CoreV1Interface) (string, error) {
 		log.Errorf("Failed getting the kube-system namespace: %v", err)
 		return "", err
 	}
+	log.Errorf("NO ERROR 3")
 	cm.Data["id"] = clusterID
 	_, err = coreClient.ConfigMaps(myNS).Update(context.TODO(), cm, metav1.UpdateOptions{})
 	if err != nil {
 		log.Errorf("Failed to update ConfigMap %s/%s with correct cluster ID: %s", myNS, defaultClusterIDMap, err)
 		return "", err
 	}
+	log.Errorf("NO ERROR 4")
 	cache.Cache.Set(cacheClusterIDKey, clusterID, cache.NoExpiration)
+	log.Errorf("NO ERROR 5")
 	return clusterID, nil
 }

@@ -290,6 +290,8 @@ func start(log log.Component,
 	clusterId, err := apicommon.GetOrCreateClusterID(coreClient)
 	if err != nil {
 		pkglog.Errorf("Failed to generate or retrieve the cluster ID")
+	} else {
+		pkglog.Errorf("Retrieved cluster id: %s", clusterId)
 	}
 
 	if clusterName == "" {
