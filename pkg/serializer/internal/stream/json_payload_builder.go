@@ -91,6 +91,7 @@ func NewJSONPayloadBuilder(shareAndLockBuffers bool, config config.Component, co
 		outputSizeHint:      4096,
 		shareAndLockBuffers: false,
 		config:              config,
+		compressor:          compressor,
 	}
 }
 

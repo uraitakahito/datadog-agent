@@ -3,7 +3,7 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2024-present Datadog, Inc.
 
-// Package compression ... /* TODO: detailed doc comment for the component */
+// Package compression provides a compression implementation based on the configuration or avalible build tags.
 package compression
 
 import (
