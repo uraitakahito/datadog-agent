@@ -6,7 +6,7 @@ replace github.com/DataDog/datadog-agent/comp/serializer/compression => ../.
 
 require (
 	github.com/DataDog/datadog-agent/comp/core/config v0.51.1
-	github.com/DataDog/datadog-agent/comp/serializer/compression v0.0.0-00010101000000-000000000000
+	github.com/DataDog/datadog-agent/comp/serializer/compression v0.0.0
 	github.com/DataDog/datadog-agent/pkg/util/fxutil v0.51.1
 	github.com/DataDog/datadog-agent/pkg/util/log v0.51.1
 	github.com/DataDog/zstd v1.5.5
