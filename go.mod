@@ -620,7 +620,7 @@ require (
 	github.com/DataDog/datadog-agent/comp/logs/agent/config v0.52.0-rc.3
 	github.com/DataDog/datadog-agent/comp/otelcol/otlp/components/exporter/serializerexporter v0.52.0-rc.3
 	github.com/DataDog/datadog-agent/comp/serializer/compression v0.0.0
-	github.com/DataDog/datadog-agent/comp/serializer/compression/compressionimpl v0.0.0-00010101000000-000000000000
+	github.com/DataDog/datadog-agent/comp/serializer/compression/compressionimpl v0.0.0
 	github.com/DataDog/datadog-agent/pkg/aggregator/ckey v0.52.0-rc.3
 	github.com/DataDog/datadog-agent/pkg/api v0.52.0-rc.3
 	github.com/DataDog/datadog-agent/pkg/collector/check/defaults v0.52.0-rc.3
