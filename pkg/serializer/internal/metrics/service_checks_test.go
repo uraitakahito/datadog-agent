@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/DataDog/datadog-agent/comp/serializer/compression"
 	"github.com/DataDog/datadog-agent/comp/serializer/compression/compressionimpl"
 	pkgconfigmodel "github.com/DataDog/datadog-agent/pkg/config/model"
 	pkgconfigsetup "github.com/DataDog/datadog-agent/pkg/config/setup"
@@ -195,7 +194,7 @@ func benchmarkPayloadsServiceCheck(b *testing.B, numberOfItem int) {
 	b.ResetTimer()
 
 	mockConfig := pkgconfigsetup.Conf()
-	strategy := compression.NewCompressorStrategy(mockConfig)
+	strategy := compressionimpl.NewCompressor(mockConfig)
 	for n := 0; n < b.N; n++ {
 		split.Payloads(serviceChecks, true, split.JSONMarshalFct, strategy)
 	}
