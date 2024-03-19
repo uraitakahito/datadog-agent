@@ -3,16 +3,18 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016-present Datadog, Inc.
 
-//go:build otlp
-
 package collectorimpl
 
 import (
 	"context"
 
+	"github.com/DataDog/datadog-agent/comp/core/config"
 	"github.com/DataDog/datadog-agent/comp/core/status"
+	"github.com/DataDog/datadog-agent/comp/metadata/inventoryagent"
 	"github.com/DataDog/datadog-agent/comp/otelcol/otlp"
 	"github.com/DataDog/datadog-agent/pkg/logs/message"
+	"github.com/DataDog/datadog-agent/pkg/serializer"
+	"github.com/DataDog/datadog-agent/pkg/util/optional"
 )
 
 const (
@@ -68,6 +70,33 @@ func (c *collector) Stop() {
 // Status returns the status of the collector.
 func (c *collector) Status() otlp.CollectorStatus {
 	return c.col.GetCollectorStatus()
+}
+
+type Dependencies struct {
+	// Lc specifies the fx lifecycle settings, used for appending startup
+	// and shutdown hooks.
+	//Lc fx.Lifecycle
+
+	// Config specifies the Datadog Agent's configuration component.
+	Config config.Component
+
+	// Log specifies the logging component.
+	Log corelog.Component
+
+	// Serializer specifies the metrics serializer that is used to export metrics
+	// to Datadog.
+	Serializer serializer.MetricSerializer
+
+	// LogsAgent specifies a logs agent
+	LogsAgent optional.Option[logsagent.Component]
+
+	// InventoryAgent require the inventory metadata payload, allowing otelcol to add data to it.
+	InventoryAgent inventoryagent.Component
+}
+
+type Provides struct {
+	Comp           collectortype.Component
+	StatusProvider status.InformationProvider
 }
 
 // newPipeline creates a new Component for this module and returns any errors on failure.
