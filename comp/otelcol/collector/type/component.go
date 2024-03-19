@@ -6,7 +6,7 @@
 //go:build otlp
 
 // Package collector implements the OpenTelemetry Collector component.
-package collector
+package collectortype
 
 import (
 	"go.uber.org/fx"

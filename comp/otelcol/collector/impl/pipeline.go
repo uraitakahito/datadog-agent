@@ -5,22 +5,14 @@
 
 //go:build otlp
 
-package collector
+package collectorimpl
 
 import (
 	"context"
 
-	"go.uber.org/fx"
-
-	"github.com/DataDog/datadog-agent/comp/core/config"
-	corelog "github.com/DataDog/datadog-agent/comp/core/log"
 	"github.com/DataDog/datadog-agent/comp/core/status"
-	logsagent "github.com/DataDog/datadog-agent/comp/logs/agent"
-	"github.com/DataDog/datadog-agent/comp/metadata/inventoryagent"
 	"github.com/DataDog/datadog-agent/comp/otelcol/otlp"
 	"github.com/DataDog/datadog-agent/pkg/logs/message"
-	"github.com/DataDog/datadog-agent/pkg/serializer"
-	"github.com/DataDog/datadog-agent/pkg/util/optional"
 )
 
 const (
@@ -29,36 +21,6 @@ const (
 
 // dependencies specifies a list of dependencies required for the collector
 // to be instantiated.
-type dependencies struct {
-	fx.In
-
-	// Lc specifies the fx lifecycle settings, used for appending startup
-	// and shutdown hooks.
-	Lc fx.Lifecycle
-
-	// Config specifies the Datadog Agent's configuration component.
-	Config config.Component
-
-	// Log specifies the logging component.
-	Log corelog.Component
-
-	// Serializer specifies the metrics serializer that is used to export metrics
-	// to Datadog.
-	Serializer serializer.MetricSerializer
-
-	// LogsAgent specifies a logs agent
-	LogsAgent optional.Option[logsagent.Component]
-
-	// InventoryAgent require the inventory metadata payload, allowing otelcol to add data to it.
-	InventoryAgent inventoryagent.Component
-}
-
-type provides struct {
-	fx.Out
-
-	Comp           Component
-	StatusProvider status.InformationProvider
-}
 
 type collector struct {
 	deps dependencies
@@ -109,7 +71,7 @@ func (c *collector) Status() otlp.CollectorStatus {
 }
 
 // newPipeline creates a new Component for this module and returns any errors on failure.
-func newPipeline(deps dependencies) (provides, error) {
+func NewAgentComponents(deps dependencies) (provides, error) {
 	collector := &collector{deps: deps}
 
 	return provides{

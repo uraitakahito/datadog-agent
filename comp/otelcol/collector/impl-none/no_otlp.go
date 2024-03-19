@@ -6,7 +6,7 @@
 //go:build !otlp
 
 // Package collector implements the OTLP Collector component for non-OTLP builds.
-package collector
+package collectorimpl
 
 import (
 	"github.com/DataDog/datadog-agent/pkg/util/fxutil"
