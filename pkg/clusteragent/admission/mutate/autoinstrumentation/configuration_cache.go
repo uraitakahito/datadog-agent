@@ -23,6 +23,7 @@ type instrumentationConfigurationCache struct {
 	localConfiguration        *instrumentationConfiguration
 	currentConfiguration      *instrumentationConfiguration
 	configurationUpdatesQueue chan Request
+	clusterName               string
 }
 
 //var c = newInstrumentationConfigurationCache()
@@ -32,6 +33,7 @@ func newInstrumentationConfigurationCache(
 	localEnabled *bool,
 	localEnabledNamespaces *[]string,
 	localDisabledNamespaces *[]string,
+	clusterName string,
 ) *instrumentationConfigurationCache {
 	localConfig := newInstrumentationConfiguration(localEnabled, localEnabledNamespaces, localDisabledNamespaces)
 	currentConfig := newInstrumentationConfiguration(localEnabled, localEnabledNamespaces, localDisabledNamespaces)
@@ -44,6 +46,7 @@ func newInstrumentationConfigurationCache(
 		localConfiguration:        localConfig,
 		currentConfiguration:      currentConfig,
 		configurationUpdatesQueue: reqChannel,
+		clusterName:               clusterName,
 	}
 }
 
@@ -64,7 +67,7 @@ func (c *instrumentationConfigurationCache) start(stopCh <-chan struct{}) {
 
 func (c *instrumentationConfigurationCache) update(req Request) {
 	if req.K8sTargetV2 == nil || req.K8sTargetV2.ClusterTargets == nil {
-		log.Error("K8sTargetV2 is not set for config %s", req.ID)
+		log.Errorf("K8sTargetV2 is not set for config %s", req.ID)
 	}
 	k8sClusterTargets := req.K8sTargetV2.ClusterTargets
 	//env := req.K8sTargetV2.Environment
@@ -72,12 +75,11 @@ func (c *instrumentationConfigurationCache) update(req Request) {
 	for _, target := range k8sClusterTargets {
 		clusterName := target.ClusterName
 		log.Debugf("APM Configuration cache: clusterName %s", clusterName)
-		// TODO: check if clusterName is equal to current cluster name
-
-		newEnabled := target.Enabled
-		newEnabledNamespaces := target.EnabledNamespaces
-		c.updateConfiguration(*newEnabled, newEnabledNamespaces)
-
+		if c.clusterName == clusterName {
+			newEnabled := target.Enabled
+			newEnabledNamespaces := target.EnabledNamespaces
+			c.updateConfiguration(*newEnabled, newEnabledNamespaces)
+		}
 	}
 }
 

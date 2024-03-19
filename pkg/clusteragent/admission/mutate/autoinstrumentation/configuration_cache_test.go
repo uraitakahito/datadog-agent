@@ -15,7 +15,7 @@ import (
 
 func TestUpdateConfiguration(t *testing.T) {
 	enabled := false
-	c := newInstrumentationConfigurationCache(nil, &enabled, nil, nil)
+	c := newInstrumentationConfigurationCache(nil, &enabled, nil, nil, "")
 
 	c.updateConfiguration(true, nil)
 	require.Equal(t, true, c.currentConfiguration.enabled)

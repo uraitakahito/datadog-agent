@@ -167,25 +167,21 @@ func NewWebhook(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh
 		pinnedLibraries:   getPinnedLibraries(containerRegistry),
 	}
 	log.Info("LILIYA0")
-	log.Debugf("000000000000000000000000")
 	if rcClient == nil {
-		log.Debugf("1111111111111111111111")
 		return w, nil
 	}
 
 	if config.IsRemoteConfigEnabled(config.Datadog) {
 		w.rcProvider, _ = newRemoteConfigProvider(rcClient, isLeaderNotif, nil, clusterName)
-		log.Debugf("22222222222222222222")
 	}
 	if config.Datadog.GetBool("admission_controller.auto_instrumentation.patcher.fallback_to_file_provider") {
 		// Use the file config provider for e2e testing only (it replaces RC as a source of configs)
 		file := config.Datadog.GetString("admission_controller.auto_instrumentation.patcher.file_provider_path")
 		w.rcProvider = newfileProvider(file, isLeaderNotif, "")
-		log.Debugf("333333333333333333")
 	}
 
 	log.Infof("LILIYA12 %v, %v, %v, %v", w.rcProvider, b, en, dn)
-	w.apmInstrumentationState = newInstrumentationConfigurationCache(w.rcProvider, &b, &en, &dn)
+	w.apmInstrumentationState = newInstrumentationConfigurationCache(w.rcProvider, &b, &en, &dn, clusterName)
 	go w.rcProvider.start(stopCh)
 	go w.apmInstrumentationState.start(stopCh)
 
@@ -230,9 +226,12 @@ func apmSSINamespaceFilter(enabledNs, disabledNs []string) (*containers.Filter, 
 	apmEnabledNamespaces := enabledNs   //config.Datadog.GetStringSlice("apm_config.instrumentation.enabled_namespaces")
 	apmDisabledNamespaces := disabledNs //config.Datadog.GetStringSlice("apm_config.instrumentation.disabled_namespaces")
 
+	log.Info("LILIYAB1")
+	log.Infof("LILIYAB2 enabledNs %v, disabledNs %v", apmEnabledNamespaces, apmDisabledNamespaces)
 	if len(apmEnabledNamespaces) > 0 && len(apmDisabledNamespaces) > 0 {
 		return nil, fmt.Errorf("apm.instrumentation.enabled_namespaces and apm.instrumentation.disabled_namespaces configuration cannot be set together")
 	}
+	log.Info("LILIYAB3")
 
 	// Prefix the namespaces as needed by the containers.Filter.
 	prefix := containers.KubeNamespaceFilterPrefix
@@ -605,8 +604,10 @@ func (w *Webhook) isEnabledInNamespace(namespace string) bool {
 		return false
 	}
 	w.filter = filter
+	isEnabled := !w.filter.IsExcluded(nil, "", "", namespace)
+	log.Infof("LILIYAB11 for ns %s is enabled %v", namespace, isEnabled)
 
-	return !w.filter.IsExcluded(nil, "", "", namespace)
+	return isEnabled
 }
 
 func (w *Webhook) injectAutoInstruConfig(pod *corev1.Pod, libsToInject []libInfo, autoDetected bool, injectionType string) error {

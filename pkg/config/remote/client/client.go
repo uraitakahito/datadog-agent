@@ -449,22 +449,22 @@ func (c *Client) update() error {
 	if err != nil {
 		return err
 	}
-	log.Infof("LILIYAB8: %v", response.GetClientConfigs())
-	currentConfigs := c.state.GetConfigs("APM_TRACING")
-	for k, v := range currentConfigs {
-		log.Infof("LILIYAB88: %s, %s", k, v.Metadata.ID)
-	}
+	//log.Infof("LILIYAB8: %v", response.GetClientConfigs())
+	// currentConfigs := c.state.GetConfigs("APM_TRACING")
+	// for k, v := range currentConfigs {
+	// 	log.Infof("LILIYAB88: %s, %s", k, v.Metadata.ID)
+	// }
 
 	changedProducts, err := c.applyUpdate(response)
 	if err != nil {
-		log.Info("LILIYAB9")
+		//log.Info("LILIYAB9")
 		return err
 	}
-	log.Info("LILIYAB10")
+	//log.Info("LILIYAB10")
 	// We don't want to force the products to reload config if nothing changed
 	// in the latest update.
 	if len(changedProducts) == 0 {
-		log.Info("LILIYAB11")
+		//log.Info("LILIYAB11")
 		return nil
 	}
 
@@ -472,7 +472,7 @@ func (c *Client) update() error {
 	defer c.m.Unlock()
 	for product, productListeners := range c.listeners {
 		if containsProduct(changedProducts, product) {
-			log.Infof("LILIYAB12: %s", product)
+			//log.Infof("LILIYAB12: %s", product)
 			for _, listener := range productListeners {
 				listener(c.state.GetConfigs(product), c.state.UpdateApplyStatus)
 			}
