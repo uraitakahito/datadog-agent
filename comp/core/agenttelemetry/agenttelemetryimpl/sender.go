@@ -166,9 +166,28 @@ func newSenderImpl(
 	logComp log.Component,
 	hostComp host.Component,
 	client client) (sender, error) {
-	// Form Agent Telemetry endpoint
-	endpoint := utils.GetMainEndpoint(cfgComp, telemetryEndpointPrefix, "dd_url")
-	endpointURL, err := url.JoinPath(endpoint, "/api/v2/apmtelemetry")
+
+	// Form Agent Telemetry endpoint URL
+	// In theory a call to utils.GetMainEndpoint() with "dd_url" should be enough
+	// however the old and "preferred" in this case dd_url method would return AS IS
+	// without forming "https://instrumentation-telemetry-intake." prefix which would
+	// not work for Agent Telemetry intake. And so the following code use a newer
+	// "site" configuration parameter and accordingly would fail without it, which
+	// will be the current limitation. In all likelihood it may not work with configured
+	// proxies which are using dd_url as well.
+	//
+	// Future release should address the issue above. Moreover, the actual "sending"
+	// part has to be moved to "DefaultForwarder" component with a new function like
+	// SubmitAgentTelemetry() which should be cognizant of Agent Telemetry endpoint
+	// considerations. It should be moved to "DefaultForwarder" component because it
+	// supports retry, caching, URL management, API key rotation at runtime, flush to
+	// disk, backoff logic, etc.
+	site := cfgComp.GetString("site")
+	if len(site) == 0 {
+		return nil, fmt.Errorf("site is not set in the configuration")
+	}
+	prefixedSite := utils.BuildURLWithPrefix(telemetryEndpointPrefix, site)
+	endpointURL, err := url.JoinPath(prefixedSite, "/api/v2/apmtelemetry")
 	if err != nil {
 		return nil, fmt.Errorf("failed to form agent telemetry endpoint URL from configuration: %v", err)
 	}
@@ -301,7 +320,9 @@ func (s *senderImpl) flushSession(ss *senderSession) error {
 		return err
 	}
 
-	// Send the payload
+	// Send the payload. In the future we want to move this functionality/code into DefaultForwarder
+	// because it provides retry, caching, URL management, API key rotation at runtime, flush to disk,
+	// backoff logic etc.
 	req, err := http.NewRequest("POST", s.endpointURL, bytes.NewReader(reqBody))
 	if err != nil {
 		return err
@@ -317,9 +338,8 @@ func (s *senderImpl) flushSession(ss *senderSession) error {
 		}
 	}()
 
-	// Log return status
-	//if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-	if resp.StatusCode == 0 {
+	// Log return status (and URL if unsuccessful)
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		s.logComp.Infof("Telemetery enpoint response status: %s, status code: %d", resp.Status, resp.StatusCode)
 	} else {
 		s.logComp.Warnf("Telemetery enpoint response status: %s, status code: %d, url: %s", resp.Status, resp.StatusCode, s.endpointURL)
