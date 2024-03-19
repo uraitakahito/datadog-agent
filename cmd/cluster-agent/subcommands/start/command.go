@@ -427,6 +427,7 @@ func start(log log.Component,
 			Client:              apiCl.Cl,
 			StopCh:              stopCh,
 			RcClient:            rcClient,
+			ClusterName:         clusterName,
 		}
 
 		webhooks, err := admissionpkg.StartControllers(admissionCtx)

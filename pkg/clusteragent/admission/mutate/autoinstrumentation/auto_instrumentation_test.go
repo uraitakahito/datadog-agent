@@ -244,7 +244,7 @@ func TestInjectAutoInstruConfig(t *testing.T) {
 			mockConfig.SetWithoutSource("remote_configuration.enabled", false)
 			mockConfig.SetWithoutSource("admission_controller.auto_instrumentation.patcher.fallback_to_file_provider", true)
 			mockConfig.SetWithoutSource("admission_controller.auto_instrumentation.patcher.file_provider_path", "testdata/auto-instru.json")
-			webhook, err := NewWebhook(&rcclient.Client{}, make(chan struct{}), make(chan struct{}))
+			webhook, err := NewWebhook(&rcclient.Client{}, make(chan struct{}), make(chan struct{}), "")
 			require.NoError(t, err)
 
 			err = webhook.injectAutoInstruConfig(tt.pod, tt.libsToInject, false, "")
@@ -606,7 +606,7 @@ func TestExtractLibInfo(t *testing.T) {
 			// Need to create a new instance of the webhook to take into account
 			// the config changes.
 			//apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(nil, nil, nil)
-			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(&rcclient.Client{}, make(chan struct{}), make(chan struct{}))
+			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(&rcclient.Client{}, make(chan struct{}), make(chan struct{}), "")
 			require.NoError(t, errInitAPMInstrumentation)
 
 			libsToInject, _ := apmInstrumentationWebhook.extractLibInfo(tt.pod)
@@ -1881,7 +1881,7 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 			// Need to create a new instance of the webhook to take into account
 			// the config changes.
 			//apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(nil, nil, nil)
-			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(&rcclient.Client{}, make(chan struct{}), make(chan struct{}))
+			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(&rcclient.Client{}, make(chan struct{}), make(chan struct{}), "")
 
 			require.NoError(t, errInitAPMInstrumentation)
 
@@ -2133,7 +2133,7 @@ func TestShouldInject(t *testing.T) {
 			// Need to create a new instance of the webhook to take into account
 			// the config changes.
 			//apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(nil, nil, nil)
-			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(&rcclient.Client{}, make(chan struct{}), make(chan struct{}))
+			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(&rcclient.Client{}, make(chan struct{}), make(chan struct{}), "")
 			require.NoError(t, errInitAPMInstrumentation)
 
 			if got := ShouldInject(tt.pod); got != tt.want {
@@ -2187,7 +2187,7 @@ func TestGetCachedApmInstrumentationConfiguration(t *testing.T) {
 
 			// Need to create a new instance of the webhook to take into account
 			// the config changes.
-			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(&rcclient.Client{}, make(chan struct{}), make(chan struct{}))
+			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(&rcclient.Client{}, make(chan struct{}), make(chan struct{}), "")
 			//require.Equal(t, nil, apmInstrumentationWebhook.apmInstrumentationState.currentConfiguration)
 			require.Equal(t, true, apmInstrumentationWebhook.apmInstrumentationState.currentConfiguration.enabled)
 			require.Equal(t, []string{}, apmInstrumentationWebhook.apmInstrumentationState.currentConfiguration.enabledNamespaces)

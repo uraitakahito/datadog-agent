@@ -48,12 +48,13 @@ func NewController(
 	config Config,
 	rcClient *rcclient.Client,
 	stopCh <-chan struct{},
+	clusterName string,
 ) Controller {
 	if config.useAdmissionV1() {
-		return NewControllerV1(client, secretInformer, admissionInterface.V1().MutatingWebhookConfigurations(), isLeaderFunc, isLeaderNotif, config, rcClient, stopCh)
+		return NewControllerV1(client, secretInformer, admissionInterface.V1().MutatingWebhookConfigurations(), isLeaderFunc, isLeaderNotif, config, rcClient, stopCh, clusterName)
 	}
 
-	return NewControllerV1beta1(client, secretInformer, admissionInterface.V1beta1().MutatingWebhookConfigurations(), isLeaderFunc, isLeaderNotif, config, rcClient, stopCh)
+	return NewControllerV1beta1(client, secretInformer, admissionInterface.V1beta1().MutatingWebhookConfigurations(), isLeaderFunc, isLeaderNotif, config, rcClient, stopCh, clusterName)
 }
 
 // MutatingWebhook represents a mutating webhook
@@ -77,14 +78,14 @@ type MutatingWebhook interface {
 	MutateFunc() admission.WebhookFunc
 }
 
-func mutatingWebhooks(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh <-chan struct{}) []MutatingWebhook {
+func mutatingWebhooks(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh <-chan struct{}, clusterName string) []MutatingWebhook {
 	webhooks := []MutatingWebhook{
 		config.NewWebhook(),
 		tagsfromlabels.NewWebhook(),
 		agentsidecar.NewWebhook(),
 	}
 
-	apm, err := autoinstrumentation.GetWebhook(rcClient, isLeaderNotif, stopCh)
+	apm, err := autoinstrumentation.GetWebhook(rcClient, isLeaderNotif, stopCh, clusterName)
 	if err == nil {
 		webhooks = append(webhooks, apm)
 	} else {

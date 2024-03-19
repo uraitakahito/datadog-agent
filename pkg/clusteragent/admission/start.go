@@ -34,6 +34,7 @@ type ControllerContext struct {
 	Client              kubernetes.Interface
 	StopCh              chan struct{}
 	RcClient            *rcclient.Client
+	ClusterName         string
 }
 
 // StartControllers starts the secret and webhook controllers
@@ -79,6 +80,7 @@ func StartControllers(ctx ControllerContext) ([]webhook.MutatingWebhook, error) 
 		webhookConfig,
 		ctx.RcClient,
 		ctx.StopCh,
+		ctx.ClusterName,
 	)
 
 	go secretController.Run(ctx.StopCh)

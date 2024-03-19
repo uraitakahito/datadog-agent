@@ -295,6 +295,7 @@ func newClient(cf ConfigFetcher, opts ...func(opts *Options)) (*Client, error) {
 // If the client is already started, this is a no-op. At this time, a client that has been stopped cannot
 // be restarted.
 func (c *Client) Start() {
+	log.Info("LILIYA24")
 	c.startupSync.Do(c.startFn)
 }
 
@@ -324,10 +325,12 @@ func (c *Client) SetAgentName(agentName string) {
 func (c *Client) Subscribe(product string, fn func(update map[string]state.RawConfig, applyStateCallback func(string, state.ApplyStatus))) {
 	c.m.Lock()
 	defer c.m.Unlock()
+	log.Info("LILIYA21")
 
 	// Make sure the product belongs to the list of requested product
 	knownProduct := false
 	for _, p := range c.products {
+		log.Infof("LILIYA22 %s", p)
 		if p == product {
 			knownProduct = true
 			break
@@ -336,7 +339,7 @@ func (c *Client) Subscribe(product string, fn func(update map[string]state.RawCo
 	if !knownProduct {
 		c.products = append(c.products, product)
 	}
-
+	log.Info("LILIYA23")
 	c.listeners[product] = append(c.listeners[product], fn)
 }
 
@@ -344,6 +347,7 @@ func (c *Client) Subscribe(product string, fn func(update map[string]state.RawCo
 func (c *Client) GetConfigs(product string) map[string]state.RawConfig {
 	c.m.Lock()
 	defer c.m.Unlock()
+	log.Infof("LILIYA20")
 	return c.state.GetConfigs(product)
 }
 
@@ -445,14 +449,22 @@ func (c *Client) update() error {
 	if err != nil {
 		return err
 	}
+	log.Infof("LILIYAB8: %v", response.GetClientConfigs())
+	currentConfigs := c.state.GetConfigs("APM_TRACING")
+	for k, v := range currentConfigs {
+		log.Infof("LILIYAB88: %s, %s", k, v.Metadata.ID)
+	}
 
 	changedProducts, err := c.applyUpdate(response)
 	if err != nil {
+		log.Info("LILIYAB9")
 		return err
 	}
+	log.Info("LILIYAB10")
 	// We don't want to force the products to reload config if nothing changed
 	// in the latest update.
 	if len(changedProducts) == 0 {
+		log.Info("LILIYAB11")
 		return nil
 	}
 
@@ -460,6 +472,7 @@ func (c *Client) update() error {
 	defer c.m.Unlock()
 	for product, productListeners := range c.listeners {
 		if containsProduct(changedProducts, product) {
+			log.Infof("LILIYAB12: %s", product)
 			for _, listener := range productListeners {
 				listener(c.state.GetConfigs(product), c.state.UpdateApplyStatus)
 			}

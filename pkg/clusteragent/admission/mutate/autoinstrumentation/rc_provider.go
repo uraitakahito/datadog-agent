@@ -20,10 +20,10 @@ import (
 
 // remoteConfigProvider consumes tracing configs from RC and delivers them to the patcher
 type remoteConfigProvider struct {
-	client        *rcclient.Client
-	isLeaderNotif <-chan struct{}
-	subscribers   map[TargetObjKind]chan Request
-	//clusterName        string
+	client                  *rcclient.Client
+	isLeaderNotif           <-chan struct{}
+	subscribers             map[TargetObjKind]chan Request
+	clusterName             string
 	telemetryCollector      telemetry.TelemetryCollector
 	apmInstrumentationState *instrumentationConfigurationCache
 }
@@ -39,15 +39,16 @@ func newRemoteConfigProvider(
 	client *rcclient.Client,
 	isLeaderNotif <-chan struct{},
 	telemetryCollector telemetry.TelemetryCollector,
+	clusterName string,
 ) (*remoteConfigProvider, error) {
 	if client == nil {
 		return nil, errors.New("remote config client not initialized")
 	}
 	return &remoteConfigProvider{
-		client:        client,
-		isLeaderNotif: isLeaderNotif,
-		subscribers:   make(map[TargetObjKind]chan Request),
-		//clusterName:        clusterName,
+		client:             client,
+		isLeaderNotif:      isLeaderNotif,
+		subscribers:        make(map[TargetObjKind]chan Request),
+		clusterName:        clusterName,
 		telemetryCollector: telemetryCollector,
 	}, nil
 }
@@ -92,19 +93,25 @@ func (rcp *remoteConfigProvider) process(update map[string]state.RawConfig, _ fu
 			log.Errorf("Error while parsing config: %v", err)
 			continue
 		}
+		if req.K8sTargetV2 == nil || len(req.K8sTargetV2.ClusterTargets) == 0 {
+			log.Infof("Ignoring update with configId %s, because K8sTargetV2 is not set", req.ID)
+			continue
+		}
+		hasUpdateForCluster := false
+		for _, target := range req.K8sTargetV2.ClusterTargets {
+			if target.ClusterName == rcp.clusterName {
+				hasUpdateForCluster = true
+				break
+			}
+		}
+		if !hasUpdateForCluster {
+			log.Infof("Ignoring update with configId %s, because K8sTargetV2 doesn't have current cluster as a target", req.ID)
+			continue
+		}
 		req.RcVersion = config.Metadata.Version
 		log.Debugf("Patch request parsed %+v", req)
-		// if err := req.Validate(rcp.clusterName); err != nil {
-		// 	invalid++
-		// 	rcp.telemetryCollector.SendRemoteConfigPatchEvent(req.getApmRemoteConfigEvent(err, telemetry.InvalidPatchRequest))
-		// 	log.Errorf("Skipping invalid patch request: %s", err)
-		// 	continue
-		// }
 		if ch, found := rcp.subscribers["cluster"]; found {
 			valid++
-			// Log a telemetry event indicating a remote config patch to the Datadog backend
-			//rcp.telemetryCollector.SendRemoteConfigPatchEvent(req.getApmRemoteConfigEvent(nil, telemetry.Success))
-			//log.Debugf("Publishing patch request for target %s", req.K8sTarget)
 			ch <- req
 		}
 	}

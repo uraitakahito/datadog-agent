@@ -30,6 +30,7 @@ func TestNewController(t *testing.T) {
 		v1Cfg,
 		nil,
 		nil,
+		"",
 	)
 
 	assert.IsType(t, &ControllerV1{}, controller)
@@ -44,6 +45,7 @@ func TestNewController(t *testing.T) {
 		v1beta1Cfg,
 		nil,
 		nil,
+		"",
 	)
 
 	assert.IsType(t, &ControllerV1beta1{}, controller)

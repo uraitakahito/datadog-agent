@@ -48,6 +48,7 @@ func NewControllerV1beta1(
 	config Config,
 	rcClient *rcclient.Client,
 	stopCh <-chan struct{},
+	clusterName string,
 ) *ControllerV1beta1 {
 	controller := &ControllerV1beta1{}
 	controller.clientSet = client
@@ -59,7 +60,7 @@ func NewControllerV1beta1(
 	controller.queue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "webhooks")
 	controller.isLeaderFunc = isLeaderFunc
 	controller.isLeaderNotif = isLeaderNotif
-	controller.mutatingWebhooks = mutatingWebhooks(rcClient, isLeaderNotif, stopCh)
+	controller.mutatingWebhooks = mutatingWebhooks(rcClient, isLeaderNotif, stopCh, clusterName)
 	controller.generateTemplates()
 
 	if _, err := secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

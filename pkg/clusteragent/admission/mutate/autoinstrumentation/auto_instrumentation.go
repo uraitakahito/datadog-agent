@@ -150,7 +150,7 @@ type Webhook struct {
 }
 
 // NewWebhook returns a new Webhook
-func NewWebhook(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh <-chan struct{}) (*Webhook, error) {
+func NewWebhook(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh <-chan struct{}, clusterName string) (*Webhook, error) {
 	containerRegistry := mutatecommon.ContainerRegistry("admission_controller.auto_instrumentation.container_registry")
 
 	b := config.Datadog.GetBool("apm_config.instrumentation.enabled")
@@ -172,8 +172,9 @@ func NewWebhook(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh
 		log.Debugf("1111111111111111111111")
 		return w, nil
 	}
+
 	if config.IsRemoteConfigEnabled(config.Datadog) {
-		w.rcProvider, _ = newRemoteConfigProvider(rcClient, isLeaderNotif, nil)
+		w.rcProvider, _ = newRemoteConfigProvider(rcClient, isLeaderNotif, nil, clusterName)
 		log.Debugf("22222222222222222222")
 	}
 	if config.Datadog.GetBool("admission_controller.auto_instrumentation.patcher.fallback_to_file_provider") {
@@ -199,12 +200,12 @@ func NewWebhook(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh
 }
 
 // GetWebhook returns the Webhook instance, creating it if it doesn't exist
-func GetWebhook(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh <-chan struct{}) (*Webhook, error) {
+func GetWebhook(rcClient *rcclient.Client, isLeaderNotif <-chan struct{}, stopCh <-chan struct{}, clusterName string) (*Webhook, error) {
 	initOnce.Do(func() {
 		log.Infof("LILIYA7")
 		if apmInstrumentationWebhook == nil {
 			log.Infof("LILIYA8")
-			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(rcClient, isLeaderNotif, stopCh)
+			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(rcClient, isLeaderNotif, stopCh, clusterName)
 			log.Debugf("Created APM webhook")
 		}
 	})
@@ -581,7 +582,7 @@ func ShouldInject(pod *corev1.Pod) bool {
 		}
 	}
 
-	apmWebhook, err := GetWebhook(nil, nil, nil)
+	apmWebhook, err := GetWebhook(nil, nil, nil, "")
 	if err != nil {
 		return config.Datadog.GetBool("admission_controller.mutate_unlabelled")
 	}
