@@ -290,14 +290,10 @@ func start(log log.Component,
 	clusterId, err := apicommon.GetOrCreateClusterID(coreClient)
 	if err != nil {
 		pkglog.Errorf("Failed to generate or retrieve the cluster ID")
-	} else {
-		pkglog.Errorf("Retrieved cluster id: %s", clusterId)
 	}
 
 	if clusterName == "" {
 		pkglog.Warn("Failed to auto-detect a Kubernetes cluster name. We recommend you set it manually via the cluster_name config option")
-	} else {
-		pkglog.Warnf("ClusterName %s", clusterName)
 	}
 
 	// Initialize and start remote configuration client
@@ -526,7 +522,7 @@ func initializeRemoteConfigClient(
 	ctx context.Context,
 	rcService rccomp.Component,
 	config config.Component,
-	clusterId string,
+	clusterID string,
 ) (*rcclient.Client, error) {
 	clusterName := ""
 	hname, err := hostname.Get(ctx)
@@ -544,7 +540,7 @@ func initializeRemoteConfigClient(
 
 	rcClient, err := rcclient.NewClient(rcService,
 		rcclient.WithAgent("cluster-agent", version.AgentVersion),
-		rcclient.WithCluster(clusterName, clusterId),
+		rcclient.WithCluster(clusterName, clusterID),
 		rcclient.WithProducts(state.ProductAPMTracing),
 		rcclient.WithPollInterval(5*time.Second),
 		rcclient.WithDirectorRootOverride(config.GetString("remote_configuration.director_root")),
