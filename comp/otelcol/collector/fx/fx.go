@@ -8,7 +8,7 @@ import (
 
 type dependencies struct {
 	fx.In
-	collectorimpl.Dependencies
+	collectorimpl.Inputs
 
 	/*
 	   // Lc specifies the fx lifecycle settings, used for appending startup
@@ -35,7 +35,7 @@ type dependencies struct {
 
 type provides struct {
 	fx.Out
-	collectorimpl.Provides
+	collectorimpl.Outputs
 	/*
 		Comp           collectortype.Component
 		StatusProvider status.InformationProvider

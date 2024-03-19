@@ -9,8 +9,11 @@ import (
 	"context"
 
 	"github.com/DataDog/datadog-agent/comp/core/config"
+	corelog "github.com/DataDog/datadog-agent/comp/core/log"
 	"github.com/DataDog/datadog-agent/comp/core/status"
+	logsagent "github.com/DataDog/datadog-agent/comp/logs/agent"
 	"github.com/DataDog/datadog-agent/comp/metadata/inventoryagent"
+	collectortype "github.com/DataDog/datadog-agent/comp/otelcol/collector/type"
 	"github.com/DataDog/datadog-agent/comp/otelcol/otlp"
 	"github.com/DataDog/datadog-agent/pkg/logs/message"
 	"github.com/DataDog/datadog-agent/pkg/serializer"
@@ -25,7 +28,7 @@ const (
 // to be instantiated.
 
 type collector struct {
-	deps dependencies
+	deps Inputs
 	col  *otlp.Pipeline
 }
 
@@ -72,7 +75,7 @@ func (c *collector) Status() otlp.CollectorStatus {
 	return c.col.GetCollectorStatus()
 }
 
-type Dependencies struct {
+type Inputs struct {
 	// Lc specifies the fx lifecycle settings, used for appending startup
 	// and shutdown hooks.
 	//Lc fx.Lifecycle
@@ -94,16 +97,16 @@ type Dependencies struct {
 	InventoryAgent inventoryagent.Component
 }
 
-type Provides struct {
+type Outputs struct {
 	Comp           collectortype.Component
 	StatusProvider status.InformationProvider
 }
 
 // newPipeline creates a new Component for this module and returns any errors on failure.
-func NewAgentComponents(deps dependencies) (provides, error) {
+func NewAgentComponents(deps Inputs) (Outputs, error) {
 	collector := &collector{deps: deps}
 
-	return provides{
+	return Outputs{
 		Comp:           collector,
 		StatusProvider: status.NewInformationProvider(collector),
 	}, nil
