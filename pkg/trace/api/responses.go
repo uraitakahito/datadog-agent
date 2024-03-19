@@ -90,6 +90,14 @@ func (wc *writeCounter) Write(p []byte) (n int, err error) {
 	return wc.w.Write(p)
 }
 
+func (wc *writeCounter) Flush() {
+	if f, ok := wc.w.(http.Flusher); ok {
+		f.Flush()
+	} else {
+		panic("ResponseWriter (%v) does not support Flush. This can cause latency issues for trace submission.")
+	}
+}
+
 func (wc *writeCounter) N() uint64 { return wc.n.Load() }
 
 // httpRateByService outputs, as a JSON, the recommended sampling rates for all services.
@@ -120,5 +128,6 @@ func httpRateByService(ratesVersion string, w http.ResponseWriter, dynConf *samp
 	}
 	encoder := json.NewEncoder(wc)
 	err = encoder.Encode(response)
+	wc.Flush()
 	return
 }
