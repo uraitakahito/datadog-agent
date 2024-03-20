@@ -8,6 +8,7 @@ package agent
 
 import (
 	"context"
+	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -96,7 +97,7 @@ type Agent struct {
 	ModifySpan func(*pb.TraceChunk, *pb.Span)
 
 	// In takes incoming payloads to be processed by the agent.
-	//In chan *api.Payload
+	In chan *api.Payload
 
 	// config
 	conf *config.AgentConfig
@@ -112,7 +113,7 @@ type Agent struct {
 func NewAgent(ctx context.Context, conf *config.AgentConfig, telemetryCollector telemetry.TelemetryCollector, statsd statsd.ClientInterface) *Agent {
 	dynConf := sampler.NewDynamicConfig()
 	log.Infof("Starting Agent with processor trace buffer of size %d", conf.TraceBuffer)
-	//in := make(chan *api.Payload, conf.TraceBuffer)
+	in := make(chan *api.Payload, conf.TraceBuffer)
 	//statsChan := make(chan *pb.StatsPayload, 1)
 	oconf := conf.Obfuscation.Export(conf)
 	if oconf.Statsd == nil {
@@ -133,14 +134,14 @@ func NewAgent(ctx context.Context, conf *config.AgentConfig, telemetryCollector 
 		StatsWriter:           statsWriter,
 		obfuscator:            obfuscate.NewObfuscator(oconf),
 		cardObfuscator:        newCreditCardsObfuscator(conf.Obfuscation.CreditCards),
-		//In:                    in,
-		conf:        conf,
-		ctx:         ctx,
-		DebugServer: api.NewDebugServer(conf),
-		Statsd:      statsd,
-		Timing:      timing,
+		In:                    in,
+		conf:                  conf,
+		ctx:                   ctx,
+		DebugServer:           api.NewDebugServer(conf),
+		Statsd:                statsd,
+		Timing:                timing,
 	}
-	agnt.Receiver = api.NewHTTPReceiver(conf, dynConf, agnt, telemetryCollector, statsd, timing)
+	agnt.Receiver = api.NewHTTPReceiver(in, conf, dynConf, agnt, telemetryCollector, statsd, timing)
 	agnt.OTLPReceiver = api.NewOTLPReceiver(conf, agnt, statsd, timing)
 	agnt.RemoteConfigHandler = remoteconfighandler.New(conf, agnt.PrioritySampler, agnt.RareSampler, agnt.ErrorsSampler)
 	agnt.TraceWriter = writer.NewTraceWriter(conf, agnt.PrioritySampler, agnt.ErrorsSampler, agnt.RareSampler, telemetryCollector, statsd, timing)
@@ -169,18 +170,18 @@ func (a *Agent) Run() {
 	//go a.TraceWriter.Run()
 	go a.StatsWriter.Run()
 
-	// // Having GOMAXPROCS/2 processor threads is
-	// // enough to keep the downstream writer busy.
-	// // Having more processor threads would not speed
-	// // up processing, but just expand memory.
-	// workers := runtime.GOMAXPROCS(0) / 2
-	// if workers < 1 {
-	// 	workers = 1
-	// }
+	// Having GOMAXPROCS/2 processor threads is
+	// enough to keep the downstream writer busy.
+	// Having more processor threads would not speed
+	// up processing, but just expand memory.
+	workers := runtime.GOMAXPROCS(0) / 2
+	if workers < 1 {
+		workers = 1
+	}
 
-	// for i := 0; i < workers; i++ {
-	// 	go a.work()
-	// }
+	for i := 0; i < workers; i++ {
+		go a.work()
+	}
 
 	a.waitShutdown()
 }
@@ -203,16 +204,16 @@ func (a *Agent) FlushSync() {
 	}
 }
 
-// func (a *Agent) work() {
-// 	for {
-// 		p, ok := <-a.In
-// 		if !ok {
-// 			return
-// 		}
-// 		a.Process(p)
-// 	}
+func (a *Agent) work() {
+	for {
+		p, ok := <-a.In
+		if !ok {
+			return
+		}
+		a.ProcessTrace(p)
+	}
 
-// }
+}
 
 func (a *Agent) waitShutdown() {
 	<-a.ctx.Done()

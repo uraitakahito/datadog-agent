@@ -61,7 +61,7 @@ func putBuffer(buffer *bytes.Buffer) {
 type HTTPReceiver struct {
 	Stats *info.ReceiverStats
 
-	//out                 chan *Payload
+	out                 chan *Payload
 	conf                *config.AgentConfig
 	dynConf             *sampler.DynamicConfig
 	server              *http.Server
@@ -92,6 +92,7 @@ type HTTPReceiver struct {
 
 // NewHTTPReceiver returns a pointer to a new HTTPReceiver
 func NewHTTPReceiver(
+	out chan *Payload,
 	conf *config.AgentConfig,
 	dynConf *sampler.DynamicConfig,
 	statsProcessor Processor,
@@ -114,7 +115,7 @@ func NewHTTPReceiver(
 	return &HTTPReceiver{
 		Stats: info.NewReceiverStats(),
 
-		//out:                 out,
+		out:                 out,
 		processor:           statsProcessor,
 		conf:                conf,
 		dynConf:             dynConf,
@@ -570,8 +571,8 @@ func (r *HTTPReceiver) handleTraces(v Version, w http.ResponseWriter, req *http.
 		ClientComputedStats:    req.Header.Get(header.ComputedStats) != "",
 		ClientDroppedP0s:       droppedTracesFromHeader(req.Header, ts),
 	}
-	//r.out <- payload
-	go r.processor.ProcessTrace(payload)
+	r.out <- payload
+	//go r.processor.ProcessTrace(payload)
 }
 
 // runMetaHook runs the pb.MetaHook on all spans from traces.
