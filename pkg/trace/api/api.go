@@ -571,7 +571,7 @@ func (r *HTTPReceiver) handleTraces(v Version, w http.ResponseWriter, req *http.
 		ClientDroppedP0s:       droppedTracesFromHeader(req.Header, ts),
 	}
 	//r.out <- payload
-	r.processor.ProcessTrace(payload)
+	go r.processor.ProcessTrace(payload)
 }
 
 // runMetaHook runs the pb.MetaHook on all spans from traces.
