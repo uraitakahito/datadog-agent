@@ -6,13 +6,10 @@
 // Package collector implements the OTLP Collector component for non-OTLP builds.
 package collectorimpl
 
-/*
-// Component represents the no-op Component interface.
-type Component interface {
-	Start() error
-	Stop()
-}
-*/
+import (
+	collectordef "github.com/DataDog/datadog-agent/comp/otelcol/collector/def"
+	"github.com/DataDog/datadog-agent/comp/otelcol/otlp"
+)
 
 type noOpComp struct{}
 
@@ -21,6 +18,10 @@ func (noOpComp) Start() error { return nil }
 
 // Stop is a no-op.
 func (noOpComp) Stop() {}
+
+func (noOpComp) Status() otlp.CollectorStatus {
+	return otlp.CollectorStatus{}
+}
 
 func NewAgentComponent() (collectordef.Component, error) {
 	return noOpComp{}, nil
