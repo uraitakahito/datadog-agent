@@ -13,7 +13,7 @@ import (
 	"github.com/DataDog/datadog-agent/comp/core/status"
 	logsagent "github.com/DataDog/datadog-agent/comp/logs/agent"
 	"github.com/DataDog/datadog-agent/comp/metadata/inventoryagent"
-	collectortype "github.com/DataDog/datadog-agent/comp/otelcol/collector/type"
+	collectordef "github.com/DataDog/datadog-agent/comp/otelcol/collector/def"
 	"github.com/DataDog/datadog-agent/comp/otelcol/otlp"
 	"github.com/DataDog/datadog-agent/pkg/logs/message"
 	"github.com/DataDog/datadog-agent/pkg/serializer"
@@ -98,7 +98,7 @@ type Inputs struct {
 }
 
 type Outputs struct {
-	Comp           collectortype.Component
+	Comp           collectordef.Component
 	StatusProvider status.InformationProvider
 }
 
