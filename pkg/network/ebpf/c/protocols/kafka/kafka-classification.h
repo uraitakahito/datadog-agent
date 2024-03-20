@@ -36,6 +36,26 @@ _Pragma( STRINGIFY(unroll(max_buffer_size)) )                                   
     }                                                                                                                                   \
     return true;
 
+#define CHECK_STRING_COMPOSED_OF_ASCII_PRINTABLE(max_buffer_size, real_size, buffer)                                                    \
+    char ch = 0;                                                                                                                        \
+_Pragma( STRINGIFY(unroll(max_buffer_size)) )                                                                                           \
+    for (int j = 0; j < max_buffer_size; j++) {                                                                                         \
+        /* Verifies we are not exceeding the real client_id_size, and if we do, we finish the iteration as we reached */                \
+        /* to the end of the buffer and all checks have been successful. */                                                             \
+        if (j + 1 > real_size) {                                                                                                        \
+            break;                                                                                                                      \
+        }                                                                                                                               \
+        ch = buffer[j];                                                                                                                 \
+        if (('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z') || ('0' <= ch && ch <= '9') || ch == '.' || ch == '_' || ch == '-') {  \
+            continue;                                                                                                                   \
+        }                                                                                                                               \
+        if (ch >= ' ' && ch <= '~') {                                                                                                   \
+            continue;                                                                                                                   \
+        }                                                                                                                               \
+        return false;                                                                                                                   \
+    }                                                                                                                                   \
+    return true;
+
 // Reads the client id (up to CLIENT_ID_SIZE_TO_VALIDATE bytes from the given offset), and verifies if it is valid,
 // namely, composed only from characters from [a-zA-Z0-9._-].
 static __always_inline bool is_valid_client_id(struct __sk_buff *skb, u32 offset, u16 real_client_id_size) {
@@ -50,7 +70,7 @@ static __always_inline bool is_valid_client_id(struct __sk_buff *skb, u32 offset
     bpf_skb_load_bytes_with_telemetry(skb, offset, (char *)client_id, CLIENT_ID_SIZE_TO_VALIDATE);
 
     // Returns true if client_id is composed out of the characters [a-z], [A-Z], [0-9], ".", "_", or "-".
-    CHECK_STRING_COMPOSED_OF_ASCII(CLIENT_ID_SIZE_TO_VALIDATE, real_client_id_size, client_id);
+    CHECK_STRING_COMPOSED_OF_ASCII_PRINTABLE(CLIENT_ID_SIZE_TO_VALIDATE, real_client_id_size, client_id);
 }
 
 // Checks the given kafka header represents a valid one.
