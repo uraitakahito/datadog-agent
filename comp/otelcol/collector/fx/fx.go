@@ -37,7 +37,7 @@ type provides struct {
 	fx.Out
 	collectorimpl.Outputs
 	/*
-		Comp           collectortype.Component
+		Comp           collectordef.Component
 		StatusProvider status.InformationProvider
 	*/
 }
@@ -45,5 +45,10 @@ type provides struct {
 // Module specifies the Collector module bundle.
 func Module() fxutil.Module {
 	return fxutil.Component(
-		fx.Provide(collectorimpl.NewAgentComponents))
+		fx.Provide(func(deps dependencies) provides {
+			outputs, _ := collectorimpl.NewAgentComponents(deps.Inputs)
+			return provides{
+				Outputs: outputs,
+			}
+		}))
 }
