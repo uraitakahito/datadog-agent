@@ -11,6 +11,7 @@ if [ "$os_family" == "Linux" ]; then
     sudo apt update
     sudo apt install -y \
         aria2 \
+        cpu-checker \
         fio \
         socat \
         qemu-kvm \
@@ -37,7 +38,7 @@ else
         socat \
         curl \
         libvirt \
-        gnu-sed 
+        gnu-sed
 fi
 
 pip3 install -r "${DIR_NAME}"/requirements.txt
