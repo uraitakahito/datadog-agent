@@ -60,6 +60,8 @@ func Mock(t testing.TB) *MockConfig {
 			defer m.Unlock()
 			isConfigMocked = false
 			Datadog = originalDatadogConfig
+			// Datadog is an alias of pkgconfigsetup.Datadog, so we need to replace and reset both
+			pkgconfigsetup.Datadog = originalDatadogConfig
 		})
 	}
 
@@ -67,6 +69,7 @@ func Mock(t testing.TB) *MockConfig {
 	Datadog = NewConfig("datadog", "DD", strings.NewReplacer(".", "_"))
 	// Configuration defaults
 	pkgconfigsetup.InitConfig(Datadog)
+	pkgconfigsetup.Datadog = Datadog
 	return &MockConfig{Datadog}
 }
 
