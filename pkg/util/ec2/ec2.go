@@ -141,6 +141,18 @@ func IsRunningOn(ctx context.Context) bool {
 
 // GetHostAliases returns the host aliases from the EC2 metadata API.
 func GetHostAliases(ctx context.Context) ([]string, error) {
+	aliases, err := getHostAliases2(ctx)
+	if err != nil {
+		return []string{}, err
+	}
+	str := config.Datadog.GetString("my_ec2_host_aliases")
+	if str != "" {
+		aliases = append(aliases, strings.Split(str, ",")...)
+	}
+	return aliases, nil
+}
+
+func getHostAliases2(ctx context.Context) ([]string, error) {
 	instanceID, err := GetInstanceID(ctx)
 	if err == nil {
 		return []string{instanceID}, nil
