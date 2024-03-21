@@ -9,7 +9,6 @@
 package ecs
 
 import (
-	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
@@ -19,7 +18,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 
 	"github.com/DataDog/datadog-agent/comp/core/autodiscovery/integration"
@@ -31,7 +29,6 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/collector/corechecks/cluster/orchestrator/collectors/ecs"
 	"github.com/DataDog/datadog-agent/pkg/orchestrator"
 	oconfig "github.com/DataDog/datadog-agent/pkg/orchestrator/config"
-	ecsmeta "github.com/DataDog/datadog-agent/pkg/util/ecs/metadata"
 	"github.com/DataDog/datadog-agent/pkg/util/log"
 	"github.com/DataDog/datadog-agent/pkg/util/optional"
 )
@@ -106,33 +103,12 @@ func (c *Check) Configure(
 		}
 		c.sender = sender
 	}
-
-	metaV1, err := ecsmeta.V1()
-	if err != nil {
-		return err
-	}
-
-	instance, err := metaV1.GetInstance(context.Background())
-	if err != nil {
-		return err
-	}
-	region, id := getRegionAndAWSAccountID(instance.ContainerInstanceArn)
-
-	if region == "" || id == 0 {
-		return errors.New("unable to parse region and AWS account ID")
-	}
-
-	c.region = region
-	c.awsAccountID = id
-	c.clusterName = instance.Cluster
-	c.clusterID = initClusterID(id, region, instance.Cluster)
-
 	return nil
 }
 
 // Run executes the check
 func (c *Check) Run() error {
-	if c.isECSCollectionEnabledFunc == nil || !c.isECSCollectionEnabledFunc() {
+	if !c.shouldRun() {
 		return nil
 	}
 
@@ -167,6 +143,42 @@ func (c *Check) Run() error {
 		c.sender.OrchestratorMetadata(result.Result.MetadataMessages, runConfig.ClusterID, int(collector.Metadata().NodeType))
 	}
 	return nil
+}
+
+func (c *Check) shouldRun() bool {
+	if c.isECSCollectionEnabledFunc == nil || !c.isECSCollectionEnabledFunc() {
+		log.Debug("Orchestrator ECS Collection is disabled")
+		return false
+	}
+
+	c.initConfig()
+
+	if c.region == "" || c.awsAccountID == 0 || c.clusterName == "" || c.clusterID == "" {
+		log.Warnf("Orchestrator ECS check is missing required information, region: %s, awsAccountID: %d, clusterName: %s, clusterID: %s", c.region, c.awsAccountID, c.clusterName, c.clusterID)
+		return false
+	}
+	return true
+}
+
+func (c *Check) initConfig() {
+	if c.awsAccountID != 0 && c.region != "" && c.clusterName != "" && c.clusterID != "" {
+		return
+	}
+
+	tasks := c.workloadmetaStore.ListECSTasks()
+	if len(tasks) == 0 {
+		return
+	}
+
+	c.awsAccountID = tasks[0].AWSAccountID
+	c.clusterName = tasks[0].ClusterName
+	c.region = tasks[0].Region
+
+	if tasks[0].Region == "" || tasks[0].AWSAccountID == 0 {
+		c.region, c.awsAccountID = getRegionAndAWSAccountID(tasks[0].EntityID.ID)
+	}
+
+	c.clusterID = initClusterID(c.awsAccountID, c.region, tasks[0].ClusterName)
 }
 
 func (c *Check) initCollectors() {
