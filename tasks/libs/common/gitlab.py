@@ -187,14 +187,14 @@ class Gitlab(RemoteAPI):
         Triggers a given job.
         """
         path = f"/projects/{quote(self.project_name, safe='')}/jobs/{job_id}/play"
-        return self.make_request(path, method="POST")
+        return self.make_request(path, method="POST", json_output=True)
 
     def retry_job(self, job_id):
         """
         Retries a given job.
         """
         path = f"/projects/{quote(self.project_name, safe='')}/jobs/{job_id}/retry"
-        return self.make_request(path, method="POST")
+        return self.make_request(path, method="POST", json_output=True)
 
     def all_pipeline_schedules(self):
         """

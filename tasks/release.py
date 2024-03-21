@@ -1656,29 +1656,6 @@ def get_active_release_branch(_ctx):
         print("main")
 
 
-def _check_artifact_status(ctx, version, package_version=None, verbose=None):
-    # get json from https://s3.amazonaws.com/dd-agent-mstesting/builds/beta/installers_v2.json
-    # check if the version is in the json
-
-    if version.is_rc():
-        url = "https://s3.amazonaws.com/dd-agent-mstesting/builds/beta/installers_v2.json"
-    else:
-        url = "https://s3.amazonaws.com/dd-agent-mstesting/builds/stable/installers_v2.json"
-    response = requests.get(url)
-    if response.status_code != 200:
-        print(f"Failed to fetch {url}")
-        raise Exit(code=1)
-    json_data = response.json()
-    ver = f"{version}-{package_version}"
-    print(f"Artifact status - {ver}")
-    agent = json_data.get("datadog-agent", {})
-    if ver in agent:
-        print(f"Artifact found for {version}: {agent[ver]['x86_64']['url']}")
-    else:
-        print(f"No artifact found for {version}")
-        raise Exit(code=1)
-
-
 def _winget_package_status(ctx, version, package_version=None, verbose=None):
     if version.is_rc():
         print("skipping winget status, winget does not support release candidate versions")
@@ -1828,10 +1805,11 @@ def _choco_job_status(ctx, verbose=0, version=None):
                 print(indent(log, " " * 4))
 
 
-def _wait_for_job(gitlab, jobId, timeout=300, job_name=None):
+def _wait_for_job(gitlab, jobId, timeout=300, job_name=None, verbose=0):
     if job_name is None:
         job_name = jobId
     start = time()
+    job_log_line_position = 0
     while time() - start < timeout:
         job = gitlab.job(jobId)
         if job['status'] == 'success':
@@ -1839,11 +1817,18 @@ def _wait_for_job(gitlab, jobId, timeout=300, job_name=None):
             return
         if job['status'] == 'failed':
             raise Exit(color_message(f"{job_name} failed", "red"))
+        if verbose > 1:
+            log = gitlab.job_log(jobId)
+            log_lines = log.splitlines()
+            if len(log_lines) > job_log_line_position:
+                for line in log_lines[job_log_line_position:]:
+                    print(indent(line, " " * 4))
+                job_log_line_position = len(log_lines)
         sleep(5)
     raise Exit(f"{job_name} timeout")
 
 
-def _run_job(gitlab, version, pipeline, job, dry_run=False):
+def _run_job(gitlab, version, pipeline, job, dry_run=False, verbose=0):
     prefix = "(DRY RUN) " if dry_run else ""
     print(f"{prefix}Triggering {job['name']} for {version} in pipeline {pipeline['id']}")
     if not dry_run:
@@ -1851,7 +1836,7 @@ def _run_job(gitlab, version, pipeline, job, dry_run=False):
             job = gitlab.trigger_job(job['id'])
         else:
             job = gitlab.retry_job(job['id'])
-    _wait_for_job(gitlab, job['id'], job_name=CHOCO_BUILD_JOB_NAME)
+    _wait_for_job(gitlab, job['id'], job_name=job['name'], verbose=verbose)
 
 
 @task(
@@ -1887,7 +1872,7 @@ def _choco_job_build(ctx, verbose=0, version=None, package_version=None, force=F
             print(f'{CHOCO_BUILD_JOB_NAME} already succeeded')
             raise Exit(code=1)
 
-    _run_job(gitlab, version, pipeline, job, dry_run=dry_run)
+    _run_job(gitlab, version, pipeline, job, dry_run=dry_run, verbose=verbose)
 
 
 @task(
@@ -1934,11 +1919,52 @@ def _choco_job_publish(ctx, verbose=0, version=None, force=False, dry_run=False)
             print(f'{CHOCO_PUBLISH_JOB_NAME} already succeeded')
             raise Exit(code=1)
 
-    _run_job(gitlab, version, pipeline, job, dry_run=dry_run)
+    _run_job(gitlab, version, pipeline, job, dry_run=dry_run, verbose=verbose)
+
+
+@task(
+    incrementable=['verbose'],
+    help={
+        'version': "Agent version to trigger choco build job for",
+        'verbose': "Print verbose output",
+    },
+)
+def _artifact_status(
+    ctx,
+    verbose=0,
+    version=None,
+    package_version=None,
+):
+    # get json from https://s3.amazonaws.com/dd-agent-mstesting/builds/beta/installers_v2.json
+    # check if the version is in the json
+
+    version = _get_or_parse_version(ctx, version)
+    if package_version is None:
+        package_version = "1"
+
+    if version.is_rc():
+        url = "https://s3.amazonaws.com/dd-agent-mstesting/builds/beta/installers_v2.json"
+    else:
+        url = "https://s3.amazonaws.com/dd-agent-mstesting/builds/stable/installers_v2.json"
+    response = requests.get(url)
+    if response.status_code != 200:
+        print(f"Failed to fetch {url}")
+        raise Exit(code=1)
+    json_data = response.json()
+    ver = f"{version}-{package_version}"
+    print(f"Artifact status - {ver}")
+    agent = json_data.get("datadog-agent", {})
+    if ver in agent:
+        print(f"Artifact found for {version}: {agent[ver]['x86_64']['url']}")
+    else:
+        print(f"No artifact found for {version}")
+        raise Exit(code=1)
 
 
 WindowsInvokeNamespace = Collection("windows")
 ChocoInvokeNamespace = Collection("choco")
+
+WindowsInvokeNamespace.add_task(_artifact_status, "artifact-status")
 
 WindowsInvokeNamespace.add_collection(ChocoInvokeNamespace)
 ChocoInvokeNamespace.add_task(_choco_package_status, "package-status")
