@@ -34,9 +34,10 @@ func NewCompressor(cfg config.Component) compression.Component {
 	case ZstdKind:
 		return strategy.NewZstdStrategy()
 	case NoneKind:
+		log.Warn("no serializer_compressor_kind set. use zlib or zstd")
 		return strategy.NewNoopStrategy()
 	default:
-		log.Warn("invalid serializer_compressor_kind detected. use one of 'zlib', 'zstd', 'none'")
+		log.Warn("invalid serializer_compressor_kind detected. use one of 'zlib', 'zstd'")
 		return strategy.NewNoopStrategy()
 	}
 }
