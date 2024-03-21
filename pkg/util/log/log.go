@@ -51,6 +51,8 @@ type DatadogLogger struct {
 	l     sync.RWMutex
 }
 
+// test
+
 // SetupLogger setup agent wide logger
 func SetupLogger(i seelog.LoggerInterface, level string) {
 	Logger = setupCommonLogger(i, level)
