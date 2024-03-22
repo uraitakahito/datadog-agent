@@ -135,41 +135,81 @@ func (s *KafkaProtocolParsingSuite) TestKafkaProtocolParsing() {
 			},
 			testBody: func(t *testing.T, ctx testContext, monitor *Monitor) {
 				topicName := ctx.extras["topic_name"].(string)
-				client, err := kafka.NewClient(kafka.Options{
-					ServerAddress: ctx.targetAddress,
-					Dialer:        defaultDialer,
-					CustomOptions: []kgo.Opt{
-						kgo.MaxVersions(kversion.V2_5_0()),
-						kgo.ConsumeTopics(topicName),
-						kgo.ClientID("xk6-kafka_linux_amd64@foobar (github.com/segmentio/kafka-go)"),
+				for _, tc := range []struct {
+					version        *kversion.Versions
+					produceVersion int
+					fetchVersion   int
+				}{
+					{
+						version:        kversion.V0_11_0(),
+						produceVersion: 3,
+						fetchVersion:   5,
 					},
-				})
-				require.NoError(t, err)
-				ctx.extras["client"] = client
-				require.NoError(t, client.CreateTopic(topicName))
+					{
+						version:        kversion.V1_0_0(),
+						produceVersion: 5,
+						fetchVersion:   6,
+					},
+					{
+						version:        kversion.V1_1_0(),
+						produceVersion: 5,
+						fetchVersion:   7,
+					},
+					{
+						version:        kversion.V2_0_0(),
+						produceVersion: 6,
+						fetchVersion:   8,
+					},
+					{
+						version:        kversion.V2_1_0(),
+						produceVersion: 7,
+						fetchVersion:   10,
+					},
+					{
+						version:        kversion.V2_5_0(),
+						produceVersion: 8,
+						fetchVersion:   11,
+					},
+				} {
+					testName := fmt.Sprintf("Produce v%d - Fetch v%d", tc.produceVersion, tc.fetchVersion)
+					t.Run(testName, func(t *testing.T) {
+						client, err := kafka.NewClient(kafka.Options{
+							ServerAddress: ctx.targetAddress,
+							Dialer:        defaultDialer,
+							CustomOptions: []kgo.Opt{
+								kgo.MaxVersions(tc.version),
+								kgo.ConsumeTopics(topicName),
+								kgo.ClientID("xk6-kafka_linux_amd64@foobar (github.com/segmentio/kafka-go)"),
+							},
+						})
+						require.NoError(t, err)
+						ctx.extras["client"] = client
+						require.NoError(t, client.CreateTopic(topicName))
 
-				record := &kgo.Record{Topic: topicName, Value: []byte("Hello Kafka!")}
-				ctxTimeout, cancel := context.WithTimeout(context.Background(), time.Second*5)
-				defer cancel()
-				require.NoError(t, client.Client.ProduceSync(ctxTimeout, record).FirstErr(), "record had a produce error while synchronously producing")
+						record := &kgo.Record{Topic: topicName, Value: []byte("Hello Kafka!")}
+						ctxTimeout, cancel := context.WithTimeout(context.Background(), time.Second*5)
+						defer cancel()
+						require.NoError(t, client.Client.ProduceSync(ctxTimeout, record).FirstErr(), "record had a produce error while synchronously producing")
 
-				fetches := client.Client.PollFetches(context.Background())
-				errs := fetches.Errors()
-				for _, err := range errs {
-					t.Errorf("PollFetches error: %+v", err)
-					t.FailNow()
+						fetches := client.Client.PollFetches(context.Background())
+						errs := fetches.Errors()
+						for _, err := range errs {
+							t.Errorf("PollFetches error: %+v", err)
+							t.FailNow()
+						}
+
+						// We expect 2 occurrences for each connection as we are working with a docker, so (1 produce + 1 fetch) * 2 = (4 stats)
+						kafkaStats := getAndValidateKafkaStats(t, monitor, 4)
+
+						// kgo client is sending an extra fetch request before running the test, so double the expected fetch request
+						validateProduceFetchCount(t, kafkaStats, topicName, kafkaParsingValidation{
+							expectedNumberOfProduceRequests: 2,
+							expectedNumberOfFetchRequests:   4,
+							expectedAPIVersionProduce:       tc.produceVersion,
+							expectedAPIVersionFetch:         tc.fetchVersion,
+						})
+					})
 				}
-
-				// We expect 2 occurrences for each connection as we are working with a docker, so (1 produce + 1 fetch) * 2 = (4 stats)
-				kafkaStats := getAndValidateKafkaStats(t, monitor, 4)
-
-				// kgo client is sending an extra fetch request before running the test, so double the expected fetch request
-				validateProduceFetchCount(t, kafkaStats, topicName, kafkaParsingValidation{
-					expectedNumberOfProduceRequests: 2,
-					expectedNumberOfFetchRequests:   4,
-					expectedAPIVersionProduce:       8,
-					expectedAPIVersionFetch:         11,
-				})
 			},
 			teardown:      kafkaTeardown,
 			configuration: getDefaultTestConfiguration,
