@@ -49,8 +49,8 @@ var (
 func init() {
 	apiKeyEndpointUnreachable.Set("Unable to reach the API Key validation endpoint")
 	apiKeyUnexpectedStatusCode.Set("Unexpected response code from the API Key validation endpoint")
-	apiKeyInvalid.Set("API Key invalid")
-	apiKeyValid.Set("API Key valid")
+	apiKeyInvalid.Set("API Key invalid?")
+	apiKeyValid.Set("API Key valid!")
 	apiKeyFake.Set("Fake API Key that skips validation")
 }
 
