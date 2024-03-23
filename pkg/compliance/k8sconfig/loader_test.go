@@ -681,12 +681,12 @@ users:
 func procTable(str string) []proc {
 	var table []proc
 	str = strings.ReplaceAll(str, "\\\n", "")
-	for _, l := range strings.Split(str, "\n") {
+	for i, l := range strings.Split(str, "\n") {
 		if l == "" {
 			continue
 		}
 		cmdline := strings.Fields(l)
-		table = append(table, buildProc(cmdline[0], cmdline))
+		table = append(table, buildProc(int32(i), cmdline[0], cmdline))
 	}
 	return table
 }

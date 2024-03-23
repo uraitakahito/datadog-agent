@@ -38,6 +38,7 @@ const (
 
 type procsLoader func(ctx context.Context) []proc
 type proc struct {
+	pid   int32
 	name  string
 	flags map[string]string
 }
@@ -80,7 +81,23 @@ func (l *loader) load(ctx context.Context, loadProcesses procsLoader) (string, *
 	node.Manifests.KubeScheduler = l.loadConfigFileMeta(filepath.Join(k8sManifestsDir, "kube-scheduler.yaml"))
 	node.Manifests.Etcd = l.loadConfigFileMeta(filepath.Join(k8sManifestsDir, "etcd.yaml"))
 
+	hostroot := l.hostroot
 	for _, proc := range loadProcesses(ctx) {
+		// Support for containerized Kubernetes components. If the process is
+		// running in a container, we need to adjust the hostroot to the
+		// container's root.
+		if containerID, ok := utils.GetProcessContainerID(proc.pid); ok && containerID != "" {
+			containerRoot, err := utils.GetContainerOverlayPath(proc.pid)
+			if err != nil {
+				l.pushError(fmt.Errorf("could not get container overlay path for container %q: %w", containerID, err))
+				l.hostroot = hostroot
+			} else {
+				l.hostroot = filepath.Join(hostroot, containerRoot)
+			}
+		} else {
+			l.hostroot = hostroot
+		}
+
 		switch proc.name {
 		case "etcd":
 			node.Components.Etcd = l.newK8sEtcdConfig(proc.flags)
@@ -584,7 +601,7 @@ func (l *loader) loadProcesses(ctx context.Context) []proc {
 			if err != nil {
 				l.pushError(err)
 			} else {
-				procs = append(procs, buildProc(name, cmdline))
+				procs = append(procs, buildProc(p.Pid, name, cmdline))
 			}
 		}
 	}
@@ -646,8 +663,8 @@ func (l *loader) parseDuration(v string) *time.Duration {
 	return &d
 }
 
-func buildProc(name string, cmdline []string) proc {
-	p := proc{name: name}
+func buildProc(pid int32, name string, cmdline []string) proc {
+	p := proc{pid: pid, name: name}
 	if len(cmdline) > 1 {
 		cmdline = cmdline[1:]
 		p.flags = make(map[string]string)
