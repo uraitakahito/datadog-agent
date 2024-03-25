@@ -76,10 +76,18 @@ func (l *loader) load(ctx context.Context, loadProcesses procsLoader) (string, *
 
 	node.AdminKubeconfig = l.loadKubeconfigMeta(filepath.Join(k8sKubeconfigsDir, "admin.conf"))
 
-	node.Manifests.KubeApiserver = l.loadConfigFileMeta(filepath.Join(k8sManifestsDir, "kube-apiserver.yaml"))
-	node.Manifests.KubeContollerManager = l.loadConfigFileMeta(filepath.Join(k8sManifestsDir, "kube-controller-manager.yaml"))
-	node.Manifests.KubeScheduler = l.loadConfigFileMeta(filepath.Join(k8sManifestsDir, "kube-scheduler.yaml"))
-	node.Manifests.Etcd = l.loadConfigFileMeta(filepath.Join(k8sManifestsDir, "etcd.yaml"))
+	if c, ok := l.loadConfigFileMeta(filepath.Join(k8sManifestsDir, "kube-apiserver.yaml")); ok {
+		node.Manifests.KubeApiserver = c
+	}
+	if c, ok := l.loadConfigFileMeta(filepath.Join(k8sManifestsDir, "kube-controller-manager.yaml")); ok {
+		node.Manifests.KubeContollerManager = c
+	}
+	if c, ok := l.loadConfigFileMeta(filepath.Join(k8sManifestsDir, "kube-scheduler.yaml")); ok {
+		node.Manifests.KubeScheduler = c
+	}
+	if c, ok := l.loadConfigFileMeta(filepath.Join(k8sManifestsDir, "etcd.yaml")); ok {
+		node.Manifests.Etcd = c
+	}
 
 	hostroot := l.hostroot
 	for _, proc := range loadProcesses(ctx) {
@@ -162,8 +170,8 @@ func (l *loader) detectManagedEnvironment(flags map[string]string, kubelet *K8sK
 				env := &K8sManagedEnvConfig{
 					Name: "eks",
 				}
-				eksMeta := l.loadConfigFileMeta("/etc/eks/release")
-				if eksMeta != nil {
+				eksMeta, ok := l.loadConfigFileMeta("/etc/eks/release")
+				if ok {
 					env.Metadata = eksMeta.Content
 				}
 				return env
@@ -237,7 +245,7 @@ func (l *loader) loadMeta(name string, loadContent bool) (string, os.FileInfo, [
 func (l *loader) loadDirMeta(name string) *K8sDirMeta {
 	_, info, _, ok := l.loadMeta(name, false)
 	if !ok {
-		return nil
+		return &K8sDirMeta{Path: name}
 	}
 	return &K8sDirMeta{
 		Path:  name,
@@ -249,18 +257,18 @@ func (l *loader) loadDirMeta(name string) *K8sDirMeta {
 
 func (l *loader) loadServiceFileMeta(names []string) *K8sConfigFileMeta {
 	for _, name := range names {
-		meta := l.loadConfigFileMeta(name)
-		if meta != nil {
+		meta, ok := l.loadConfigFileMeta(name)
+		if ok {
 			return meta
 		}
 	}
 	return nil
 }
 
-func (l *loader) loadConfigFileMeta(name string) *K8sConfigFileMeta {
+func (l *loader) loadConfigFileMeta(name string) (*K8sConfigFileMeta, bool) {
 	_, info, b, ok := l.loadMeta(name, true)
 	if !ok {
-		return nil
+		return &K8sConfigFileMeta{Path: name}, false
 	}
 
 	var content interface{}
@@ -278,7 +286,7 @@ func (l *loader) loadConfigFileMeta(name string) *K8sConfigFileMeta {
 		Group:   utils.GetFileGroup(info),
 		Mode:    uint32(info.Mode()),
 		Content: content,
-	}
+	}, true
 }
 
 func (l *loader) getConfigFromPath(meta *K8sConfigFileMeta, path string) (map[string]interface{}, string, bool) {
@@ -314,17 +322,18 @@ func (l *loader) configFileMetaHasField(meta *K8sConfigFileMeta, path string) bo
 }
 
 func (l *loader) loadKubeletConfigFileMeta(name string) *K8sConfigFileMeta {
-	meta := l.loadConfigFileMeta(name)
-	if meta == nil {
-		return nil
+	meta, ok := l.loadConfigFileMeta(name)
+	if !ok {
+		return &K8sConfigFileMeta{Path: name}
 	}
 	content, ok := meta.Content.(map[string]interface{})
 	if !ok {
-		return nil
+		l.pushError(fmt.Errorf("kubelet configuration loaded from %q is not a valid configuration", name))
+		return &K8sConfigFileMeta{Path: name}
 	}
 	if kind := content["kind"]; kind != "KubeletConfiguration" {
 		l.pushError(fmt.Errorf(`kubelet configuration loaded from %q is expected to be of kind "KubeletConfiguration"`, name))
-		return nil
+		return &K8sConfigFileMeta{Path: name}
 	}
 	// specifically parse key/cert files path to load their associated meta info.
 	if keyPath, ok := content["tlsPrivateKeyFile"].(string); ok {
@@ -346,12 +355,12 @@ func (l *loader) loadKubeletConfigFileMeta(name string) *K8sConfigFileMeta {
 func (l *loader) loadAdmissionConfigFileMeta(name string) *K8sAdmissionConfigFileMeta {
 	_, info, b, ok := l.loadMeta(name, true)
 	if !ok {
-		return nil
+		return &K8sAdmissionConfigFileMeta{Path: name}
 	}
 	var content k8sAdmissionConfigSource
 	if err := yaml.Unmarshal(b, &content); err != nil {
 		l.pushError(err)
-		return nil
+		return &K8sAdmissionConfigFileMeta{Path: name}
 	}
 	var result K8sAdmissionConfigFileMeta
 	for _, plugin := range content.Plugins {
@@ -359,7 +368,9 @@ func (l *loader) loadAdmissionConfigFileMeta(name string) *K8sAdmissionConfigFil
 		if plugin.Configuration != nil {
 			added.Configuration = plugin.Configuration
 		} else if plugin.Path != "" {
-			added.Configuration = l.loadConfigFileMeta(plugin.Path)
+			if c, ok := l.loadConfigFileMeta(plugin.Path); ok {
+				added.Configuration = c
+			}
 		}
 		result.Plugins = append(result.Plugins, added)
 	}
@@ -372,13 +383,13 @@ func (l *loader) loadAdmissionConfigFileMeta(name string) *K8sAdmissionConfigFil
 
 func (l *loader) loadEncryptionProviderConfigFileMeta(name string) *K8sEncryptionProviderConfigFileMeta {
 	_, info, b, ok := l.loadMeta(name, true)
-	if ok {
-		return nil
+	if !ok {
+		return &K8sEncryptionProviderConfigFileMeta{Path: name}
 	}
 	var content K8sEncryptionProviderConfigFileMeta
 	if err := yaml.Unmarshal(b, &content); err != nil {
 		l.pushError(err)
-		return nil
+		return &K8sEncryptionProviderConfigFileMeta{Path: name}
 	}
 	content.Path = name
 	content.User = utils.GetFileUser(info)
@@ -389,8 +400,8 @@ func (l *loader) loadEncryptionProviderConfigFileMeta(name string) *K8sEncryptio
 
 func (l *loader) loadTokenFileMeta(name string) *K8sTokenFileMeta {
 	_, info, _, ok := l.loadMeta(name, false)
-	if ok {
-		return nil
+	if !ok {
+		return &K8sTokenFileMeta{Path: name}
 	}
 	return &K8sTokenFileMeta{
 		Path:  name,
@@ -403,7 +414,7 @@ func (l *loader) loadTokenFileMeta(name string) *K8sTokenFileMeta {
 func (l *loader) loadKeyFileMeta(name string) *K8sKeyFileMeta {
 	_, info, _, ok := l.loadMeta(name, false)
 	if !ok {
-		return nil
+		return &K8sKeyFileMeta{Path: name}
 	}
 	var meta K8sKeyFileMeta
 	meta.Path = name
@@ -417,11 +428,15 @@ func (l *loader) loadKeyFileMeta(name string) *K8sKeyFileMeta {
 func (l *loader) loadCertFileMeta(name string) *K8sCertFileMeta {
 	fullpath, info, certData, ok := l.loadMeta(name, true)
 	if !ok {
-		return nil
+		return &K8sCertFileMeta{
+			Path: name,
+		}
 	}
 	meta := l.extractCertData(certData)
 	if meta == nil {
-		return nil
+		return &K8sCertFileMeta{
+			Path: name,
+		}
 	}
 	meta.Path = name
 	meta.User = utils.GetFileUser(info)
@@ -469,15 +484,15 @@ func (l *loader) extractCertData(certData []byte) *K8sCertFileMeta {
 	data.Certificate.Organization = c.Subject.Organization
 	data.Certificate.DNSNames = c.DNSNames
 	data.Certificate.IPAddresses = c.IPAddresses
-	data.Certificate.NotAfter = c.NotAfter
-	data.Certificate.NotBefore = c.NotBefore
+	data.Certificate.NotAfter = &c.NotAfter
+	data.Certificate.NotBefore = &c.NotBefore
 	return &data
 }
 
 func (l *loader) loadKubeconfigMeta(name string) *K8sKubeconfigMeta {
 	_, info, b, ok := l.loadMeta(name, true)
 	if !ok {
-		return nil
+		return &K8sKubeconfigMeta{Path: name}
 	}
 
 	var source k8SKubeconfigSource
@@ -487,7 +502,7 @@ func (l *loader) loadKubeconfigMeta(name string) *K8sKubeconfigMeta {
 	}
 	if erru != nil {
 		l.pushError(erru)
-		return nil
+		return &K8sKubeconfigMeta{Path: name}
 	}
 
 	content := &K8SKubeconfig{
