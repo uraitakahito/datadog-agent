@@ -319,7 +319,18 @@ func (w *Webhook) inject(pod *corev1.Pod, _ string, _ dynamic.Interface) error {
 	if pod == nil {
 		return errors.New("cannot inject lib into nil pod")
 	}
+
 	injectApmTelemetryConfig(pod)
+	rcConfigIDEnvVar := corev1.EnvVar{
+		Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+		Value: "",
+	}
+	if rcId, ok := w.apmInstrumentationState.namespaceToConfigIdMap[pod.Namespace]; ok {
+		rcConfigIDEnvVar.Value = rcId
+	} else if rcIdCluster, ok := w.apmInstrumentationState.namespaceToConfigIdMap["cluster"]; ok {
+		rcConfigIDEnvVar.Value = rcIdCluster
+	}
+	_ = mutatecommon.InjectEnv(pod, rcConfigIDEnvVar)
 
 	if w.isEnabledInNamespace(pod.Namespace) {
 		// if Single Step Instrumentation is enabled, pods can still opt out using the label

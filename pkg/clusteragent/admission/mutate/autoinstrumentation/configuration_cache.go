@@ -24,6 +24,7 @@ type instrumentationConfigurationCache struct {
 	currentConfiguration      *instrumentationConfiguration
 	configurationUpdatesQueue chan Request
 	clusterName               string
+	namespaceToConfigIdMap    map[string]string // maps the namespace with enabled instrumentation to Remote Enablement rule
 }
 
 //var c = newInstrumentationConfigurationCache()
@@ -41,12 +42,19 @@ func newInstrumentationConfigurationCache(
 	if provider != nil {
 		reqChannel = provider.subscribe("cluster")
 	}
+	nsToRules := make(map[string]string)
+	if *localEnabled {
+		for _, ns := range *localEnabledNamespaces {
+			nsToRules[ns] = "local"
+		}
+	}
 
 	return &instrumentationConfigurationCache{
 		localConfiguration:        localConfig,
 		currentConfiguration:      currentConfig,
 		configurationUpdatesQueue: reqChannel,
 		clusterName:               clusterName,
+		namespaceToConfigIdMap:    nsToRules,
 	}
 }
 
@@ -78,7 +86,7 @@ func (c *instrumentationConfigurationCache) update(req Request) {
 		if c.clusterName == clusterName {
 			newEnabled := target.Enabled
 			newEnabledNamespaces := target.EnabledNamespaces
-			c.updateConfiguration(*newEnabled, newEnabledNamespaces)
+			c.updateConfiguration(*newEnabled, newEnabledNamespaces, req.ID)
 		}
 	}
 }
@@ -91,7 +99,7 @@ func (c *instrumentationConfigurationCache) readLocalConfiguration() *instrument
 	return c.localConfiguration
 }
 
-func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, enabledNamespaces *[]string) {
+func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, enabledNamespaces *[]string, rcID string) {
 	log.Debugf("Updating current APM Instrumentation configuration")
 	log.Debugf("Old APM Instrumentation configuration [enabled=%t enabledNamespaces=%v disabledNamespaces=%v]",
 		c.currentConfiguration.enabled,
@@ -115,6 +123,7 @@ func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, en
 			// TODO: deduplicate enabledNamespaces and remove enabledNamespcaes from disabledNamespaces list
 			for _, ns := range *enabledNamespaces {
 				c.currentConfiguration.enabledNamespaces = append(c.currentConfiguration.enabledNamespaces, ns)
+				c.namespaceToConfigIdMap[ns] = rcID
 			}
 		} else if len(c.currentConfiguration.disabledNamespaces) > 0 {
 			log.Debugf("Removing new namespaces to enable from disabledNamespaces...")
@@ -125,6 +134,7 @@ func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, en
 			for _, ns := range *enabledNamespaces {
 				if _, ok := disabledNsMap[ns]; ok {
 					delete(disabledNsMap, ns)
+					c.namespaceToConfigIdMap[ns] = rcID
 				}
 			}
 			disabledNs := make([]string, 0, len(disabledNsMap))
@@ -138,9 +148,13 @@ func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, en
 			c.currentConfiguration.enabled = enabled
 			if enabledNamespaces != nil && len(*enabledNamespaces) > 0 {
 				log.Debugf("Enabling APM instrumentation in namespaces [%v] ...", *enabledNamespaces)
-				c.currentConfiguration.enabledNamespaces = *enabledNamespaces
+				for _, ns := range *enabledNamespaces {
+					c.currentConfiguration.enabledNamespaces = append(c.currentConfiguration.enabledNamespaces, ns)
+					c.namespaceToConfigIdMap[ns] = rcID
+				}
 			} else {
 				log.Debugf("Enabling APM instrumentation in the whole cluster...")
+				c.namespaceToConfigIdMap["cluster"] = rcID
 			}
 		} else {
 			log.Errorf("Noop: APM Instrumentation is off")

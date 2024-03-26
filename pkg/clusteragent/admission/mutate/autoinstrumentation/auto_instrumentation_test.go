@@ -854,6 +854,7 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 	installTime := strconv.FormatInt(time.Now().Unix(), 10)
 	t.Setenv("DD_INSTRUMENTATION_INSTALL_ID", uuid)
 	t.Setenv("DD_INSTRUMENTATION_INSTALL_TIME", installTime)
+	t.Setenv("DD_INSTRUMENTATION_CONFIG_ID", "")
 	tests := []struct {
 		name                      string
 		pod                       *corev1.Pod
@@ -890,6 +891,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 				{
 					Name:  "DD_INSTRUMENTATION_INSTALL_ID",
 					Value: uuid,
+				},
+				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
 				},
 				{
 					Name:  "DD_RUNTIME_METRICS_ENABLED",
@@ -1000,6 +1005,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 					Name:  "DD_INSTRUMENTATION_INSTALL_ID",
 					Value: uuid,
 				},
+				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
+				},
 			},
 			expectedInjectedLibraries: map[string]string{"js": "v1.10"},
 			wantErr:                   false,
@@ -1032,6 +1041,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 				{
 					Name:  "DD_INSTRUMENTATION_INSTALL_ID",
 					Value: uuid,
+				},
+				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
 				},
 				{
 					Name:  "DD_RUNTIME_METRICS_ENABLED",
@@ -1125,6 +1138,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 					Value: uuid,
 				},
 				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
+				},
+				{
 					Name:  "PYTHONPATH",
 					Value: "/datadog-lib/",
 				},
@@ -1203,6 +1220,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 					Value: uuid,
 				},
 				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
+				},
+				{
 					Name:  "DD_TRACE_SAMPLE_RATE",
 					Value: "0.30",
 				},
@@ -1238,6 +1259,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 					Name:  "DD_INSTRUMENTATION_INSTALL_ID",
 					Value: uuid,
 				},
+				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
+				},
 			},
 			expectedInjectedLibraries: map[string]string{"python": "latest"},
 			wantErr:                   false,
@@ -1267,6 +1292,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 				{
 					Name:  "DD_INSTRUMENTATION_INSTALL_ID",
 					Value: uuid,
+				},
+				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
 				},
 			},
 			expectedInjectedLibraries: map[string]string{"js": "latest"},
@@ -1303,6 +1332,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 					Value: uuid,
 				},
 				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
+				},
+				{
 					Name:  "JAVA_TOOL_OPTIONS",
 					Value: " -javaagent:/datadog-lib/dd-java-agent.jar -XX:OnError=/datadog-lib/continuousprofiler/tmp/dd_crash_uploader.sh -XX:ErrorFile=/datadog-lib/continuousprofiler/tmp/hs_err_pid_%p.log",
 				},
@@ -1333,6 +1366,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 				{
 					Name:  "DD_INSTRUMENTATION_INSTALL_ID",
 					Value: uuid,
+				},
+				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
 				},
 			},
 			expectedInjectedLibraries: map[string]string{},
@@ -1384,6 +1421,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 					Value: uuid,
 				},
 				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
+				},
+				{
 					Name:  "DD_SERVICE",
 					Value: "user-deployment",
 				},
@@ -1432,6 +1473,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 					Name:  "DD_INSTRUMENTATION_INSTALL_ID",
 					Value: uuid,
 				},
+				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
+				},
 			},
 			expectedInjectedLibraries: map[string]string{},
 			wantErr:                   false,
@@ -1462,6 +1507,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 				corev1.EnvVar{
 					Name:  "DD_INSTRUMENTATION_INSTALL_ID",
 					Value: uuid,
+				},
+				corev1.EnvVar{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
 				},
 			),
 			expectedInjectedLibraries: map[string]string{"java": "latest", "python": "latest", "js": "latest", "ruby": "latest", "dotnet": "latest"},
@@ -1494,6 +1543,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 					Name:  "DD_INSTRUMENTATION_INSTALL_ID",
 					Value: uuid,
 				},
+				corev1.EnvVar{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
+				},
 			),
 			expectedInjectedLibraries: map[string]string{"java": "latest", "python": "latest", "js": "latest", "ruby": "latest", "dotnet": "latest"},
 			wantErr:                   false,
@@ -1511,6 +1564,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 					Name:  "DD_INSTRUMENTATION_INSTALL_ID",
 					Value: uuid,
 				},
+				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
+				},
 			},
 			expectedInjectedLibraries: map[string]string{},
 			wantErr:                   false,
@@ -1527,6 +1584,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 				{
 					Name:  "DD_INSTRUMENTATION_INSTALL_ID",
 					Value: uuid,
+				},
+				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
 				},
 			},
 			expectedInjectedLibraries: map[string]string{},
@@ -1560,6 +1621,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 				corev1.EnvVar{
 					Name:  "DD_INSTRUMENTATION_INSTALL_ID",
 					Value: uuid,
+				},
+				corev1.EnvVar{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "local",
 				},
 			),
 			expectedInjectedLibraries: map[string]string{"java": "latest", "python": "latest", "js": "latest", "ruby": "latest", "dotnet": "latest"},
@@ -1619,6 +1684,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 					Name:  "DD_INSTRUMENTATION_INSTALL_ID",
 					Value: uuid,
 				},
+				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
+				},
 			},
 			expectedInjectedLibraries: map[string]string{"js": "v1.10"},
 			wantErr:                   false,
@@ -1673,6 +1742,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 					Name:  "DD_INSTRUMENTATION_INSTALL_ID",
 					Value: uuid,
 				},
+				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
+				},
 			},
 			expectedInjectedLibraries: map[string]string{"java": "v1.28.0", "python": "v2.5.1"},
 			wantErr:                   false,
@@ -1725,6 +1798,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 				{
 					Name:  "DD_INSTRUMENTATION_INSTALL_ID",
 					Value: uuid,
+				},
+				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
 				},
 			},
 			expectedInjectedLibraries: map[string]string{"js": "v1.10"},
@@ -1784,6 +1861,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 				{
 					Name:  "DD_INSTRUMENTATION_INSTALL_ID",
 					Value: uuid,
+				},
+				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
 				},
 			},
 			expectedInjectedLibraries: map[string]string{"python": "latest", "java": "latest"},
@@ -1847,6 +1928,10 @@ func TestInjectAutoInstrumentation(t *testing.T) {
 				{
 					Name:  "DD_INSTRUMENTATION_INSTALL_ID",
 					Value: uuid,
+				},
+				{
+					Name:  "DD_INSTRUMENTATION_CONFIG_ID",
+					Value: "",
 				},
 			},
 			expectedInjectedLibraries: map[string]string{"js": "v1.10"},
@@ -2187,7 +2272,7 @@ func TestGetCachedApmInstrumentationConfiguration(t *testing.T) {
 
 			// Need to create a new instance of the webhook to take into account
 			// the config changes.
-			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(&rcclient.Client{}, make(chan struct{}), make(chan struct{}), "")
+			apmInstrumentationWebhook, errInitAPMInstrumentation = NewWebhook(&rcclient.Client{}, make(chan struct{}), make(chan struct{}), "dev")
 			//require.Equal(t, nil, apmInstrumentationWebhook.apmInstrumentationState.currentConfiguration)
 			require.Equal(t, true, apmInstrumentationWebhook.apmInstrumentationState.currentConfiguration.enabled)
 			require.Equal(t, []string{}, apmInstrumentationWebhook.apmInstrumentationState.currentConfiguration.enabledNamespaces)

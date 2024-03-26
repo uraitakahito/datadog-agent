@@ -80,7 +80,7 @@ func (rcp *remoteConfigProvider) subscribe(kind TargetObjKind) chan Request {
 }
 
 // process is the event handler called by the RC client on config updates
-func (rcp *remoteConfigProvider) process(update map[string]state.RawConfig, _ func(string, state.ApplyStatus)) {
+func (rcp *remoteConfigProvider) process(update map[string]state.RawConfig, applyStateCallback func(string, state.ApplyStatus)) {
 	log.Infof("Got %d updates from remote-config", len(update))
 	var valid, invalid float64
 	for path, config := range update {
@@ -113,6 +113,7 @@ func (rcp *remoteConfigProvider) process(update map[string]state.RawConfig, _ fu
 		if ch, found := rcp.subscribers["cluster"]; found {
 			valid++
 			ch <- req
+			applyStateCallback(path, state.ApplyStatus{State: state.ApplyStateAcknowledged})
 		}
 	}
 	metrics.RemoteConfigs.Set(valid)
