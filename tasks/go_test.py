@@ -323,6 +323,7 @@ def test(
     junit_tar="",
     only_modified_packages=False,
     only_impacted_packages=False,
+    include_sds=False,
     skip_flakes=False,
     build_stdlib=False,
 ):
@@ -411,6 +412,9 @@ def test(
 
     # Test
     for flavor, build_tags in unit_tests_tags.items():
+        if include_sds:
+            build_tags.append("sds")
+
         if build_stdlib:
             build_standard_lib(
                 ctx,
