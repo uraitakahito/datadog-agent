@@ -41,12 +41,6 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/DataDog/agent-payload/v5 v5.0.106 h1:A3dGX+JYoL7OJe2crpxznW7hWxLxhOk/17WbYskRWVk=
 github.com/DataDog/agent-payload/v5 v5.0.106/go.mod h1:COngtbYYCncpIPiE5D93QlXDH/3VAKk10jDNwGHcMRE=
-github.com/DataDog/datadog-agent/comp/core/config v0.52.0-rc.3 h1:N7cJMtcW9cmybQqwv421dXcfJEBtfRPacF9nBN3K0Iw=
-github.com/DataDog/datadog-agent/comp/core/config v0.52.0-rc.3/go.mod h1:3s80Ae8qaPOWpwM75dnM1M9YWkr6+ckA9TKU2+/sa7Q=
-github.com/DataDog/datadog-agent/comp/core/flare/types v0.52.0-rc.3 h1:pIGSbylKbhD1s06yGED9t9eFYKj2myu46k2OOIUCXAs=
-github.com/DataDog/datadog-agent/comp/core/flare/types v0.52.0-rc.3/go.mod h1:h0h6cm8eqb1JnuqHMCdTir+c4IUlOUnOy6xrmvhQXOY=
-github.com/DataDog/datadog-agent/pkg/util/testutil v0.52.0-rc.3 h1:C9hoL8b5XPv4PSToaUo3BmzS3HrcDti4XSXd3BJf4fU=
-github.com/DataDog/datadog-agent/pkg/util/testutil v0.52.0-rc.3/go.mod h1:7/Dk+MI/JNkrYUYtR/LQG750a99T1/nCVNFjc7rLq4g=
 github.com/DataDog/dd-sensitive-data-scanner/sds-go/go v0.0.0-20240318112024-de26033b606a h1:ziJgXqu8VMbfWT8au3PQwe3IbX6LIs1MeuNTBelMyEw=
 github.com/DataDog/dd-sensitive-data-scanner/sds-go/go v0.0.0-20240318112024-de26033b606a/go.mod h1:TX7CTOQ3LbQjfAi4SwqUoR5gY1zfUk7VRBDTuArjaDc=
 github.com/DataDog/viper v1.13.0 h1:XE5cJiXeXkyijwgspwZiH6iroWYLgAPXTOhcBnDBOMs=
@@ -60,8 +54,8 @@ github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRF
 github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/antihax/optional v0.0.0-20180407024304-ca021399b1a6/go.mod h1:V8iCPQYkqmusNa815XgQio277wI47sdRh1dUOLdyC6Q=
 github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6/go.mod h1:grANhF5doyWs3UAsr3K4I6qtAmlQcZDesFNEHPZAzj8=
-github.com/benbjohnson/clock v1.3.5 h1:VvXlSJBzZpA/zum6Sj74hxwYI2DIxRWuNIoXAzHZz5o=
-github.com/benbjohnson/clock v1.3.5/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
+github.com/benbjohnson/clock v1.3.0 h1:ip6w0uFQkncKQ979AypyG0ER7mqUSBdKLOgAle/AT8A=
+github.com/benbjohnson/clock v1.3.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
