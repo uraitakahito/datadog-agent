@@ -159,6 +159,7 @@ def omnibus_build(
     omnibus_s3_cache=False,
     hardened_runtime=False,
     go_mod_cache=None,
+    project="updater-build",
 ):
     """
     Build the Agent packages with Omnibus Installer.
@@ -178,8 +179,6 @@ def omnibus_build(
         go_mod_cache=go_mod_cache,
     )
 
-    target_project = "updater"
-
     with timed(quiet=True) as bundle_elapsed:
         bundle_install_omnibus(ctx, gem_path, env)
 
@@ -187,7 +186,7 @@ def omnibus_build(
         omnibus_run_task(
             ctx=ctx,
             task="build",
-            target_project=target_project,
+            target_project=project,
             base_dir=base_dir,
             env=env,
             omnibus_s3_cache=omnibus_s3_cache,
