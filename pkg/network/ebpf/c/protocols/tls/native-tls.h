@@ -151,6 +151,11 @@ int istio_uretprobe__SSL_read(struct pt_regs *ctx) {
     return SSL_read_ret(ctx, ISTIO);
 }
 
+SEC("uretprobe/SSL_read")
+int nodejs_uretprobe__SSL_read(struct pt_regs *ctx) {
+    return SSL_read_ret(ctx, ISTIO);
+}
+
 SEC("uprobe/SSL_write")
 int uprobe__SSL_write(struct pt_regs* ctx) {
     ssl_write_args_t args = {0};
@@ -203,6 +208,11 @@ int uretprobe__SSL_write(struct pt_regs* ctx) {
 
 SEC("uretprobe/SSL_write")
 int istio_uretprobe__SSL_write(struct pt_regs* ctx) {
+    return SSL_write_ret(ctx, ISTIO);
+}
+
+SEC("uretprobe/SSL_write")
+int nodejs_uretprobe__SSL_write(struct pt_regs* ctx) {
     return SSL_write_ret(ctx, ISTIO);
 }
 
