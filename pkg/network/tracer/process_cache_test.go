@@ -164,7 +164,7 @@ func TestProcessCacheAdd(t *testing.T) {
 		}
 	})
 
-	t.Run("process evicted, same pid", func(t *testing.T) {
+	t.Run("process dropped, same pid", func(t *testing.T) {
 		pc, err := newProcessCache(2, nil)
 		require.NoError(t, err)
 		require.NotNil(t, pc)
@@ -185,11 +185,12 @@ func TestProcessCacheAdd(t *testing.T) {
 			StartTime: 3,
 		})
 
-		p, ok := pc.Get(1234, 1)
-		assert.False(t, ok)
-		require.Nil(t, p)
+		p, ok := pc.Get(1234, 3)
+		assert.True(t, ok)
+		require.NotNil(t, p)
+		assert.Equal(t, int64(2), p.StartTime) // would have been process with StartTime of 3 if it wasn't dropped
 
-		for _, startTime := range []int64{2, 3} {
+		for _, startTime := range []int64{1, 2} {
 			p, ok = pc.Get(1234, startTime)
 			assert.True(t, ok)
 			require.NotNil(t, p)

@@ -35,6 +35,7 @@ type Process struct {
 	ContainerID *intern.Value
 	StartTime   int64
 	Expiry      int64
+	Exited      bool
 }
 
 // Env returns the value of a environment variable
@@ -132,6 +133,7 @@ func (h *eventHandlerWrapper) Copy(ev *model.Event) any {
 			"DD_VERSION": true,
 			"DD_ENV":     true,
 		}),
+		Exited: ev.GetEventType() == model.ExitEventType,
 	}
 }
 
