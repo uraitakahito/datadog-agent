@@ -24,7 +24,7 @@ func TestFileProviderProcess(t *testing.T) {
 	require.Equal(t, "v1.0.0", pr.SchemaVersion)
 	require.Equal(t, "java", pr.LibConfig.Language)
 	require.Equal(t, "v1.4.0", pr.LibConfig.Version)
-	require.Equal(t, "dev", pr.K8sTargetV2.Environment)
+	require.Equal(t, "dev", pr.LibConfig.Env)
 	require.Equal(t, 1, len(pr.K8sTargetV2.ClusterTargets))
 	require.Equal(t, "dev", pr.K8sTargetV2.ClusterTargets[0].ClusterName)
 	require.Equal(t, true, *pr.K8sTargetV2.ClusterTargets[0].Enabled)

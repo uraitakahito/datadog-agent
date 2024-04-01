@@ -54,7 +54,6 @@ type K8sClusterTarget struct {
 
 type K8sTargetV2 struct {
 	ClusterTargets []K8sClusterTarget `json:"cluster_targets"`
-	Environment    string             `json:"environment"`
 }
 
 // Validate returns whether a patch request is applicable

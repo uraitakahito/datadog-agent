@@ -10,8 +10,8 @@ package autoinstrumentation
 import (
 	"encoding/json"
 	"errors"
+	"time"
 
-	"github.com/DataDog/datadog-agent/pkg/clusteragent/admission/metrics"
 	"github.com/DataDog/datadog-agent/pkg/clusteragent/telemetry"
 	rcclient "github.com/DataDog/datadog-agent/pkg/config/remote/client"
 	"github.com/DataDog/datadog-agent/pkg/remoteconfig/state"
@@ -20,12 +20,15 @@ import (
 
 // remoteConfigProvider consumes tracing configs from RC and delivers them to the patcher
 type remoteConfigProvider struct {
-	client                  *rcclient.Client
-	isLeaderNotif           <-chan struct{}
-	subscribers             map[TargetObjKind]chan Request
-	clusterName             string
-	telemetryCollector      telemetry.TelemetryCollector
-	apmInstrumentationState *instrumentationConfigurationCache
+	client                    *rcclient.Client
+	isLeaderNotif             <-chan struct{}
+	subscribers               map[TargetObjKind]chan Request
+	clusterName               string
+	telemetryCollector        telemetry.TelemetryCollector
+	apmInstrumentationState   *instrumentationConfigurationCache
+	lastProcessedRCRevision   int64
+	currentlyAppliedConfigIDs map[string]interface{}
+	deletedConfigIDs          map[string]interface{}
 }
 
 type rcProvider interface {
@@ -45,17 +48,19 @@ func newRemoteConfigProvider(
 		return nil, errors.New("remote config client not initialized")
 	}
 	return &remoteConfigProvider{
-		client:             client,
-		isLeaderNotif:      isLeaderNotif,
-		subscribers:        make(map[TargetObjKind]chan Request),
-		clusterName:        clusterName,
-		telemetryCollector: telemetryCollector,
+		client:                    client,
+		isLeaderNotif:             isLeaderNotif,
+		subscribers:               make(map[TargetObjKind]chan Request),
+		clusterName:               clusterName,
+		telemetryCollector:        telemetryCollector,
+		lastProcessedRCRevision:   0,
+		currentlyAppliedConfigIDs: make(map[string]interface{}),
+		deletedConfigIDs:          make(map[string]interface{}),
 	}, nil
 }
 
 func (rcp *remoteConfigProvider) start(stopCh <-chan struct{}) {
-	log.Info("Starting remote-config patch provider")
-	log.Debugf("4444444444444444444")
+	log.Info("Starting remote-config provider")
 	rcp.client.Subscribe(state.ProductAPMTracing, rcp.process)
 	rcp.client.Start()
 
@@ -63,7 +68,6 @@ func (rcp *remoteConfigProvider) start(stopCh <-chan struct{}) {
 		select {
 		case <-rcp.isLeaderNotif:
 			log.Info("Got a leader notification, polling from remote-config")
-			log.Debugf("55555555555555555555555555")
 			rcp.process(rcp.client.GetConfigs(state.ProductAPMTracing), rcp.client.UpdateApplyStatus)
 		case <-stopCh:
 			log.Info("Shutting down remote-config patch provider")
@@ -93,29 +97,52 @@ func (rcp *remoteConfigProvider) process(update map[string]state.RawConfig, appl
 			log.Errorf("Error while parsing config: %v", err)
 			continue
 		}
-		if req.K8sTargetV2 == nil || len(req.K8sTargetV2.ClusterTargets) == 0 {
-			log.Infof("Ignoring update with configId %s, because K8sTargetV2 is not set", req.ID)
+
+		if shouldSkipConfig(req, rcp.lastProcessedRCRevision, rcp.clusterName) {
+			log.Info("LILIYAB: skipping config")
 			continue
 		}
-		hasUpdateForCluster := false
-		for _, target := range req.K8sTargetV2.ClusterTargets {
-			if target.ClusterName == rcp.clusterName {
-				hasUpdateForCluster = true
-				break
-			}
-		}
-		if !hasUpdateForCluster {
-			log.Infof("Ignoring update with configId %s, because K8sTargetV2 doesn't have current cluster as a target", req.ID)
-			continue
-		}
+
 		req.RcVersion = config.Metadata.Version
 		log.Debugf("Patch request parsed %+v", req)
 		if ch, found := rcp.subscribers["cluster"]; found {
 			valid++
 			ch <- req
 			applyStateCallback(path, state.ApplyStatus{State: state.ApplyStateAcknowledged})
+			rcp.lastProcessedRCRevision = req.Revision
+			rcp.currentlyAppliedConfigIDs[req.ID] = struct{}{}
 		}
 	}
-	metrics.RemoteConfigs.Set(valid)
-	metrics.InvalidRemoteConfigs.Set(invalid)
+	//metrics.RemoteConfigs.Set(valid)
+	//metrics.InvalidRemoteConfigs.Set(invalid)
+}
+
+func shouldSkipConfig(req Request, lastAppliedRevision int64, clusterName string) bool {
+	// check if config should be applied based on presence K8sTargetV2 object
+	if req.K8sTargetV2 == nil || len(req.K8sTargetV2.ClusterTargets) == 0 {
+		log.Infof("Skipping config %s because K8sTargetV2 is not set", req.ID)
+		return true
+	}
+
+	// check if config should be applied based on RC revision
+	lastAppliedTime := time.UnixMilli(lastAppliedRevision)
+	requestTime := time.UnixMilli(req.Revision)
+
+	if requestTime.Before(lastAppliedTime) || requestTime.Equal(lastAppliedTime) {
+		log.Infof("Skipping config %s because it has already been applied: revision %v, last applied revision %v", req.ID, requestTime, lastAppliedTime)
+		return true
+	}
+
+	isTargetingCluster := false
+	for _, target := range req.K8sTargetV2.ClusterTargets {
+		if target.ClusterName == clusterName {
+			isTargetingCluster = true
+			break
+		}
+	}
+	if !isTargetingCluster {
+		log.Infof("Skipping config %s because it's not targeting current cluster %s", req.ID, req.K8sTargetV2.ClusterTargets[0].ClusterName)
+	}
+	return !isTargetingCluster
+
 }

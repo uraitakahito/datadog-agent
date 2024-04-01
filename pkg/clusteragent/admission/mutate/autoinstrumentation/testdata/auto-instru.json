@@ -17,8 +17,7 @@
                     "enabled": true,
                     "enabled_namespaces": ["abc"]
                 }
-            ],
-            "environment": "dev"
+            ]
         }
     }
 ]
