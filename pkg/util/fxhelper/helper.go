@@ -1,7 +1,10 @@
 package fxhelper
 
 import (
+	"fmt"
 	"reflect"
+
+	compHooks "github.com/DataDog/datadog-agent/comp/hooks"
 
 	"go.uber.org/fx"
 )
@@ -20,17 +23,34 @@ func ProvideComponentConstructor(ourConstructorFunc interface{}) fx.Option {
 
 	// create types that have fx-aware meta-fields
 	// these are used to construct a function that can build the fx graph
-	inFxType := constructFxInType(ctorInType)
-	outFxType := constructFxOutType(ctorOutType)
+	// TODO: determine if outfxType includes Lifecycle, if so, add it to inFxType
+	outFxType, hasLifecycleDep := constructFxOutType(ctorOutType)
+	inFxType := constructFxInType(ctorInType, hasLifecycleDep)
 	funcFxType := reflect.FuncOf([]reflect.Type{inFxType}, []reflect.Type{outFxType}, false)
 
 	body := func(fxAwareDeps reflect.Value) interface{} {
 		ctorValue := reflect.ValueOf(ourConstructorFunc)
 		// get dependencies without fx.In
 		myPlainDeps := constructPlainDeps(fxAwareDeps)
+
 		ctorRes := ctorValue.Call([]reflect.Value{myPlainDeps})
 		// TODO: assuming return value has only 1 element
-		return fillFxProvideStruct(ctorRes[0], outFxType)
+		inf, lifecycle := fillFxProvideStruct(ctorRes[0], outFxType)
+		_ = lifecycle
+
+		if lifecycle != nil {
+			fByN := fxAwareDeps.FieldByName("Lc")
+			if lc, ok := fByN.Interface().(fx.Lifecycle); ok {
+				lc.Append(fx.Hook{
+					OnStart: lifecycle.OnStart,
+					OnStop:  lifecycle.OnStop,
+				})
+			} else {
+				fmt.Printf("Could not convert to Lifecycle: %v\n", fByN)
+			}
+		}
+
+		return inf
 	}
 
 	// construct a function value that will instruct fx what the Components are
@@ -59,6 +79,9 @@ func constructPlainDeps(fxAwareValue reflect.Value) reflect.Value {
 	newFields := make([]reflect.StructField, 0, ourStructNumField)
 	for i := 0; i < fxAwareType.NumField(); i++ {
 		// TODO: this is not strict enough, could get false positives
+		if fxAwareType.Field(i).Name == "Lc" {
+			continue
+		}
 		if fxAwareType.Field(i).Name == "In" {
 			continue
 		}
@@ -74,6 +97,9 @@ func constructPlainDeps(fxAwareValue reflect.Value) reflect.Value {
 	j := 0
 	for i := 0; i < fxAwareType.NumField(); i++ {
 		// TODO: this is not strict enough, could get false positives
+		if fxAwareType.Field(i).Name == "Lc" {
+			continue
+		}
 		if fxAwareType.Field(i).Name == "In" {
 			continue
 		}
@@ -84,15 +110,18 @@ func constructPlainDeps(fxAwareValue reflect.Value) reflect.Value {
 	return makeResult
 }
 
-func constructFxInType(plainType reflect.Type) reflect.Type {
-	return constructFxAwareStruct(plainType, false)
+func constructFxInType(plainType reflect.Type, addLifecycleDep bool) reflect.Type {
+	t, _ := constructFxAwareStruct(plainType, false, addLifecycleDep)
+	return t
 }
 
-func constructFxOutType(plainType reflect.Type) reflect.Type {
-	return constructFxAwareStruct(plainType, true)
+func constructFxOutType(plainType reflect.Type) (reflect.Type, bool) {
+	return constructFxAwareStruct(plainType, true, false)
 }
 
-func constructFxAwareStruct(plainType reflect.Type, isOut bool) reflect.Type {
+func constructFxAwareStruct(plainType reflect.Type, isOut, addLifecycleDep bool) (t reflect.Type, didRemoveLifecycle bool) {
+	didRemoveLifecycle = false
+
 	// create an anonymous struct that matches our input,
 	// except it also has "fx.In" / "fx.Out" embedded
 	fields := make([]reflect.StructField, 0, plainType.NumField()+1)
@@ -103,19 +132,51 @@ func constructFxAwareStruct(plainType reflect.Type, isOut bool) reflect.Type {
 		metaField = reflect.StructField{Name: "In", Type: reflect.TypeOf(fx.In{}), Anonymous: true}
 	}
 	fields = append(fields, metaField)
-	for i := 0; i < plainType.NumField(); i++ {
-		f := reflect.StructField{Type: plainType.Field(i).Type, Name: plainType.Field(i).Name}
-		fields = append(fields, f)
+
+	if addLifecycleDep {
+		metaField = reflect.StructField{Name: "Lc", Type: reflect.TypeOf((*fx.Lifecycle)(nil)).Elem(), Anonymous: true}
+		fields = append(fields, metaField)
 	}
-	return reflect.StructOf(fields)
+
+	for i := 0; i < plainType.NumField(); i++ {
+
+		field := plainType.Field(i)
+		// TODO: proper type check against compHooks.Lifecycle
+		if field.Name == "Lifecycle" {
+			didRemoveLifecycle = true
+			continue
+		}
+
+		addField := reflect.StructField{Type: field.Type, Name: field.Name}
+		fields = append(fields, addField)
+	}
+
+	return reflect.StructOf(fields), didRemoveLifecycle
 }
 
-func fillFxProvideStruct(provides reflect.Value, outFxType reflect.Type) interface{} {
+func fillFxProvideStruct(provides reflect.Value, outFxType reflect.Type) (interface{}, *compHooks.Lifecycle) {
+	var foundLifecycle *compHooks.Lifecycle
 	// `provides` argument is the fx-free struct returned by the Component's constructor
 	// NOTE: assumes fxAwareResult[0] is the `fx.Out` embedded field
+	plainProvides := provides.Type()
 	fxAwareResult := reflect.New(outFxType).Elem()
+	j := 1
 	for i := 0; i < provides.NumField(); i++ {
-		fxAwareResult.Field(i + 1).Set(provides.Field(i))
+		f := plainProvides.Field(i)
+		if f.Name == "Lifecycle" {
+			// FIX ME!
+			it := provides.Field(i)
+			inf := it.Interface()
+			if lc, ok := inf.(compHooks.Lifecycle); ok {
+				foundLifecycle = &lc
+				continue
+			} else {
+				fmt.Printf("$$$ invalid object for Lifecycle field: %v %T\n", inf, inf)
+			}
+			continue
+		}
+		fxAwareResult.Field(j).Set(provides.Field(i))
+		j++
 	}
-	return fxAwareResult.Interface()
+	return fxAwareResult.Interface(), foundLifecycle
 }

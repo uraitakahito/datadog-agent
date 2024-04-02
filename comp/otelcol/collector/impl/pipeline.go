@@ -7,10 +7,12 @@ package collectorimpl
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/DataDog/datadog-agent/comp/core/config"
 	corelog "github.com/DataDog/datadog-agent/comp/core/log"
 	"github.com/DataDog/datadog-agent/comp/core/status"
+	compHooks "github.com/DataDog/datadog-agent/comp/hooks"
 	logsagent "github.com/DataDog/datadog-agent/comp/logs/agent"
 	"github.com/DataDog/datadog-agent/comp/metadata/inventoryagent"
 	collectordef "github.com/DataDog/datadog-agent/comp/otelcol/collector/def"
@@ -75,6 +77,20 @@ func (c *collector) Status() otlp.CollectorStatus {
 	return c.col.GetCollectorStatus()
 }
 
+func (c *collector) SayHello(ctx context.Context) error {
+	fmt.Printf("------------------------------------------\n")
+	fmt.Printf("------------------------------------------\n")
+	fmt.Printf("------------------------------------------\n")
+	fmt.Printf("------------------------------------------\n")
+	fmt.Printf("collector.SayHello!\n")
+	return nil
+}
+
+func (c *collector) SayGoodbye(ctx context.Context) error {
+	fmt.Printf("collector.SayGoodbye!\n")
+	return nil
+}
+
 type Inputs struct {
 	// Lc specifies the fx lifecycle settings, used for appending startup
 	// and shutdown hooks.
@@ -100,14 +116,21 @@ type Inputs struct {
 type Outputs struct {
 	Comp           collectordef.Component
 	StatusProvider status.InformationProvider
+	Lifecycle      compHooks.Lifecycle
 }
 
 // newPipeline creates a new Component for this module and returns any errors on failure.
 func NewAgentComponents(deps Inputs) (Outputs, error) {
 	collector := &collector{deps: deps}
+	var lifecycle compHooks.Lifecycle
+	lifecycle = compHooks.Lifecycle{
+		OnStart: collector.SayHello,
+		OnStop:  collector.SayGoodbye,
+	}
 
 	return Outputs{
 		Comp:           collector,
 		StatusProvider: status.NewInformationProvider(collector),
+		Lifecycle:      lifecycle,
 	}, nil
 }
