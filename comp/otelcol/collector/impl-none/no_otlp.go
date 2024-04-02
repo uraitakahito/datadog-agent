@@ -3,31 +3,13 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016-present Datadog, Inc.
 
-//go:build !otlp
-
 // Package collector implements the OTLP Collector component for non-OTLP builds.
-package collector
+package collectorimpl
 
 import (
-	"github.com/DataDog/datadog-agent/pkg/util/fxutil"
-	"go.uber.org/fx"
+	collectordef "github.com/DataDog/datadog-agent/comp/otelcol/collector/def"
+	"github.com/DataDog/datadog-agent/comp/otelcol/otlp"
 )
-
-// Component represents the no-op Component interface.
-type Component interface {
-	Start() error
-	Stop()
-}
-
-// Module specifies the fx module for non-OTLP builds.
-func Module() fxutil.Module {
-	return fxutil.Component(
-		fx.Provide(newPipeline))
-}
-
-func newPipeline() (Component, error) {
-	return noOpComp{}, nil
-}
 
 type noOpComp struct{}
 
@@ -36,3 +18,11 @@ func (noOpComp) Start() error { return nil }
 
 // Stop is a no-op.
 func (noOpComp) Stop() {}
+
+func (noOpComp) Status() otlp.CollectorStatus {
+	return otlp.CollectorStatus{}
+}
+
+func NewAgentComponent() (collectordef.Component, error) {
+	return noOpComp{}, nil
+}
