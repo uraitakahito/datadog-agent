@@ -35,3 +35,6 @@
 '@datadog/asm-go': APPSEC
 '@datadog/agent-build-and-releases': BARX
 '@datadog/agent-developer-tools': ADXT
+'@datadog/agent-ci-experience': ACIX
+'@datadog/apm-onboarding': APMON
+'@datadog/agent-processing-and-routing': APR

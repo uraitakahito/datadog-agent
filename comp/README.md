@@ -4,6 +4,12 @@
 This file lists all components defined in this repository, with their package summary.
 Click the links for more documentation.
 
+## [comp/agent](https://pkg.go.dev/github.com/DataDog/datadog-agent/comp/agent) (Component Bundle)
+
+*Datadog Team*: agent-shared-components
+
+Package agent implements the "agent" bundle,
+
 ## [comp/aggregator](https://pkg.go.dev/github.com/DataDog/datadog-agent/comp/aggregator) (Component Bundle)
 
 *Datadog Team*: agent-shared-components
@@ -69,6 +75,12 @@ Package collector defines the collector component.
 Package core implements the "core" bundle, providing services common to all
 agent flavors and binaries.
 
+### [comp/core/autodiscovery](https://pkg.go.dev/github.com/DataDog/datadog-agent/comp/core/autodiscovery)
+
+*Datadog Team*: container-integrations
+
+Package autodiscovery provides the autodiscovery component for the Datadog Agent
+
 ### [comp/core/agenttelemetry](https://pkg.go.dev/github.com/DataDog/datadog-agent/comp/core/agenttelemetry)
 
 *Datadog Team*: agent-metrics-logs
@@ -80,9 +92,17 @@ Package agenttelemetry implements a component to generate agent telemetry
 Package config implements a component to handle agent configuration.  This
 component temporarily wraps pkg/config.
 
+### [comp/core/configsync](https://pkg.go.dev/github.com/DataDog/datadog-agent/comp/core/configsync)
+
+Package configsync implements synchronizing the configuration using the core agent config API
+
 ### [comp/core/flare](https://pkg.go.dev/github.com/DataDog/datadog-agent/comp/core/flare)
 
 Package flare implements a component to generate flares from the agent.
+
+### [comp/core/healthprobe](https://pkg.go.dev/github.com/DataDog/datadog-agent/comp/core/healthprobe)
+
+Package healthprobe implements the health check server
 
 ### [comp/core/hostname](https://pkg.go.dev/github.com/DataDog/datadog-agent/comp/core/hostname)
 
@@ -132,6 +152,10 @@ Package workloadmeta provides the workloadmeta component for the Datadog Agent
 *Datadog Team*: agent-metrics-logs
 
 
+
+### [comp/dogstatsd/pidmap](https://pkg.go.dev/github.com/DataDog/datadog-agent/comp/dogstatsd/pidmap)
+
+Package pidmap implements a component for tracking pid and containerID relations
 
 ### [comp/dogstatsd/replay](https://pkg.go.dev/github.com/DataDog/datadog-agent/comp/dogstatsd/replay)
 
@@ -369,6 +393,10 @@ Package rcservice is a remote config service that can run within the agent to re
 ### [comp/remote-config/rcserviceha](https://pkg.go.dev/github.com/DataDog/datadog-agent/comp/remote-config/rcserviceha)
 
 Package rcserviceha is a remote config service that can run in the Agent to receive remote config updates from the DD failover DC backend.
+
+### [comp/remote-config/rcstatus](https://pkg.go.dev/github.com/DataDog/datadog-agent/comp/remote-config/rcstatus)
+
+Package rcstatus implements the core status component information provider interface
 
 ### [comp/remote-config/rctelemetryreporter](https://pkg.go.dev/github.com/DataDog/datadog-agent/comp/remote-config/rctelemetryreporter)
 
