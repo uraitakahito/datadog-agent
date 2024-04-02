@@ -3,18 +3,11 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2024-present Datadog, Inc.
 
-package serverstore
+//go:build test
 
-import (
-	"testing"
+package healthprobe
 
-	"github.com/stretchr/testify/suite"
-)
-
-func TestSqlStore(t *testing.T) {
-	suite.Run(t, &StoreTestSuite{
-		StoreConstructor: func() Store {
-			return newSQLStore()
-		},
-	})
+// Mock implements mock-specific methods.
+type Mock interface {
+	Component
 }
