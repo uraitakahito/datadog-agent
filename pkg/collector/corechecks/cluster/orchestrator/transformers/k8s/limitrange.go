@@ -44,7 +44,6 @@ func convertRatioFn(name corev1.ResourceName, quantity resource.Quantity) int64 
 }
 
 func convertResourceFn(name corev1.ResourceName, quantity resource.Quantity) int64 {
-	name = corev1.ResourceMemory
 	if name == corev1.ResourceCPU {
 		return quantity.MilliValue()
 	}
