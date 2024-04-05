@@ -33,11 +33,17 @@ def build_sds_library(ctx, branch="main"):
             # TODO(remy): checkout a given version
             with ctx.cd("dd-sensitive-data-scanner/sds-go/rust"):
                 ctx.run(f"cargo build --release")
+                # write the lib besides rtloader libs
                 dev_path = get_dev_path()
                 lib_path = os.path.join(dev_path, "lib")
+                lib64_path = os.path.join(dev_path, "lib64")
                 # We do not support Windows for now.
                 if is_darwin:
                     ctx.run(f"cp target/release/libsds_go.dylib {lib_path}")
+                    if os.path.exists(lib64_path):
+                        ctx.run(f"cp target/release/libsds_go.dylib {lib64_path}")
                 else:
                     ctx.run(f"cp target/release/libsds_go.so {lib_path}")
+                    if os.path.exists(lib64_path):
+                        ctx.run(f"cp target/release/libsds_go.so {lib64_path}")
 

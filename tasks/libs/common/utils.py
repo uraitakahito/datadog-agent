@@ -15,6 +15,7 @@ from types import SimpleNamespace
 from invoke.exceptions import Exit
 
 from tasks.libs.common.color import color_message
+from tasks.rtloader import get_dev_path
 
 # constants
 DEFAULT_BRANCH = "main"
@@ -168,6 +169,7 @@ def get_build_flags(
     major_version='7',
     python_runtimes='3',
     headless_mode=False,
+    include_sds=False
 ):
     """
     Build the common value for both ldflags and gcflags, and return an env accordingly.
@@ -219,6 +221,14 @@ def get_build_flags(
         env['DYLD_LIBRARY_PATH'] = os.environ.get('DYLD_LIBRARY_PATH', '') + f":{':'.join(rtloader_lib)}"  # OSX
         env['LD_LIBRARY_PATH'] = os.environ.get('LD_LIBRARY_PATH', '') + f":{':'.join(rtloader_lib)}"  # linux
         env['CGO_LDFLAGS'] = os.environ.get('CGO_LDFLAGS', '') + f" -L{' -L '.join(rtloader_lib)}"
+
+    # running tests might need the SDS shared library
+    # if include_sds:
+    #    dev_path = get_dev_path()
+    #    lib_path = os.path.join(dev_path, "lib")
+    #    env['DYLD_LIBRARY_PATH'] = os.environ.get('DYLD_LIBRARY_PATH', '') + f":{':'.join(lib_path)}"  # OSX
+    #    env['LD_LIBRARY_PATH'] = os.environ.get('LD_LIBRARY_PATH', '') + f":{':'.join(lib_path)}"  # linux
+    #    env['CGO_LDFLAGS'] = os.environ.get('CGO_LDFLAGS', '') + f" -L{' -L '.join(lib_path)}"
 
     if sys.platform == 'win32':
         env['CGO_LDFLAGS'] = os.environ.get('CGO_LDFLAGS', '') + ' -Wl,--allow-multiple-definition'
