@@ -72,7 +72,7 @@ from tasks.go_test import (
 )
 from tasks.install_tasks import download_tools, install_shellcheck, install_tools
 from tasks.junit_tasks import junit_upload
-from tasks.libs.go_workspaces import handle_go_work
+from tasks.libs.common.go_workspaces import handle_go_work
 from tasks.pr_checks import lint_releasenote
 from tasks.show_linters_issues import show_linters_issues
 from tasks.unit_tests import invoke_unit_tests
@@ -158,6 +158,7 @@ ns.add_collection(fakeintake)
 ns.add_collection(kmt)
 ns.add_collection(diff)
 ns.add_collection(updater)
+ns.add_collection(modules)
 ns.configure(
     {
         'run': {
