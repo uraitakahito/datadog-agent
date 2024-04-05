@@ -10,6 +10,7 @@
 package autoinstrumentation
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/DataDog/datadog-agent/pkg/util/log"
@@ -118,7 +119,7 @@ func (c *instrumentationConfigurationCache) update(req Request) {
 				newEnabledNamespaces := target.EnabledNamespaces
 
 				c.mu.Lock()
-				c.updateConfiguration(*newEnabled, newEnabledNamespaces, req.ID)
+				c.updateConfiguration(*newEnabled, newEnabledNamespaces, req.ID, int(req.RcVersion))
 				log.Infof("Updated configuration: %v, %v, %v",
 					c.currentConfiguration.enabled, c.currentConfiguration.enabledNamespaces, c.currentConfiguration.disabledNamespaces)
 
@@ -199,11 +200,11 @@ func (c *instrumentationConfigurationCache) resetConfiguration() {
 	c.currentConfiguration = c.localConfiguration
 	for _, rev := range c.orderedRevisions {
 		conf := c.enabledRevisions[rev]
-		c.updateConfiguration(*conf.enabled, conf.enabledNamespaces, conf.configID)
+		c.updateConfiguration(*conf.enabled, conf.enabledNamespaces, conf.configID, conf.rcVersion)
 	}
 }
 
-func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, enabledNamespaces *[]string, rcID string) {
+func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, enabledNamespaces *[]string, rcID string, rcVersion int) {
 	log.Debugf("Updating current APM Instrumentation configuration")
 	log.Debugf("Old APM Instrumentation configuration [enabled=%t enabledNamespaces=%v disabledNamespaces=%v]",
 		c.currentConfiguration.enabled,
@@ -227,7 +228,7 @@ func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, en
 			// TODO: deduplicate enabledNamespaces and remove enabledNamespcaes from disabledNamespaces list
 			for _, ns := range *enabledNamespaces {
 				c.currentConfiguration.enabledNamespaces = append(c.currentConfiguration.enabledNamespaces, ns)
-				c.namespaceToConfigIdMap[ns] = rcID
+				c.namespaceToConfigIdMap[ns] = fmt.Sprintf("%s-%d", rcID, rcVersion)
 			}
 		} else if len(c.currentConfiguration.disabledNamespaces) > 0 {
 			log.Debugf("Removing new namespaces to enable from disabledNamespaces...")
@@ -238,7 +239,7 @@ func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, en
 			for _, ns := range *enabledNamespaces {
 				if _, ok := disabledNsMap[ns]; ok {
 					delete(disabledNsMap, ns)
-					c.namespaceToConfigIdMap[ns] = rcID
+					c.namespaceToConfigIdMap[ns] = fmt.Sprintf("%s-%d", rcID, rcVersion)
 				}
 			}
 			disabledNs := make([]string, 0, len(disabledNsMap))
@@ -254,11 +255,11 @@ func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, en
 				log.Debugf("Enabling APM instrumentation in namespaces [%v] ...", *enabledNamespaces)
 				for _, ns := range *enabledNamespaces {
 					c.currentConfiguration.enabledNamespaces = append(c.currentConfiguration.enabledNamespaces, ns)
-					c.namespaceToConfigIdMap[ns] = rcID
+					c.namespaceToConfigIdMap[ns] = fmt.Sprintf("%s-%d", rcID, rcVersion)
 				}
 			} else {
 				log.Debugf("Enabling APM instrumentation in the whole cluster...")
-				c.namespaceToConfigIdMap["cluster"] = rcID
+				c.namespaceToConfigIdMap["cluster"] = fmt.Sprintf("%s-%d", rcID, rcVersion)
 			}
 		} else {
 			log.Errorf("Noop: APM Instrumentation is off")
