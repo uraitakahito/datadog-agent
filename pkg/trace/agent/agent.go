@@ -271,16 +271,19 @@ func (a *Agent) Process(p *api.Payload) {
 
 	p.TracerPayload.Env = traceutil.NormalizeTag(p.TracerPayload.Env)
 
-	a.discardSpans(p)
-
-	for i := 0; i < len(p.Chunks()); {
-		chunk := p.Chunk(i)
-
+	for _, chunk := range p.Chunks() {
 		fmt.Printf("[AMW] processing chunk start\n")
 		for _, span := range chunk.Spans {
 			fmt.Printf("[AMW] processing chunk %+v\n", span)
 		}
 		fmt.Printf("[AMW] chunk end]\n")
+
+	}
+
+	a.discardSpans(p)
+
+	for i := 0; i < len(p.Chunks()); {
+		chunk := p.Chunk(i)
 
 		if len(chunk.Spans) == 0 {
 			log.Debugf("Skipping received empty trace")
