@@ -25,6 +25,7 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/security/common"
 	"github.com/DataDog/datadog-agent/pkg/status/health"
 	"github.com/DataDog/datadog-agent/pkg/util/log"
+	"github.com/DataDog/datadog-agent/pkg/util/scrubber"
 )
 
 // LogReporter is responsible for sending compliance logs to DataDog backends.
@@ -100,6 +101,11 @@ func (r *LogReporter) ReportEvent(event interface{}) {
 	buf, err := json.Marshal(event)
 	if err != nil {
 		log.Errorf("failed to serialize compliance event: %v", err)
+		return
+	}
+	buf, err = scrubber.ScrubJSON(buf)
+	if err != nil {
+		log.Errorf("failed to scrub compliance event: %v", err)
 		return
 	}
 	origin := message.NewOrigin(r.logSource)
