@@ -6,6 +6,7 @@
 package stats
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -236,13 +237,17 @@ func (c *Concentrator) addNow(pt *traceutil.ProcessedTrace, containerID string) 
 		GitCommitSha: pt.GitCommitSha,
 		ImageTag:     pt.ImageTag,
 	}
+
+	fmt.Printf("[AMW] Concentrator.addNow, peerTagsAggregation is: %s\n ", c.peerTagsAggregation)
 	for _, s := range pt.TraceChunk.Spans {
 		isTop := traceutil.HasTopLevel(s)
 		eligibleSpanKind := c.computeStatsBySpanKind && computeStatsForSpanKind(s)
 		if !(isTop || traceutil.IsMeasured(s) || eligibleSpanKind) {
+			fmt.Printf("[AMW] Concentrator.addNow: skipping span - isTop: %s, isMeasured: %s, eligibleSpanKind: %s\n", isTop, traceutil.IsMeasured(s), eligibleSpanKind)
 			continue
 		}
 		if traceutil.IsPartialSnapshot(s) {
+			fmt.Printf("[AMW] Concentrator.addNow: skipping span because IsPartialSnapshot is true\n")
 			continue
 		}
 		end := s.Start + s.Duration
@@ -258,6 +263,7 @@ func (c *Concentrator) addNow(pt *traceutil.ProcessedTrace, containerID string) 
 			b = NewRawBucket(uint64(btime), uint64(c.bsize))
 			c.buckets[btime] = b
 		}
+
 		b.HandleSpan(s, weight, isTop, pt.TraceChunk.Origin, aggKey, c.peerTagsAggregation, c.peerTagKeys)
 	}
 }

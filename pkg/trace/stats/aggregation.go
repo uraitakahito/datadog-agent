@@ -7,6 +7,7 @@
 package stats
 
 import (
+	"fmt"
 	"hash/fnv"
 	"sort"
 	"strconv"
@@ -100,7 +101,10 @@ func NewAggregationFromSpan(s *pb.Span, origin string, aggKey PayloadAggregation
 	var peerTags []string
 	if clientOrProducer(agg.SpanKind) && enablePeerTagsAgg {
 		peerTags = matchingPeerTags(s, peerTagKeys)
+		fmt.Printf("[AMW] NewAggregationFromSpan, peerTags: %s\n", peerTags)
 		agg.PeerTagsHash = peerTagsHash(peerTags)
+	} else {
+		fmt.Printf("[AMW] NewAggregationFromSpan, skipped peerTags. clientOrProducer(agg.SpanKind): %s\n", clientOrProducer(agg.SpanKind))
 	}
 	return agg, peerTags
 }
