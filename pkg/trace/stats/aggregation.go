@@ -102,11 +102,12 @@ func NewAggregationFromSpan(s *pb.Span, origin string, aggKey PayloadAggregation
 	if clientOrProducer(agg.SpanKind) && enablePeerTagsAgg {
 		peerTags = matchingPeerTags(s, peerTagKeys)
 		fmt.Printf("[AMW] NewAggregationFromSpan, peerTags: %s\n", peerTags)
-		fmt.Printf("[AMW] span is: %+v\n", s)
 		agg.PeerTagsHash = peerTagsHash(peerTags)
 	} else {
-		fmt.Printf("[AMW] NewAggregationFromSpan, skipped peerTags. clientOrProducer(agg.SpanKind): %s\n", clientOrProducer(agg.SpanKind))
+		fmt.Printf("[AMW] NewAggregationFromSpan, skipped peerTags. clientOrProducer(agg.SpanKind): %s, span kind is: %s\n", clientOrProducer(agg.SpanKind), agg.SpanKind)
 	}
+	fmt.Printf("[AMW] span is: %+v\n", s)
+
 	return agg, peerTags
 }
 
