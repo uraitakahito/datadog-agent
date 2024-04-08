@@ -118,7 +118,7 @@ func NewTraceWriter(
 	}
 	climit := cfg.TraceWriter.ConnectionLimit
 	if climit == 0 {
-		climit = 100
+		climit = 5
 	}
 	if cfg.TraceWriter.QueueSize > 0 {
 		log.Warnf("apm_config.trace_writer.queue_size is deprecated and will not be respected.")
