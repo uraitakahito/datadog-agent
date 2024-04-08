@@ -239,7 +239,9 @@ func (c *Concentrator) addNow(pt *traceutil.ProcessedTrace, containerID string) 
 	}
 
 	fmt.Printf("[AMW] Concentrator.addNow, peerTagsAggregation is: %s\n ", c.peerTagsAggregation)
+
 	for _, s := range pt.TraceChunk.Spans {
+		fmt.Printf("[AMW] processing span: %+v\n", s)
 		isTop := traceutil.HasTopLevel(s)
 		eligibleSpanKind := c.computeStatsBySpanKind && computeStatsForSpanKind(s)
 		if !(isTop || traceutil.IsMeasured(s) || eligibleSpanKind) {

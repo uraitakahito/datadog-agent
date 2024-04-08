@@ -8,6 +8,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"runtime"
 	"strconv"
 	"sync"
@@ -274,6 +275,13 @@ func (a *Agent) Process(p *api.Payload) {
 
 	for i := 0; i < len(p.Chunks()); {
 		chunk := p.Chunk(i)
+
+		fmt.Printf("[AMW] processing chunk start\n")
+		for _, span := range chunk.Spans {
+			fmt.Printf("[AMW] processing chunk %+v\n", span)
+		}
+		fmt.Printf("[AMW] chunk end]\n")
+
 		if len(chunk.Spans) == 0 {
 			log.Debugf("Skipping received empty trace")
 			p.RemoveChunk(i)
