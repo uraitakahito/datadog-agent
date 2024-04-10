@@ -6,6 +6,7 @@ Helpers for getting vscode set up nicely
 import json
 import os
 from collections import OrderedDict
+from pathlib import Path
 
 from invoke import task
 
@@ -144,3 +145,7 @@ def setup_devcontainer(
 
     with open(fullpath, "w") as sf:
         json.dump(devcontainer, sf, indent=4, sort_keys=False, separators=(',', ': '))
+
+
+def devcontainer_file() -> Path:
+    return Path(VSCODE_DEVCONTAINER_DIR) / VSCODE_DEVCONTAINER_FILE

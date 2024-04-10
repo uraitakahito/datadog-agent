@@ -13,6 +13,7 @@ from tasks.libs.common.utils import DEFAULT_BRANCH, color_message
 from tasks.libs.types.copyright import CopyrightLinter
 from tasks.modules import GoModule
 from tasks.test_core import ModuleLintResult, process_input_args, process_module_results, test_core
+from tasks.vscode import devcontainer_file, setup_devcontainer
 
 
 @task
@@ -98,6 +99,7 @@ def go(
     timeout: int = None,
     golangci_lint_kwargs="",
     headless_mode=False,
+    platform=None,
 ):
     """
     Run go linters on the given module and targets.
@@ -131,10 +133,15 @@ def go(
         timeout=timeout,
         golangci_lint_kwargs=golangci_lint_kwargs,
         headless_mode=headless_mode,
+        platform=platform,
     )
 
 
 # Temporary method to duplicate go linter task not to impact macos jobs.
+def start_devcontainer(ctx):
+    ctx.run("devcontainer up --workspace-folder .")
+
+
 def _lint_go(
     ctx,
     module,
@@ -150,9 +157,18 @@ def _lint_go(
     timeout,
     golangci_lint_kwargs,
     headless_mode,
+    platform=None,
 ):
     if not check_tools_version(ctx, ['go', 'golangci-lint']):
         print("Warning: If you have linter errors it might be due to version mismatches.", file=sys.stderr)
+
+    if platform == "linux":
+        if not devcontainer_file().exists():
+            print("Generating the devcontainer file to run the linter in a container.")
+            # TODO remove the hardcoded image
+            setup_devcontainer(ctx, image="486234852809.dkr.ecr.us-east-1.amazonaws.com/ci/datadog-agent-devenv:1-arm64")
+
+        start_devcontainer(ctx)
 
     # Format:
     # {
