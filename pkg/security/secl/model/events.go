@@ -93,6 +93,8 @@ const (
 	IMDSEventType
 	// OnDemandEventType is sent for on-demand events
 	OnDemandEventType
+	// RawPacketEventType raw packet event
+	RawPacketEventType
 	// MaxKernelEventType is used internally to get the maximum number of kernel events.
 	MaxKernelEventType
 
@@ -230,7 +232,8 @@ func (t EventType) String() string {
 		return "imds"
 	case OnDemandEventType:
 		return "ondemand"
-
+	case RawPacketEventType:
+		return "raw_packet"
 	case CustomLostReadEventType:
 		return "lost_events_read"
 	case CustomLostWriteEventType:

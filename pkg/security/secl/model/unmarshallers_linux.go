@@ -1250,3 +1250,20 @@ func (e *OnDemandEvent) UnmarshalBinary(data []byte) (int, error) {
 	SliceToArray(data[4:260], e.Data[:])
 	return 260, nil
 }
+
+// UnmarshalBinary unmarshals a binary representation of itself
+func (e *RawPacketEvent) UnmarshalBinary(data []byte) (int, error) {
+	if len(data) < 48 {
+		return 0, ErrNotEnoughData
+	}
+	data = data[48:]
+
+	e.Len = binary.NativeEndian.Uint32(data)
+	if int(e.Len) > len(data[4:]) {
+		return 0, ErrNotEnoughData
+	}
+	e.Data = make([]byte, e.Len)
+	copy(e.Data, data[4:e.Len])
+
+	return 48 + 4 + int(e.Len), nil
+}
