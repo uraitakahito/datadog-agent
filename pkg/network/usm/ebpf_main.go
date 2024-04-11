@@ -58,11 +58,13 @@ var (
 const (
 	// ELF section of the BPF_PROG_TYPE_SOCKET_FILTER program used
 	// to classify protocols and dispatch the correct handlers.
-	protocolDispatcherSocketFilterFunction = "socket__protocol_dispatcher"
-	connectionStatesMap                    = "connection_states"
-	sockFDLookupArgsMap                    = "sockfd_lookup_args"
-	sockByPidFDMap                         = "sock_by_pid_fd"
-	pidFDBySockMap                         = "pid_fd_by_sock"
+	protocolDispatcherSocketFilterFunction   = "socket__protocol_dispatcher"
+	protocolDispatcherCgroupSKBStreamParser  = "cgroup_skb__protocol_dispatcher"
+	protocolDispatcherCgroupSKBStreamParser2 = "cgroup_skb__protocol_dispatcher2"
+	connectionStatesMap                      = "connection_states"
+	sockFDLookupArgsMap                      = "sockfd_lookup_args"
+	sockByPidFDMap                           = "sock_by_pid_fd"
+	pidFDBySockMap                           = "pid_fd_by_sock"
 
 	sockFDLookup    = "kprobe__sockfd_lookup_light"
 	sockFDLookupRet = "kretprobe__sockfd_lookup_light"
@@ -123,6 +125,18 @@ func newEBPFProgram(c *config.Config, connectionProtocolMap *ebpf.Map) (*ebpfPro
 			{
 				ProbeIdentificationPair: manager.ProbeIdentificationPair{
 					EBPFFuncName: protocolDispatcherSocketFilterFunction,
+					UID:          probeUID,
+				},
+			},
+			{
+				ProbeIdentificationPair: manager.ProbeIdentificationPair{
+					EBPFFuncName: protocolDispatcherCgroupSKBStreamParser,
+					UID:          probeUID,
+				},
+			},
+			{
+				ProbeIdentificationPair: manager.ProbeIdentificationPair{
+					EBPFFuncName: protocolDispatcherCgroupSKBStreamParser2,
 					UID:          probeUID,
 				},
 			},

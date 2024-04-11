@@ -29,29 +29,29 @@ _Pragma( STRINGIFY(unroll(max_buffer_size)) )                                   
         }                                                                                                                                   \
     }                                                                                                                                       \
 
-SEC("socket/kafka_filter")
+SEC("cgroup/skb/kafka_filter")
 int socket__kafka_filter(struct __sk_buff* skb) {
     const u32 zero = 0;
     skb_info_t skb_info;
     kafka_transaction_t *kafka = bpf_map_lookup_elem(&kafka_heap, &zero);
     if (kafka == NULL) {
         log_debug("socket__kafka_filter: kafka_transaction state is NULL");
-        return 0;
+        return 1;
     }
     bpf_memset(kafka, 0, sizeof(kafka_transaction_t));
 
     if (!fetch_dispatching_arguments(&kafka->tup, &skb_info)) {
         log_debug("socket__kafka_filter failed to fetch arguments for tail call");
-        return 0;
+        return 1;
     }
 
     if (!kafka_allow_packet(kafka, skb, &skb_info)) {
-        return 0;
+        return 1;
     }
     normalize_tuple(&kafka->tup);
 
     (void)kafka_process(kafka, skb, skb_info.data_off);
-    return 0;
+    return 1;
 }
 
 READ_INTO_BUFFER(topic_name_parser, TOPIC_NAME_MAX_STRING_SIZE, BLK_SIZE)

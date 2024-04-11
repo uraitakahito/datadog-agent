@@ -235,7 +235,7 @@ static __always_inline bool http_allow_packet(conn_tuple_t *tuple, struct __sk_b
     return true;
 }
 
-SEC("socket/http_filter")
+SEC("cgroup/skb/http_filter")
 int socket__http_filter(struct __sk_buff* skb) {
     skb_info_t skb_info;
     http_event_t event;
@@ -243,17 +243,17 @@ int socket__http_filter(struct __sk_buff* skb) {
 
     if (!fetch_dispatching_arguments(&event.tuple, &skb_info)) {
         log_debug("http_filter failed to fetch arguments for tail call");
-        return 0;
+        return 1;
     }
 
     if (!http_allow_packet(&event.tuple, skb, &skb_info)) {
-        return 0;
+        return 1;
     }
     normalize_tuple(&event.tuple);
 
     read_into_buffer_skb((char *)event.http.request_fragment, skb, skb_info.data_off);
     http_process(&event, &skb_info, NO_TAGS);
-    return 0;
+    return 1;
 }
 
 SEC("uprobe/http_process")

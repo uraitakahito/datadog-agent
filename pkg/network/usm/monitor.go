@@ -10,7 +10,10 @@ package usm
 import (
 	"errors"
 	"fmt"
+	"github.com/DataDog/datadog-agent/pkg/network/usm/utils"
 	"io"
+	"os"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -58,6 +61,33 @@ type Monitor struct {
 	lastUpdateTime *atomic.Int64
 }
 
+func findScopeFiles(root string) ([]string, error) {
+	var scopeFiles []string
+
+	// Walk through the directory tree starting from the root path
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		// Check if the path matches the pattern "*.scope"
+		matched, err := filepath.Match("*.scope", info.Name())
+		if err != nil {
+			return err
+		}
+		// If the path matches, add it to the scopeFiles slice
+		if matched {
+			scopeFiles = append(scopeFiles, path)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return scopeFiles, nil
+}
+
 // NewMonitor returns a new Monitor instance
 func NewMonitor(c *config.Config, connectionProtocolMap *ebpf.Map) (m *Monitor, err error) {
 	defer func() {
@@ -93,6 +123,38 @@ func NewMonitor(c *config.Config, connectionProtocolMap *ebpf.Map) (m *Monitor, 
 	closeFilterFn, err := filterpkg.HeadlessSocketFilter(c, filter)
 	if err != nil {
 		return nil, fmt.Errorf("error enabling traffic inspection: %s", err)
+	}
+
+	cgroupList, err := findScopeFiles("/sys/fs/cgroup")
+	if err != nil {
+		return nil, fmt.Errorf("error finding cgroup scope files: %s", err)
+	}
+	cgroupskb, _ := mgr.GetProbe(manager.ProbeIdentificationPair{EBPFFuncName: protocolDispatcherCgroupSKBStreamParser, UID: probeUID})
+	cgroupskb.CGroupPath = "/sys/fs/cgroup"
+	cgroupskb2, _ := mgr.GetProbe(manager.ProbeIdentificationPair{EBPFFuncName: protocolDispatcherCgroupSKBStreamParser2, UID: probeUID})
+	cgroupskb2.CGroupPath = "/sys/fs/cgroup"
+	for _, cgroup := range cgroupList {
+		uid, _ := utils.NewPathIdentifier(cgroup)
+		probe := &manager.Probe{
+			ProbeIdentificationPair: manager.ProbeIdentificationPair{
+				EBPFFuncName: protocolDispatcherCgroupSKBStreamParser,
+				UID:          uid.Key()[:10],
+			},
+			CGroupPath: cgroup,
+		}
+		if err := mgr.AddHook("", probe); err != nil {
+			log.Errorf("error adding hook: %s", err)
+		}
+		probe2 := &manager.Probe{
+			ProbeIdentificationPair: manager.ProbeIdentificationPair{
+				EBPFFuncName: protocolDispatcherCgroupSKBStreamParser2,
+				UID:          uid.Key()[:10],
+			},
+			CGroupPath: cgroup,
+		}
+		if err := mgr.AddHook("", probe2); err != nil {
+			log.Errorf("error adding hook: %s", err)
+		}
 	}
 
 	processMonitor := monitor.GetProcessMonitor()

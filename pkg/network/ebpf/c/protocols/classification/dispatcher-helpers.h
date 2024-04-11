@@ -92,7 +92,7 @@ static __always_inline void protocol_dispatcher_entrypoint(struct __sk_buff *skb
     conn_tuple_t skb_tup = {0};
 
     // Exporting the conn tuple from the skb, alongside couple of relevant fields from the skb.
-    if (!read_conn_tuple_skb(skb, &skb_info, &skb_tup)) {
+    if (!read_conn_tuple_skb_cgroup(skb, &skb_info, &skb_tup)) {
         return;
     }
 
