@@ -67,11 +67,30 @@ __attribute__((always_inline)) int handle_raw_packet(struct __sk_buff *skb, stru
 
     bpf_printk("ROOOO %d", skb->len);
 
+    bpf_skb_pull_data(skb, skb->len);
+    unsigned char *data = (unsigned char *)(unsigned long long)skb->data;
+    unsigned char *data_end = (unsigned char *)(unsigned long long)skb->data_end;
+
+    //bpf_memcpy(evt->data, data, skb->len);
+    for(unsigned int i=0;i<sizeof(evt->data);i++) {
+        if(i >= (skb->len)) {
+            break;
+        }
+        if(i >= (skb->data_end - skb->data)) {
+            break;
+        }
+        if (data >= data_end) {
+            break;
+        }
+        evt->data[i] = data[i];
+    }
+    /*
     for(int i=sizeof(evt->data);i>14+20+20;i--) {
         if (bpf_skb_load_bytes(skb, 0, evt->data, i) == 0) {
             break;
         }
     }
+    */
     evt->len = skb->len;
 
     bpf_printk("ROOOO pas mal: %d/ %d", evt->data[0], evt->len);
