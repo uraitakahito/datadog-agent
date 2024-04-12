@@ -875,3 +875,5 @@ replace (
 
 // Prevent a false-positive detection by the Google and Ikarus security vendors on VirusTotal
 exclude go.opentelemetry.io/proto/otlp v1.1.0
+
+replace github.com/DataDog/agent-payload/v5 => github.com/DataDog/agent-payload/v5 v5.0.112-0.20240412150826-1a88d3100bc0

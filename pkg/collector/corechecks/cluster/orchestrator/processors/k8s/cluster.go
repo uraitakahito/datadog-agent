@@ -25,6 +25,10 @@ import (
 	corev1Client "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
+var (
+	nodeInstanceTypeLabels = []string{"beta.kubernetes.io/instance-type", corev1.LabelInstanceTypeStable}
+)
+
 // ClusterProcessor is a processor for Kubernetes clusters. There is no
 // concept of cluster per se in Kubernetes. The model is created by aggregating
 // data from the Kubernetes Node resource and pulling API Server information.
@@ -52,6 +56,7 @@ func (p *ClusterProcessor) Process(ctx processors.ProcessorContext, list interfa
 	// Cluster information is an aggregation of node list data.
 	var (
 		kubeletVersions   = make(map[string]int32)
+		instanceTypes     = make(map[string]int32)
 		cpuAllocatable    uint64
 		cpuCapacity       uint64
 		memoryAllocatable uint64
@@ -80,12 +85,18 @@ func (p *ClusterProcessor) Process(ctx processors.ProcessorContext, list interfa
 		// Pod allocatable and capacity.
 		podAllocatable += uint32(r.Status.Allocatable.Pods().Value())
 		podCapacity += uint32(r.Status.Capacity.Pods().Value())
+
+		// Instance types.
+		if instanceType := getNodeInstanceType(r); instanceType != "" {
+			instanceTypes[instanceType]++
+		}
 	}
 
 	clusterModel := &model.Cluster{
 		CpuAllocatable:    cpuAllocatable,
 		CpuCapacity:       cpuCapacity,
 		KubeletVersions:   kubeletVersions,
+		InstanceTypes:     instanceTypes,
 		MemoryAllocatable: memoryAllocatable,
 		MemoryCapacity:    memoryCapacity,
 		NodeCount:         nodeCount,
@@ -166,4 +177,13 @@ func getKubeSystemCreationTimeStamp(coreClient corev1Client.CoreV1Interface) (me
 	ts := svc.GetCreationTimestamp()
 	orchestrator.KubernetesResourceCache.Set(orchestrator.ClusterAgeCacheKey, svc.GetCreationTimestamp(), orchestrator.NoExpiration)
 	return ts, nil
+}
+
+func getNodeInstanceType(node *corev1.Node) string {
+	for _, label := range nodeInstanceTypeLabels {
+		if instanceType, found := node.Labels[label]; found {
+			return instanceType
+		}
+	}
+	return ""
 }
