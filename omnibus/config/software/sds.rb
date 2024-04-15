@@ -1,6 +1,6 @@
 name "sds"
 
-default_version "v0.1.0"
+default_version "v6.6.7"
 source git: 'https://github.com/DataDog/dd-sensitive-data-scanner'
 
 build do
