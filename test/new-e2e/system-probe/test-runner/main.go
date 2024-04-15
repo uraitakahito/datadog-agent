@@ -28,7 +28,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const matchAllPackages = "*"
+const (
+	matchAllPackages = "*"
+	bpfDirectory     = "pkg/ebpf/bytecode/build"
+)
 
 func init() {
 	color.NoColor = false
@@ -47,6 +50,7 @@ type testConfig struct {
 	packagesRunConfig map[string]packageRunConfiguration
 	testDirRoot       string
 	extraParams       string
+	embeddedBTF       string
 }
 
 const ciVisibility = "/ci-visibility"
@@ -207,7 +211,7 @@ func testPass(testConfig *testConfig, props map[string]string) error {
 		cmd := exec.Command("/go/bin/gotestsum", args...)
 		baseEnv = append(
 			baseEnv,
-			"DD_SYSTEM_PROBE_BPF_DIR="+filepath.Join(testConfig.testDirRoot, "pkg/ebpf/bytecode/build"),
+			"DD_SYSTEM_PROBE_BPF_DIR="+filepath.Join(testConfig.testDirRoot, bpfDirectory),
 			"DD_SERVICE_MONITORING_CONFIG_TLS_JAVA_DIR="+filepath.Join(testConfig.testDirRoot, "pkg/network/protocols/tls/java"),
 		)
 		cmd.Env = append(cmd.Environ(), baseEnv...)
@@ -238,6 +242,7 @@ func buildTestConfiguration() (*testConfig, error) {
 	runCount := flag.Int("run-count", 1, "number of times to run the test")
 	testRoot := flag.String("test-root", "/opt/kernel-version-testing/system-probe-tests", "directory containing test packages")
 	extraParams := flag.String("extra-params", "", "extra parameters to pass to the test runner")
+	embeddedBTF := flag.String("embedded-btfs", "", "use BTF files embedded inside the VM image")
 
 	flag.Parse()
 
@@ -263,6 +268,7 @@ func buildTestConfiguration() (*testConfig, error) {
 		packagesRunConfig: breakdown,
 		testDirRoot:       *testRoot,
 		extraParams:       *extraParams,
+		embeddedBTF:       *embeddedBTF,
 	}, nil
 }
 
@@ -317,7 +323,7 @@ func pathEmbedded(fullPath, embedded string) bool {
 
 func fixAssetPermissions(testDirRoot string) error {
 	matches, err := glob(testDirRoot, `.*\.o`, func(path string) bool {
-		return pathEmbedded(path, "pkg/ebpf/bytecode/build")
+		return pathEmbedded(path, bpfDirectory)
 	})
 	if err != nil {
 		return fmt.Errorf("glob assets: %s", err)
@@ -328,6 +334,61 @@ func fixAssetPermissions(testDirRoot string) error {
 			return fmt.Errorf("chown %s: %s", file, err)
 		}
 	}
+	return nil
+}
+
+func setupEmbeddedBTF(btfPath, testDirRoot string) error {
+	// if no path is provided move on
+	if btfPath == "" {
+		return nil
+	}
+
+	var btfFiles []string
+	err := filepath.WalkDir(btfPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+		btfFiles = append(btfFiles, path)
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to build list of embedded btf files: %w", err)
+	}
+
+	btfTestDir := filepath.Join(testDirRoot, bpfDirectory, "co-re/btf")
+
+	if err := os.MkdirAll(btfTestDir, 0750); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", btfTestDir, err)
+	}
+
+	for _, btfFile := range btfFiles {
+		dstFilename := filepath.Join(btfTestDir, filepath.Base(btfFile))
+
+		dst, err := os.Create(dstFilename)
+		if err != nil {
+			return fmt.Errorf("failed to create destination file %s: %w", dstFilename, err)
+		}
+		defer dst.Close()
+
+		src, err := os.Open(btfFile)
+		if err != nil {
+			return fmt.Errorf("failed to create source file %s: %w", btfFile, err)
+		}
+		defer src.Close()
+
+		_, err = io.Copy(dst, src)
+		if err != nil {
+			return fmt.Errorf("failed to copy %s -> %s: %w", btfFile, dstFilename, err)
+		}
+
+		fmt.Printf("%s -> %s\n", btfFile, dstFilename)
+	}
+
 	return nil
 }
 
@@ -344,6 +405,10 @@ func run() error {
 
 	if err := fixAssetPermissions(testConfig.testDirRoot); err != nil {
 		return fmt.Errorf("asset perms: %s", err)
+	}
+
+	if err := setupEmbeddedBTF(testConfig.embeddedBTF, testConfig.testDirRoot); err != nil {
+		return fmt.Errorf("unable to setup embedded btf for use by tests: %w", err)
 	}
 
 	if err := os.RemoveAll(ciVisibility); err != nil {

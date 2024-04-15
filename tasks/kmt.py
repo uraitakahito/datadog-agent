@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tupl
 from invoke.context import Context
 from invoke.tasks import task
 
+from tasks.libs.build.ninja import NinjaWriter
 from tasks.kernel_matrix_testing import stacks, vmconfig
 from tasks.kernel_matrix_testing.ci import KMTTestRunJob, get_all_jobs_for_pipeline
 from tasks.kernel_matrix_testing.compiler import CONTAINER_AGENT_PATH, all_compilers, get_compiler
@@ -34,7 +35,8 @@ from tasks.kernel_matrix_testing.init_kmt import init_kernel_matrix_testing_syst
 from tasks.kernel_matrix_testing.kmt_os import get_kmt_os
 from tasks.kernel_matrix_testing.stacks import check_and_get_stack, ec2_instance_ids
 from tasks.kernel_matrix_testing.tool import Exit, ask, error, get_binary_target_arch, info, warn
-from tasks.system_probe import EMBEDDED_SHARE_DIR
+from tasks.system_probe import EMBEDDED_SHARE_DIR, TEST_PACKAGES_LIST, check_for_ninja, go_package_dirs, NPM_TAG, BPF_TAG, test as build_testsuite, get_sysprobe_buildtags, get_test_timeout
+from tasks.libs.common.utils import get_build_flags
 
 if TYPE_CHECKING:
     from tasks.kernel_matrix_testing.types import (  # noqa: F401
@@ -426,6 +428,10 @@ class KMTPaths:
         return self.arch_dir / f"tests-{self.arch}.tar.gz"
 
     @property
+    def sysprobe_tests(self):
+        return self.arch_dir / "opt/system_probe_tests"
+
+    @property
     def tools(self):
         return self.root / self.arch / "tools"
 
@@ -434,7 +440,7 @@ def build_tests_package(ctx: Context, source_dir: str, stack: str, arch: Arch, c
     paths = KMTPaths(stack, arch)
     tests_archive = paths.tests_archive
     if not ci:
-        system_probe_tests = tests_archive.parent / "opt/system-probe-tests"
+        system_probe_tests = paths.sysprobe_tests
         test_pkgs = os.path.join(
             source_dir, "test/kitchen/site-cookbooks/dd-system-probe-check/files/default/tests/pkg"
         )
@@ -611,6 +617,105 @@ def build_run_config(run: Optional[str], packages: List[str]):
     return c
 
 
+@task
+def kmt_prepare(ctx, stack=None, kernel_release=None, full_rebuild=False, packages="", arch=None, extra_arguments=None):
+    stack = check_and_get_stack(stack)
+    if not stacks.stack_exists(stack):
+        raise Exit(f"Stack {stack} does not exist. Please create with 'inv kmt.stack-create --stack=<name>'")
+
+    if arch == None:
+        arch = full_arch("local")
+
+    check_for_ninja(ctx)
+    target_packages = go_package_dirs(TEST_PACKAGES_LIST, [NPM_TAG, BPF_TAG])
+    kmt_paths = KMTPaths(stack, arch)
+    nf_path = os.path.join(kmt_paths.arch_dir, "kmt.ninja")
+
+    kmt_paths.arch_dir.mkdir(exist_ok=True, parents=True)
+
+    testsuite_cmd = '$env $sudo $go test -mod=mod -v $timeout -tags "$build_tags" $extra_arguments -c -o $out $in'
+
+    go_path = "go"
+    go_root = os.getenv("GOROOT")
+    if go_root:
+        go_path = os.path.join(go_root, "bin", "go")
+
+    with open(nf_path, 'w') as ninja_file:
+        nw = NinjaWriter(ninja_file)
+
+        nw.rule(name="gotestsuite", command=testsuite_cmd, depfile="$out.d")
+        nw.rule(name="copyextra", command="cp -r $in $out", depfile="$out.d")
+        nw.rule(
+            name="gobin",
+            command="go build -o $out -tags=\"test\" -ldflags=\"-extldflags '-static'\" $in",
+            depfile="$out.d",
+        )
+        nw.rule(name="copyfiles", command="cp $in $out", depfile="$out.d")
+        nw.rule(name="test2json", command="CGO_ENABLED=0 go build -o $out -ldflags=\"-s -w\" $in", depfile="$out.d")
+
+        _,_, env = get_build_flags(ctx)
+        env["DD_SYSTEM_PROBE_BPF_DIR"] = EMBEDDED_SHARE_DIR
+
+        env_str = ""
+        for key, val in env.items():
+            new_val = val.replace('\n', ' ')
+            env_str += f"{key}='{new_val}' "
+        env_str.rstrip()
+
+        for i, pkg in enumerate(target_packages):
+            target_path = os.path.join(kmt_paths.sysprobe_tests, os.path.relpath(pkg, os.getcwd()))
+            output_path = os.path.join(target_path, "testsuite")
+            variables={
+                "env": env_str,
+                "sudo": "sudo -E" if not is_root() else " ",
+                "go": go_path,
+                "build_tags": get_sysprobe_buildtags(False, False),
+            }
+            timeout = get_test_timeout(os.path.relpath(pkg, os.getcwd()))
+            if timeout:
+                variables["timeout"] = f"-timeout {timeout}"
+            if extra_arguments:
+                variables["extra_arguments"] = extra_arguments
+
+            print(f"compiling: {pkg}")
+            nw.build(
+                inputs=[pkg],
+                outputs=[output_path],
+                rule="gotestsuite",
+                variables=variables,
+            )
+
+            #for extra in ["testdata", "build"]:
+            #    sp = os.path.join(pkg, extra)
+            #    dp = os.path.join(target_path, extra)
+            #    if os.path.isdir(sp):
+            #        nw.build(inputs=[sp], outputs=[dp], rule="copyextra")
+
+            #if pkg.endswith("java"):
+            #    nw.build(inputs=[os.path.join(pkg,"agent-usm.jar")], outputs=[os.path.join(target_path, "agent-usm.jar")], rule="copyfiles")
+
+            #for gobin in ["gotls_client", "grpc_external_server", "external_unix_proxy_server", "fmapper", "prefetch_file"]:
+            #    src_file_path = os.path.join(pkg, f"{gobin}.go")
+            #    if os.path.isdir(pkg) and os.path.isfile(src_file_path):
+            #        binary_path = os.path.join(target_path, gobin)
+            #        nw.build(inputs=[f"{pkg}/{gobin}.go"], outputs=[binary_path], rule="gobin")
+
+       # gopath = os.getenv("GOPATH")
+       # copy_files = {
+       #     f"{gopath}/bin/gotestsum": f"{kmt_paths.arch_dir}/go/bin",
+       # }
+
+       # for sf, df in copy_files.items():
+       #     if os.path.exists(sf):
+       #         nw.build(inputs=[sf], outputs=[df], rule="copyfiles")
+
+        #nw.build(inputs=["cmd/test2json"], outputs=[f"{kmt_paths.arch_dir}/go/bin/test2json"], rule="test2json")
+
+    with open("compile_commands.json", "w") as compiledb:
+        ctx.run(f"ninja -f {nf_path} -t compdb", out_stream=compiledb)
+    ctx.run(f"ninja -d explain -v -f {nf_path}")
+
+
 @task(
     help={
         "vms": "Comma seperated list of vms to target when running tests. If None, run against all vms",
@@ -641,6 +746,7 @@ def test(
     verbose=True,
     test_logs=False,
     test_extra_arguments=None,
+    generate_minimized_btf=False,
 ):
     stack = check_and_get_stack(stack)
     if not stacks.stack_exists(stack):
@@ -679,6 +785,7 @@ def test(
             "-verbose" if test_logs else "",
             f"-run-count {run_count}",
             "-test-root /opt/system-probe-tests",
+            "-embedded-btfs /opt/btf",
             f"-extra-params {test_extra_arguments}" if test_extra_arguments is not None else "",
         ]
         for d in domains:

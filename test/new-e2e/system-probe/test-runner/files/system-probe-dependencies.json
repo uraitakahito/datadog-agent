@@ -9,10 +9,8 @@
         "pkgjson"
     ],
     "copy": {
-        "test/kitchen/site-cookbooks/dd-system-probe-check/files/default/clang-bpf": "opt/datadog-agent/embedded/bin",
-        "test/kitchen/site-cookbooks/dd-system-probe-check/files/default/llc-bpf": "opt/datadog-agent/embedded/bin",
-        "test/kitchen/site-cookbooks/dd-system-probe-check/files/default/gotestsum": "go/bin",
-        "test/kitchen/site-cookbooks/dd-system-probe-check/files/default/test2json": "go/bin",
+        "/opt/datadog-agent/embedded/bin/clang-bpf": "opt/datadog-agent/embedded/bin",
+        "/opt/datadog-agent/embedded/bin/llc-bpf": "opt/datadog-agent/embedded/bin",
         "test/new-e2e/system-probe/test/micro-vm-init.sh": "./"
     },
     "build": {

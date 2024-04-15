@@ -627,6 +627,16 @@ def build_sysprobe_binary(
     ctx.run(cmd.format(**args), env=env)
 
 
+def get_sysprobe_buildtags(is_windows, bundle_ebpf):
+    build_tags = [NPM_TAG]
+    build_tags.extend(UNIT_TEST_TAGS)
+    if not is_windows:
+        build_tags.append(BPF_TAG)
+        if bundle_ebpf:
+            build_tags.append(BUNDLE_TAG)
+    return build_tags
+
+
 @task
 def test(
     ctx,
@@ -660,12 +670,7 @@ def test(
             instrument_trampoline=False,
         )
 
-    build_tags = [NPM_TAG]
-    build_tags.extend(UNIT_TEST_TAGS)
-    if not is_windows:
-        build_tags.append(BPF_TAG)
-        if bundle_ebpf:
-            build_tags.append(BUNDLE_TAG)
+    build_tags = get_sysprobe_buildtags(is_windows, bundle_ebpf)
 
     args = get_common_test_args(build_tags, failfast)
     args["output_params"] = f"-c -o {output_path}" if output_path else ""
@@ -814,7 +819,12 @@ def clean_build(ctx):
 
 
 def full_pkg_path(name):
+    print(f"1 {name[name.index('pkg') :]}")
     return os.path.join(os.getcwd(), name[name.index("pkg") :])
+
+
+def rel_pkg_path(name):
+    return os.path.relpath(name, os.getcwd())
 
 
 @task
@@ -837,6 +847,15 @@ def kitchen_prepare(ctx, kernel_release=None, ci=False, packages=""):
         for pkg in packages:
             if pkg not in target_packages:
                 raise Exit(f"Unknown target packages {pkg} specified")
+
+            print(KITCHEN_ARTIFACT_DIR)
+            print(rel_pkg_path(pkg))
+            artifact_pkg_path = os.path.join(os.getcwd(),KITCHEN_ARTIFACT_DIR, rel_pkg_path(pkg))
+            print(artifact_pkg_path)
+            # remove old builds of target packages
+            if os.path.exists(artifact_pkg_path):
+                print(f"removing: {artifact_pkg_path}")
+#                shutil.rmtree(artifact_pkg_path)
 
         target_packages = packages
 
