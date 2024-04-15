@@ -35,7 +35,10 @@ import (
 	"github.com/DataDog/datadog-agent/comp/core/workloadmeta"
 	"github.com/DataDog/datadog-agent/comp/core/workloadmeta/collectors"
 	compstatsd "github.com/DataDog/datadog-agent/comp/dogstatsd/statsd"
+	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/eventplatformimpl"
+	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatformreceiver/eventplatformreceiverimpl"
 	hostMetadataUtils "github.com/DataDog/datadog-agent/comp/metadata/host/hostimpl/utils"
+	"github.com/DataDog/datadog-agent/comp/networkpath"
 	"github.com/DataDog/datadog-agent/comp/process"
 	"github.com/DataDog/datadog-agent/comp/process/agent"
 	"github.com/DataDog/datadog-agent/comp/process/apiserver"
@@ -131,6 +134,16 @@ func runApp(ctx context.Context, globalParams *GlobalParams) error {
 
 		// Provide process agent bundle so fx knows where to find components
 		process.Bundle(),
+
+		// Provide ep forwarder bundle so fx knows where to find components
+		fx.Provide(func() eventplatformimpl.Params {
+			return eventplatformimpl.NewDefaultParams()
+		}),
+		eventplatformreceiverimpl.Module(),
+		eventplatformimpl.Module(),
+
+		// Provide network path scheduler bundle
+		networkpath.Bundle(),
 
 		// Provide remote config client bundle
 		remoteconfig.Bundle(),

@@ -323,6 +323,16 @@ When running, it listens for network traffic according to configured
 listeners and aggregates traffic data to send to the backend.
 It does not expose any public methods.
 
+## [comp/networkpath](https://pkg.go.dev/github.com/DataDog/datadog-agent/comp/networkpath) (Component Bundle)
+
+*Datadog Team*: network-device-monitoring
+
+Package networkpath implements the "networkpath" bundle,
+
+### [comp/networkpath/npscheduler](https://pkg.go.dev/github.com/DataDog/datadog-agent/comp/networkpath/npscheduler)
+
+Package npscheduler used to manage network paths
+
 ## [comp/otelcol](https://pkg.go.dev/github.com/DataDog/datadog-agent/comp/otelcol) (Component Bundle)
 
 *Datadog Team*: opentelemetry

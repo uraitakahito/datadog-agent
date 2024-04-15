@@ -7,11 +7,14 @@ package checks
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	gonet "net"
 	"runtime"
 	"sort"
 	"time"
 
+	"github.com/DataDog/datadog-agent/comp/networkpath/npscheduler"
 	"github.com/benbjohnson/clock"
 
 	model "github.com/DataDog/agent-payload/v5/process"
@@ -46,12 +49,13 @@ var (
 )
 
 // NewConnectionsCheck returns an instance of the ConnectionsCheck.
-func NewConnectionsCheck(config, sysprobeYamlConfig config.Reader, syscfg *sysconfigtypes.Config, wmeta workloadmeta.Component) *ConnectionsCheck {
+func NewConnectionsCheck(config, sysprobeYamlConfig config.Reader, syscfg *sysconfigtypes.Config, wmeta workloadmeta.Component, npScheduler npscheduler.Component) *ConnectionsCheck {
 	return &ConnectionsCheck{
 		config:             config,
 		syscfg:             syscfg,
 		sysprobeYamlConfig: sysprobeYamlConfig,
 		wmeta:              wmeta,
+		npScheduler:        npScheduler,
 	}
 }
 
@@ -75,6 +79,8 @@ type ConnectionsCheck struct {
 
 	localresolver *resolver.LocalResolver
 	wmeta         workloadmeta.Component
+
+	npScheduler npscheduler.Component
 }
 
 // ProcessConnRates describes connection rates for processes
@@ -184,6 +190,24 @@ func (c *ConnectionsCheck) Run(nextGroupID func() int32, _ *RunOptions) (RunResu
 	c.notifyProcessConnRates(c.config, conns)
 
 	log.Debugf("collected connections in %s", time.Since(start))
+
+	connsJson, err := json.Marshal(conns)
+	if err != nil {
+		log.Errorf("Json Error: %s", err)
+	}
+	log.Warnf("connsJson: %s", connsJson)
+
+	for _, conn := range conns.Conns {
+		c.schedulePathForConnection(conn)
+	}
+
+	for _, domain := range conns.Domains {
+		c.schedulePathForDomain(domain)
+	}
+
+	for _, dns := range conns.Dns {
+		c.schedulePathForDns(dns)
+	}
 
 	groupID := nextGroupID()
 	messages := batchConnections(c.hostInfo, c.maxConnsPerMessage, groupID, conns.Conns, conns.Dns, c.networkID, conns.ConnTelemetryMap, conns.CompilationTelemetryByAsset, conns.KernelHeaderFetchResult, conns.CORETelemetryByAsset, conns.PrebuiltEBPFAssets, conns.Domains, conns.Routes, conns.Tags, conns.AgentConfiguration, c.serviceExtractor)
@@ -504,4 +528,30 @@ func convertAndEnrichWithServiceCtx(tags []string, tagOffsets []uint32, serviceC
 	}
 
 	return tagsStr
+}
+
+func (c *ConnectionsCheck) schedulePathForConnection(conn *model.Connection) {
+	var remoteAddr *model.Addr
+	remoteAddr = conn.Raddr
+	if remoteAddr.Ip == "127.0.0.1" {
+		log.Debugf("Skip localhost 127.0.0.1: %+v", remoteAddr)
+		return
+	}
+	if gonet.ParseIP(remoteAddr.Ip).To4() == nil {
+		// TODO: IPv6 not supported yet
+		log.Debugf("Only IPv4 is currently supported yet. Address not supported: %+v", remoteAddr)
+		return
+	}
+	log.Warnf("schedulePathForConnection: %+v", remoteAddr)
+	c.npScheduler.Schedule(remoteAddr.Ip, uint16(conn.Raddr.Port))
+}
+
+func (c *ConnectionsCheck) schedulePathForDomain(domain string) {
+	c.npScheduler.Schedule(domain, 0)
+}
+
+func (c *ConnectionsCheck) schedulePathForDns(dns *model.DNSEntry) {
+	for _, name := range dns.Names {
+		c.npScheduler.Schedule(name, 0)
+	}
 }
