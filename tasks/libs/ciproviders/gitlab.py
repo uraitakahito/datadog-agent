@@ -396,10 +396,6 @@ def generate_gitlab_full_configuration(input_file, context=None, compare_to=None
     """
     Generate a full gitlab-ci configuration by resolving all includes
     """
-    # Update loader/dumper to handle !reference tag
-    yaml.SafeLoader.add_constructor(ReferenceTag.yaml_tag, ReferenceTag.from_yaml)
-    yaml.SafeDumper.add_representer(UserList, ReferenceTag.to_yaml)
-
     yaml_contents = []
     read_includes(input_file, yaml_contents)
     full_configuration = {}
@@ -447,6 +443,10 @@ def read_content(file_path):
     """
     Read the content of a file, either from a local file or from an http endpoint
     """
+    # Update loader/dumper to handle !reference tag
+    yaml.SafeLoader.add_constructor(ReferenceTag.yaml_tag, ReferenceTag.from_yaml)
+    yaml.SafeDumper.add_representer(UserList, ReferenceTag.to_yaml)
+
     content = None
     if file_path.startswith('http'):
         import requests

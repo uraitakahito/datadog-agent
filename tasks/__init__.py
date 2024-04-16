@@ -23,6 +23,7 @@ from tasks import (
     epforwarder,
     fakeintake,
     github_tasks,
+    gitlab,
     installer,
     kmt,
     linter,
@@ -167,6 +168,7 @@ ns.add_collection(modules)
 ns.add_collection(pre_commit)
 ns.add_collection(devcontainer)
 ns.add_collection(omnibus)
+ns.add_collection(gitlab)
 ns.configure(
     {
         'run': {
