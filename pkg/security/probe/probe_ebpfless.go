@@ -37,13 +37,17 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/util/native"
 )
 
+const (
+	maxMessageSize = 256 * 1024
+)
+
 type client struct {
-	conn             net.Conn
-	probe            *EBPFLessProbe
-	seqNum           uint64
-	nsID             uint64
-	containerContext *ebpfless.ContainerContext
-	entrypointArgs   []string
+	conn          net.Conn
+	probe         *EBPFLessProbe
+	seqNum        uint64
+	nsID          uint64
+	containerID   string
+	containerName string
 }
 
 type clientMsg struct {
@@ -55,7 +59,8 @@ type clientMsg struct {
 type EBPFLessProbe struct {
 	sync.Mutex
 
-	Resolvers *resolvers.EBPFLessResolvers
+	Resolvers         *resolvers.EBPFLessResolvers
+	containerContexts map[string]*ebpfless.ContainerContext
 
 	// Constants and configuration
 	opts         Opts
@@ -71,6 +76,7 @@ type EBPFLessProbe struct {
 	fieldHandlers *EBPFLessFieldHandlers
 	buf           []byte
 	clients       map[net.Conn]*client
+	processKiller *ProcessKiller
 }
 
 func (p *EBPFLessProbe) handleClientMsg(cl *client, msg *ebpfless.Message) {
@@ -87,10 +93,11 @@ func (p *EBPFLessProbe) handleClientMsg(cl *client, msg *ebpfless.Message) {
 			)
 
 			cl.nsID = msg.Hello.NSID
-			cl.containerContext = msg.Hello.ContainerContext
-			cl.entrypointArgs = msg.Hello.EntrypointArgs
-			if cl.containerContext != nil {
-				seclog.Infof("tracing started for container ID [%s] (Name: [%s]) with entrypoint %q", cl.containerContext.ID, cl.containerContext.Name, cl.entrypointArgs)
+			if msg.Hello.ContainerContext != nil {
+				cl.containerID = msg.Hello.ContainerContext.ID
+				cl.containerName = msg.Hello.ContainerContext.Name
+				p.containerContexts[msg.Hello.ContainerContext.ID] = msg.Hello.ContainerContext
+				seclog.Infof("tracing started for container ID [%s] (Name: [%s]) with entrypoint %q", msg.Hello.ContainerContext.ID, msg.Hello.ContainerContext.Name, msg.Hello.EntrypointArgs)
 			}
 		}
 	case ebpfless.MessageTypeSyscall:
@@ -124,10 +131,16 @@ func (p *EBPFLessProbe) handleSyscallMsg(cl *client, syscallMsg *ebpfless.Syscal
 	switch syscallMsg.Type {
 	case ebpfless.SyscallTypeExec:
 		event.Type = uint32(model.ExecEventType)
+		var source uint64
+		if syscallMsg.Exec.FromProcFS {
+			source = model.ProcessCacheEntryFromProcFS
+		} else {
+			source = model.ProcessCacheEntryFromEvent
+		}
 		entry := p.Resolvers.ProcessResolver.AddExecEntry(
-			process.CacheResolverKey{Pid: syscallMsg.PID, NSID: cl.nsID}, syscallMsg.Exec.File.Filename,
+			process.CacheResolverKey{Pid: syscallMsg.PID, NSID: cl.nsID}, syscallMsg.Exec.PPID, syscallMsg.Exec.File.Filename,
 			syscallMsg.Exec.Args, syscallMsg.Exec.ArgsTruncated, syscallMsg.Exec.Envs, syscallMsg.Exec.EnvsTruncated,
-			cl.containerContext.ID, syscallMsg.Timestamp, syscallMsg.Exec.TTY)
+			syscallMsg.ContainerID, syscallMsg.Timestamp, syscallMsg.Exec.TTY, source)
 		if syscallMsg.Exec.Credentials != nil {
 			entry.Credentials.UID = syscallMsg.Exec.Credentials.UID
 			entry.Credentials.EUID = syscallMsg.Exec.Credentials.EUID
@@ -251,11 +264,13 @@ func (p *EBPFLessProbe) handleSyscallMsg(cl *client, syscallMsg *ebpfless.Syscal
 	}
 
 	// container context
-	event.ContainerContext.ID = cl.containerContext.ID
-	event.ContainerContext.CreatedAt = cl.containerContext.CreatedAt
-	event.ContainerContext.Tags = []string{
-		"image_name:" + cl.containerContext.ImageShortName,
-		"image_tag:" + cl.containerContext.ImageTag,
+	event.ContainerContext.ID = syscallMsg.ContainerID
+	if containerContext, exists := p.containerContexts[syscallMsg.ContainerID]; exists {
+		event.ContainerContext.CreatedAt = containerContext.CreatedAt
+		event.ContainerContext.Tags = []string{
+			"image_name:" + containerContext.ImageShortName,
+			"image_tag:" + containerContext.ImageTag,
+		}
 	}
 
 	// use ProcessCacheEntry process context as process context
@@ -272,9 +287,15 @@ func (p *EBPFLessProbe) handleSyscallMsg(cl *client, syscallMsg *ebpfless.Syscal
 		event.Exit.Cause = uint32(syscallMsg.Exit.Cause)
 		event.Exit.Code = syscallMsg.Exit.Code
 		defer p.Resolvers.ProcessResolver.DeleteEntry(process.CacheResolverKey{Pid: syscallMsg.PID, NSID: cl.nsID}, event.ProcessContext.ExitTime)
+
+		// update kill action reports
+		p.processKiller.HandleProcessExited(event)
 	}
 
 	p.DispatchEvent(event)
+
+	// flush pending kill actions
+	p.processKiller.FlushPendingReports()
 }
 
 // DispatchEvent sends an event to the probe event handler
@@ -333,7 +354,7 @@ func (p *EBPFLessProbe) readMsg(conn net.Conn, msg *ebpfless.Message) error {
 	}
 
 	size := native.Endian.Uint32(sizeBuf)
-	if size > 64*1024 {
+	if size > maxMessageSize {
 		return fmt.Errorf("data overflow the max size: %d", size)
 	}
 
@@ -389,9 +410,8 @@ func (p *EBPFLessProbe) handleNewClient(conn net.Conn, ch chan clientMsg) {
 				delete(p.clients, conn)
 				p.Unlock()
 
-				if client.containerContext != nil {
-					seclog.Infof("tracing stopped for container ID [%s] (Name: [%s])", client.containerContext.ID, client.containerContext.Name)
-				}
+				msg.Type = ebpfless.MessageTypeGoodbye
+				ch <- msg
 
 				return
 			}
@@ -434,6 +454,13 @@ func (p *EBPFLessProbe) Start() error {
 
 	go func() {
 		for msg := range ch {
+			if msg.Type == ebpfless.MessageTypeGoodbye {
+				if msg.client.containerID != "" {
+					delete(p.containerContexts, msg.client.containerID)
+					seclog.Infof("tracing stopped for container ID [%s] (Name: [%s])", msg.client.containerID, msg.client.containerName)
+				}
+				continue
+			}
 			p.handleClientMsg(msg.client, &msg.Message)
 		}
 	}()
@@ -483,7 +510,22 @@ func (p *EBPFLessProbe) ApplyRuleSet(_ *rules.RuleSet) (*kfilters.ApplyRuleSetRe
 }
 
 // HandleActions handles the rule actions
-func (p *EBPFLessProbe) HandleActions(_ *eval.Context, _ *rules.Rule) {}
+func (p *EBPFLessProbe) HandleActions(ctx *eval.Context, rule *rules.Rule) {
+	ev := ctx.Event.(*model.Event)
+
+	for _, action := range rule.Definition.Actions {
+		if !action.IsAccepted(ctx) {
+			continue
+		}
+
+		switch {
+		case action.Kill != nil:
+			p.processKiller.KillAndReport(action.Kill.Scope, action.Kill.Signal, ev, func(pid uint32, sig uint32) error {
+				return p.processKiller.KillFromUserspace(pid, sig, ev)
+			})
+		}
+	}
+}
 
 // NewEvent returns a new event
 func (p *EBPFLessProbe) NewEvent() *model.Event {
@@ -523,15 +565,17 @@ func NewEBPFLessProbe(probe *Probe, config *config.Config, opts Opts) (*EBPFLess
 
 	var grpcOpts []grpc.ServerOption
 	p := &EBPFLessProbe{
-		probe:        probe,
-		config:       config,
-		opts:         opts,
-		statsdClient: opts.StatsdClient,
-		server:       grpc.NewServer(grpcOpts...),
-		ctx:          ctx,
-		cancelFnc:    cancelFnc,
-		buf:          make([]byte, 4096),
-		clients:      make(map[net.Conn]*client),
+		probe:             probe,
+		config:            config,
+		opts:              opts,
+		statsdClient:      opts.StatsdClient,
+		server:            grpc.NewServer(grpcOpts...),
+		ctx:               ctx,
+		cancelFnc:         cancelFnc,
+		buf:               make([]byte, 4096),
+		clients:           make(map[net.Conn]*client),
+		processKiller:     NewProcessKiller(),
+		containerContexts: make(map[string]*ebpfless.ContainerContext),
 	}
 
 	resolversOpts := resolvers.Opts{

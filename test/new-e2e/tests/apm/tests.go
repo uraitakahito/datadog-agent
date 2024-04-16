@@ -110,6 +110,25 @@ func testAutoVersionStats(t *testing.T, c *assert.CollectT, intake *components.F
 	}
 }
 
+func testIsTraceRootTag(t *testing.T, c *assert.CollectT, intake *components.FakeIntake) {
+	t.Helper()
+	stats, err := intake.Client().GetAPMStats()
+	assert.NoError(c, err)
+	assert.NotEmpty(c, stats)
+	t.Log("Got apm stats:", spew.Sdump(stats))
+	for _, p := range stats {
+		for _, s := range p.StatsPayload.Stats {
+			t.Log("Client Payload:", spew.Sdump(s))
+			for _, b := range s.Stats {
+				for _, cs := range b.Stats {
+					t.Logf("Got IsTraceRoot: %v", cs.GetIsTraceRoot())
+					assert.Equal(t, trace.TraceRootFlag_TRUE, cs.GetIsTraceRoot())
+				}
+			}
+		}
+	}
+}
+
 func getContainerTags(t *testing.T, tp *trace.TracerPayload) (map[string]string, bool) {
 	ctags, ok := tp.Tags["_dd.tags.container"]
 	if !ok {
@@ -157,7 +176,7 @@ func hasContainerTag(payloads []*aggregator.TracePayload, tag string) bool {
 func testTraceAgentMetrics(t *testing.T, c *assert.CollectT, intake *components.FakeIntake) {
 	t.Helper()
 	expected := map[string]struct{}{
-		// "datadog.trace_agent.started":                         {}, // FIXME: this metric is flaky
+		"datadog.trace_agent.started":                          {},
 		"datadog.trace_agent.heartbeat":                        {},
 		"datadog.trace_agent.heap_alloc":                       {},
 		"datadog.trace_agent.cpu_percent":                      {},

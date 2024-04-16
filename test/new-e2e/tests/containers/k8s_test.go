@@ -34,11 +34,14 @@ import (
 )
 
 const (
-	kubeNamespaceDogstatsWorkload           = "workload-dogstatsd"
-	kubeNamespaceDogstatsStandaloneWorkload = "workload-dogstatsd-standalone"
-	kubeNamespaceTracegenWorkload           = "workload-tracegen"
-	kubeDeploymentTracegenTCPWorkload       = "tracegen-tcp"
-	kubeDeploymentTracegenUDSWorkload       = "tracegen-uds"
+	kubeNamespaceDogstatsWorkload                    = "workload-dogstatsd"
+	kubeNamespaceDogstatsStandaloneWorkload          = "workload-dogstatsd-standalone"
+	kubeNamespaceTracegenWorkload                    = "workload-tracegen"
+	kubeDeploymentDogstatsdUDPOrigin                 = "dogstatsd-udp-origin-detection"
+	kubeDeploymentDogstatsdUDS                       = "dogstatsd-uds"
+	kubeDeploymentDogstatsdUDPOriginContNameInjected = "dogstatsd-udp-contname-injected"
+	kubeDeploymentTracegenTCPWorkload                = "tracegen-tcp"
+	kubeDeploymentTracegenUDSWorkload                = "tracegen-uds"
 )
 
 var GitCommit string
@@ -90,7 +93,7 @@ func (suite *k8sSuite) TearDownSuite() {
 // The 00 in Test00UpAndRunning is here to guarantee that this test, waiting for the agent pods to be ready,
 // is run first.
 func (suite *k8sSuite) Test00UpAndRunning() {
-	suite.testUpAndRunning(5 * time.Minute)
+	suite.testUpAndRunning(10 * time.Minute)
 }
 
 // An agent restart (because of a health probe failure or because of a OOM kill for ex.)
@@ -593,21 +596,59 @@ func (suite *k8sSuite) TestCPU() {
 }
 
 func (suite *k8sSuite) TestDogstatsdInAgent() {
-	suite.testDogstatsd(kubeNamespaceDogstatsWorkload)
+	// Test with UDS
+	suite.testDogstatsdContainerID(kubeNamespaceDogstatsWorkload, kubeDeploymentDogstatsdUDS)
+	// Test with UDP + Origin detection
+	suite.testDogstatsdContainerID(kubeNamespaceDogstatsWorkload, kubeDeploymentDogstatsdUDPOrigin)
+	// Test with UDP + DD_ENTITY_ID with container name injected
+	suite.testDogstatsdContainerID(kubeNamespaceDogstatsWorkload, kubeDeploymentDogstatsdUDPOriginContNameInjected)
+	// Test with UDP + DD_ENTITY_ID
+	suite.testDogstatsdPodUID(kubeNamespaceDogstatsWorkload)
 }
 
 func (suite *k8sSuite) TestDogstatsdStandalone() {
-	suite.testDogstatsd(kubeNamespaceDogstatsStandaloneWorkload)
+	// Test with UDS
+	suite.testDogstatsdContainerID(kubeNamespaceDogstatsStandaloneWorkload, kubeDeploymentDogstatsdUDS)
+	// Dogstatsd standalone does not support origin detection
+	// Test with UDP + DD_ENTITY_ID
+	suite.testDogstatsdPodUID(kubeNamespaceDogstatsWorkload)
+	// Test with UDP + DD_ENTITY_ID with container name injected
+	suite.testDogstatsdContainerID(kubeNamespaceDogstatsWorkload, kubeDeploymentDogstatsdUDPOriginContNameInjected)
 }
 
-func (suite *k8sSuite) testDogstatsd(kubeNamespace string) {
-	// Test dogstatsd origin detection with UDS
+func (suite *k8sSuite) testDogstatsdPodUID(kubeNamespace string) {
+	// Test dogstatsd origin detection with UDP + DD_ENTITY_ID
 	suite.testMetric(&testMetricArgs{
 		Filter: testMetricFilterArgs{
 			Name: "custom.metric",
 			Tags: []string{
-				"^kube_deployment:dogstatsd-uds$",
-				"^kube_namespace:" + kubeNamespace + "$",
+				"^kube_deployment:dogstatsd-udp$",
+				"^kube_namespace:" + regexp.QuoteMeta(kubeNamespace) + "$",
+			},
+		},
+		Expect: testMetricExpectArgs{
+			Tags: &[]string{
+				`^kube_deployment:dogstatsd-udp$`,
+				"^kube_namespace:" + regexp.QuoteMeta(kubeNamespace) + "$",
+				`^kube_ownerref_kind:replicaset$`,
+				`^kube_ownerref_name:dogstatsd-udp-[[:alnum:]]+$`,
+				`^kube_qos:Burstable$`,
+				`^kube_replica_set:dogstatsd-udp-[[:alnum:]]+$`,
+				`^pod_name:dogstatsd-udp-[[:alnum:]]+-[[:alnum:]]+$`,
+				`^pod_phase:running$`,
+				`^series:`,
+			},
+		},
+	})
+}
+
+func (suite *k8sSuite) testDogstatsdContainerID(kubeNamespace, kubeDeployment string) {
+	suite.testMetric(&testMetricArgs{
+		Filter: testMetricFilterArgs{
+			Name: "custom.metric",
+			Tags: []string{
+				"^kube_deployment:" + regexp.QuoteMeta(kubeDeployment) + "$",
+				"^kube_namespace:" + regexp.QuoteMeta(kubeNamespace) + "$",
 			},
 		},
 		Expect: testMetricExpectArgs{
@@ -621,40 +662,16 @@ func (suite *k8sSuite) testDogstatsd(kubeNamespace string) {
 				`^image_name:ghcr.io/datadog/apps-dogstatsd$`,
 				`^image_tag:main$`,
 				`^kube_container_name:dogstatsd$`,
-				`^kube_deployment:dogstatsd-uds$`,
-				"^kube_namespace:" + kubeNamespace + "$",
+				`^kube_deployment:` + regexp.QuoteMeta(kubeDeployment) + `$`,
+				"^kube_namespace:" + regexp.QuoteMeta(kubeNamespace) + "$",
 				`^kube_ownerref_kind:replicaset$`,
-				`^kube_ownerref_name:dogstatsd-uds-[[:alnum:]]+$`,
+				`^kube_ownerref_name:` + regexp.QuoteMeta(kubeDeployment) + `-[[:alnum:]]+$`,
 				`^kube_qos:Burstable$`,
-				`^kube_replica_set:dogstatsd-uds-[[:alnum:]]+$`,
-				`^pod_name:dogstatsd-uds-[[:alnum:]]+-[[:alnum:]]+$`,
+				`^kube_replica_set:` + regexp.QuoteMeta(kubeDeployment) + `-[[:alnum:]]+$`,
+				`^pod_name:` + regexp.QuoteMeta(kubeDeployment) + `-[[:alnum:]]+-[[:alnum:]]+$`,
 				`^pod_phase:running$`,
 				`^series:`,
 				`^short_image:apps-dogstatsd$`,
-			},
-		},
-	})
-
-	// Test dogstatsd origin detection with UDP
-	suite.testMetric(&testMetricArgs{
-		Filter: testMetricFilterArgs{
-			Name: "custom.metric",
-			Tags: []string{
-				"^kube_deployment:dogstatsd-udp$",
-				"^kube_namespace:" + kubeNamespace + "$",
-			},
-		},
-		Expect: testMetricExpectArgs{
-			Tags: &[]string{
-				`^kube_deployment:dogstatsd-udp$`,
-				"^kube_namespace:" + kubeNamespace + "$",
-				`^kube_ownerref_kind:replicaset$`,
-				`^kube_ownerref_name:dogstatsd-udp-[[:alnum:]]+$`,
-				`^kube_qos:Burstable$`,
-				`^kube_replica_set:dogstatsd-udp-[[:alnum:]]+$`,
-				`^pod_name:dogstatsd-udp-[[:alnum:]]+-[[:alnum:]]+$`,
-				`^pod_phase:running$`,
-				`^series:`,
 			},
 		},
 	})
@@ -697,20 +714,55 @@ func (suite *k8sSuite) TestPrometheus() {
 	})
 }
 
-func (suite *k8sSuite) TestAdmissionController() {
+func (suite *k8sSuite) TestAdmissionControllerWithoutAPMInjection() {
+	suite.testAdmissionControllerPod("workload-mutated", "mutated", "", false)
+}
+
+func (suite *k8sSuite) TestAdmissionControllerWithLibraryAnnotation() {
+	suite.testAdmissionControllerPod("workload-mutated-lib-injection", "mutated-with-lib-annotation", "python", false)
+}
+
+func (suite *k8sSuite) TestAdmissionControllerWithAutoDetectedLanguage() {
+	suite.testAdmissionControllerPod("workload-mutated-lib-injection", "mutated-with-auto-detected-language", "python", true)
+}
+
+func (suite *k8sSuite) testAdmissionControllerPod(namespace string, name string, language string, languageShouldBeAutoDetected bool) {
 	ctx := context.Background()
 
+	// When the language should be auto-detected, we need to wait for the
+	// deployment to be created and the annotation with the languages to be set
+	// by the Cluster Agent so that we can be sure that in the next restart the
+	// libraries for the detected language are injected
+	if languageShouldBeAutoDetected {
+		suite.Require().EventuallyWithTf(func(c *assert.CollectT) {
+			deployment, err := suite.K8sClient.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+			if !assert.NoError(c, err) {
+				return
+			}
+
+			detectedLangsLabelIsSet := false
+			detectedLangsAnnotationRegex := regexp.MustCompile(`^internal\.dd\.datadoghq\.com/.*\.detected_langs$`)
+			for annotation := range deployment.Annotations {
+				if detectedLangsAnnotationRegex.Match([]byte(annotation)) {
+					detectedLangsLabelIsSet = true
+					break
+				}
+			}
+			assert.True(c, detectedLangsLabelIsSet)
+		}, 5*time.Minute, 10*time.Second, "The deployment with name %s in namespace %s does not exist or does not have the auto detected languages annotation", name, namespace)
+	}
+
 	// Delete the pod to ensure it is recreated after the admission controller is deployed
-	err := suite.K8sClient.CoreV1().Pods("workload-mutated").DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
-		LabelSelector: fields.OneTermEqualSelector("app", "mutated").String(),
+	err := suite.K8sClient.CoreV1().Pods(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
+		LabelSelector: fields.OneTermEqualSelector("app", name).String(),
 	})
 	suite.Require().NoError(err)
 
 	// Wait for the fresh pod to be created
 	var pod corev1.Pod
 	suite.Require().EventuallyWithTf(func(c *assert.CollectT) {
-		pods, err := suite.K8sClient.CoreV1().Pods("workload-mutated").List(ctx, metav1.ListOptions{
-			LabelSelector: fields.OneTermEqualSelector("app", "mutated").String(),
+		pods, err := suite.K8sClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+			LabelSelector: fields.OneTermEqualSelector("app", name).String(),
 		})
 		if !assert.NoError(c, err) {
 			return
@@ -719,7 +771,7 @@ func (suite *k8sSuite) TestAdmissionController() {
 			return
 		}
 		pod = pods.Items[0]
-	}, 2*time.Minute, 10*time.Second, "Failed to witness the creation of a pod in workload-mutated")
+	}, 2*time.Minute, 10*time.Second, "Failed to witness the creation of pod with name %s in namespace %s", name, namespace)
 
 	suite.Require().Len(pod.Spec.Containers, 1)
 
@@ -740,7 +792,7 @@ func (suite *k8sSuite) TestAdmissionController() {
 		suite.Equal("e2e", env["DD_ENV"])
 	}
 	if suite.Contains(env, "DD_SERVICE") {
-		suite.Equal("mutated", env["DD_SERVICE"])
+		suite.Equal(name, env["DD_SERVICE"])
 	}
 	if suite.Contains(env, "DD_VERSION") {
 		suite.Equal("v0.0.1", env["DD_VERSION"])
@@ -766,6 +818,26 @@ func (suite *k8sSuite) TestAdmissionController() {
 	if suite.Contains(volumeMounts, "datadog") {
 		suite.Equal("/var/run/datadog", volumeMounts["datadog"])
 	}
+
+	switch language {
+	// APM supports several languages, but for now all the test apps are Python
+	case "python":
+		emptyDirVolumes := make(map[string]*corev1.EmptyDirVolumeSource)
+		for _, volume := range pod.Spec.Volumes {
+			if volume.EmptyDir != nil {
+				emptyDirVolumes[volume.Name] = volume.EmptyDir
+			}
+		}
+
+		if suite.Contains(env, "PYTHONPATH") {
+			suite.Equal("/datadog-lib/", env["PYTHONPATH"])
+		}
+		suite.Contains(emptyDirVolumes, "datadog-auto-instrumentation")
+		if suite.Contains(volumeMounts, "datadog-auto-instrumentation") {
+			suite.Equal("/datadog-lib", volumeMounts["datadog-auto-instrumentation"])
+		}
+	}
+
 }
 
 func (suite *k8sSuite) TestContainerImage() {
@@ -999,7 +1071,12 @@ func (suite *k8sSuite) testHPA(namespace, deployment string) {
 			}
 			assert.Truef(c, scaleUp, "No scale up detected")
 			assert.Truef(c, scaleDown, "No scale down detected")
-		}, 20*time.Minute, 10*time.Second, "Failed to witness scale up and scale down of %s.%s", namespace, deployment)
+			// The deployments that have an HPA configured (nginx and redis)
+			// exhibit a traffic pattern that follows a sine wave with a
+			// 20-minute period. This is defined in the test-infra-definitions
+			// repo. For this reason, the timeout for this test needs to be a
+			// bit higher than 20 min to capture the scale down event.
+		}, 25*time.Minute, 10*time.Second, "Failed to witness scale up and scale down of %s.%s", namespace, deployment)
 	})
 }
 
