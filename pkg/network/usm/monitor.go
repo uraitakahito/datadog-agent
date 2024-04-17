@@ -84,6 +84,12 @@ func NewMonitor(c *config.Config, connectionProtocolMap *ebpf.Map) (m *Monitor, 
 		return nil, fmt.Errorf("error initializing ebpf program: %w", err)
 	}
 
+	skskb, _ := mgr.GetProbe(manager.ProbeIdentificationPair{EBPFFuncName: protocolDispatcherSkSKBStreamParser, UID: probeUID})
+	sockMap, _, _ := mgr.GetMap("sk_map")
+	if skskb != nil && sockMap != nil {
+		skskb.SockMapFD = sockMap.FD()
+	}
+
 	filter, _ := mgr.GetProbe(manager.ProbeIdentificationPair{EBPFFuncName: protocolDispatcherSocketFilterFunction, UID: probeUID})
 	if filter == nil {
 		return nil, fmt.Errorf("error retrieving socket filter")

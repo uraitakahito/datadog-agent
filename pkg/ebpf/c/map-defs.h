@@ -28,6 +28,9 @@
 #define BPF_HASH_MAP(name, key_type, value_type, max_entries) \
     BPF_MAP(name, BPF_MAP_TYPE_HASH, key_type, value_type, max_entries, 0, 0)
 
+#define BPF_SOCKMAP(name, max_entries) \
+    BPF_MAP(name, BPF_MAP_TYPE_SOCKMAP, int, int, max_entries, 0, 0)
+
 #define BPF_PROG_ARRAY(name, max_entries) \
     BPF_MAP(name, BPF_MAP_TYPE_PROG_ARRAY, u32, u32, max_entries, 0, 0)
 

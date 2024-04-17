@@ -59,6 +59,7 @@ const (
 	// ELF section of the BPF_PROG_TYPE_SOCKET_FILTER program used
 	// to classify protocols and dispatch the correct handlers.
 	protocolDispatcherSocketFilterFunction = "socket__protocol_dispatcher"
+	protocolDispatcherSkSKBStreamParser    = "sk_skb__protocol_dispatcher"
 	connectionStatesMap                    = "connection_states"
 	sockFDLookupArgsMap                    = "sockfd_lookup_args"
 	sockByPidFDMap                         = "sock_by_pid_fd"
@@ -123,6 +124,12 @@ func newEBPFProgram(c *config.Config, connectionProtocolMap *ebpf.Map) (*ebpfPro
 			{
 				ProbeIdentificationPair: manager.ProbeIdentificationPair{
 					EBPFFuncName: protocolDispatcherSocketFilterFunction,
+					UID:          probeUID,
+				},
+			},
+			{
+				ProbeIdentificationPair: manager.ProbeIdentificationPair{
+					EBPFFuncName: protocolDispatcherSkSKBStreamParser,
 					UID:          probeUID,
 				},
 			},

@@ -29,6 +29,13 @@
 #include "protocols/tls/native-tls.h"
 #include "protocols/tls/tags-types.h"
 
+BPF_SOCKMAP(sk_map, 1024);
+
+SEC("sk_skb/stream_parser")
+int sk_skb__protocol_dispatcher(struct __sk_buff *skb) {
+    return skb->len;
+}
+
 // The entrypoint for all packets classification & decoding in universal service monitoring.
 SEC("socket/protocol_dispatcher")
 int socket__protocol_dispatcher(struct __sk_buff *skb) {
