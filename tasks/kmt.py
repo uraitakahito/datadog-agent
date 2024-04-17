@@ -35,7 +35,7 @@ from tasks.kernel_matrix_testing.init_kmt import init_kernel_matrix_testing_syst
 from tasks.kernel_matrix_testing.kmt_os import get_kmt_os
 from tasks.kernel_matrix_testing.stacks import check_and_get_stack, ec2_instance_ids
 from tasks.kernel_matrix_testing.tool import Exit, ask, error, get_binary_target_arch, info, warn
-from tasks.system_probe import EMBEDDED_SHARE_DIR, TEST_PACKAGES_LIST, check_for_ninja, go_package_dirs, NPM_TAG, BPF_TAG, test as build_testsuite, get_sysprobe_buildtags, get_test_timeout
+from tasks.system_probe import EMBEDDED_SHARE_DIR, TEST_PACKAGES_LIST, check_for_ninja, go_package_dirs, NPM_TAG, BPF_TAG, get_sysprobe_buildtags, get_test_timeout, ninja_generate
 from tasks.libs.common.utils import get_build_flags
 
 if TYPE_CHECKING:
@@ -630,28 +630,38 @@ def kmt_prepare(ctx, stack=None, kernel_release=None, full_rebuild=False, packag
     target_packages = go_package_dirs(TEST_PACKAGES_LIST, [NPM_TAG, BPF_TAG])
     kmt_paths = KMTPaths(stack, arch)
     nf_path = os.path.join(kmt_paths.arch_dir, "kmt.ninja")
+    object_files_nf_path = os.path.join(kmt_paths.arch_dir, "kmt-object-files.ninja")
 
     kmt_paths.arch_dir.mkdir(exist_ok=True, parents=True)
+    kmt_paths.dependencies.mkdir(exist_ok=True, parents=True)
 
-    testsuite_cmd = '$env $sudo $go test -mod=mod -v $timeout -tags "$build_tags" $extra_arguments -c -o $out $in'
 
     go_path = "go"
     go_root = os.getenv("GOROOT")
     if go_root:
         go_path = os.path.join(go_root, "bin", "go")
 
+    ninja_generate(ctx, object_files_nf_path)
+    ctx.run(f"ninja -d explain -f {object_files_nf_path}")
+
     with open(nf_path, 'w') as ninja_file:
         nw = NinjaWriter(ninja_file)
 
-        nw.rule(name="gotestsuite", command=testsuite_cmd, depfile="$out.d")
-        nw.rule(name="copyextra", command="cp -r $in $out", depfile="$out.d")
+        # go build does not seem to be designed to run concurrently on the same
+        # source files. To make go build work with ninja we create a pool to force
+        # only a single instance of go to be running.
+        nw.pool(name="gobuild", depth=1)
+
+        nw.rule(
+            name="gotestsuite",
+            command = "$env $go test -mod=mod -v $timeout -tags \"$build_tags\" $extra_arguments -c -o $out $in",
+        )
+        nw.rule(name="copyextra", command="cp -r $in $out")
         nw.rule(
             name="gobin",
-            command="go build -o $out -tags=\"test\" -ldflags=\"-extldflags '-static'\" $in",
-            depfile="$out.d",
+            command="$chdir && $env $go build -o $out $tags $ldflags $in $tool",
         )
-        nw.rule(name="copyfiles", command="cp $in $out", depfile="$out.d")
-        nw.rule(name="test2json", command="CGO_ENABLED=0 go build -o $out -ldflags=\"-s -w\" $in", depfile="$out.d")
+        nw.rule(name="copyfiles", command="install -D $in $out $mode")
 
         _,_, env = get_build_flags(ctx)
         env["DD_SYSTEM_PROBE_BPF_DIR"] = EMBEDDED_SHARE_DIR
@@ -662,12 +672,44 @@ def kmt_prepare(ctx, stack=None, kernel_release=None, full_rebuild=False, packag
             env_str += f"{key}='{new_val}' "
         env_str.rstrip()
 
+        nw.build(
+            rule="gobin",
+            pool="gobuild",
+            outputs=[os.path.join(kmt_paths.dependencies, "test-runner")],
+            variables={
+                "go": go_path,
+                "chdir": "cd test/new-e2e/system-probe/test-runner",
+            },
+        )
+
+        nw.build(
+            rule="gobin",
+            pool="gobuild",
+            outputs=[os.path.join(kmt_paths.dependencies, "test-json-review")],
+            variables={
+                "go": go_path,
+                "chdir": "cd test/new-e2e/system-probe/test-json-review/",
+            },
+        )
+
+        nw.build(
+            outputs=[f"{kmt_paths.dependencies}/go/bin/test2json"],
+            rule="gobin",
+            pool="gobuild",
+            variables={
+                "go": go_path,
+                "ldflags": "-ldflags=\"-s -w\"",
+                "chdir": "true",
+                "tool": "cmd/test2json",
+                "env": "CGO_ENABLED=0",
+            },
+        )
+
         for i, pkg in enumerate(target_packages):
             target_path = os.path.join(kmt_paths.sysprobe_tests, os.path.relpath(pkg, os.getcwd()))
             output_path = os.path.join(target_path, "testsuite")
             variables={
                 "env": env_str,
-                "sudo": "sudo -E" if not is_root() else " ",
                 "go": go_path,
                 "build_tags": get_sysprobe_buildtags(False, False),
             }
@@ -677,42 +719,56 @@ def kmt_prepare(ctx, stack=None, kernel_release=None, full_rebuild=False, packag
             if extra_arguments:
                 variables["extra_arguments"] = extra_arguments
 
-            print(f"compiling: {pkg}")
             nw.build(
                 inputs=[pkg],
                 outputs=[output_path],
                 rule="gotestsuite",
+                pool="gobuild",
                 variables=variables,
             )
 
-            #for extra in ["testdata", "build"]:
-            #    sp = os.path.join(pkg, extra)
-            #    dp = os.path.join(target_path, extra)
-            #    if os.path.isdir(sp):
-            #        nw.build(inputs=[sp], outputs=[dp], rule="copyextra")
+            for extra in ["testdata", "build"]:
+                sp = os.path.join(pkg, extra)
+                dp = os.path.join(target_path, extra)
+                if os.path.isdir(sp):
+                    nw.build(inputs=[sp], outputs=[dp], rule="copyextra")
 
-            #if pkg.endswith("java"):
-            #    nw.build(inputs=[os.path.join(pkg,"agent-usm.jar")], outputs=[os.path.join(target_path, "agent-usm.jar")], rule="copyfiles")
+            if pkg.endswith("java"):
+                nw.build(
+                    inputs=[os.path.join(pkg,"agent-usm.jar")],
+                    outputs=[os.path.join(target_path, "agent-usm.jar")],
+                    rule="copyfiles",
+                )
 
-            #for gobin in ["gotls_client", "grpc_external_server", "external_unix_proxy_server", "fmapper", "prefetch_file"]:
-            #    src_file_path = os.path.join(pkg, f"{gobin}.go")
-            #    if os.path.isdir(pkg) and os.path.isfile(src_file_path):
-            #        binary_path = os.path.join(target_path, gobin)
-            #        nw.build(inputs=[f"{pkg}/{gobin}.go"], outputs=[binary_path], rule="gobin")
+            for gobin in ["gotls_client", "grpc_external_server", "external_unix_proxy_server", "fmapper", "prefetch_file"]:
+                src_file_path = os.path.join(pkg, f"{gobin}.go")
+                if os.path.isdir(pkg) and os.path.isfile(src_file_path):
+                    binary_path = os.path.join(target_path, gobin)
+                    nw.build(
+                        inputs=[f"{pkg}/{gobin}.go"],
+                        outputs=[binary_path],
+                        rule="gobin",
+                        pool="gobuild",
+                        variables={
+                            "go": go_path,
+                            "chdir": "true",
+                            "tags": "-tags=\"test\"",
+                            "ldflags": "-ldflags=\"-extldflags '-static'\"",
+                        },
+                    )
 
-       # gopath = os.getenv("GOPATH")
-       # copy_files = {
-       #     f"{gopath}/bin/gotestsum": f"{kmt_paths.arch_dir}/go/bin",
-       # }
+        gopath = os.getenv("GOPATH")
+        copy_executables = {
+            f"{gopath}/bin/gotestsum": f"{kmt_paths.dependencies}/go/bin/gotestsum",
+            "/opt/datadog-agent/embedded/bin/clang-bpf": f"{kmt_paths.arch_dir}/opt/datadog-agent/embedded/bin/clang-bpf",
+            "/opt/datadog-agent/embedded/bin/llc-bpf": f"{kmt_paths.arch_dir}/opt/datadog-agent/embedded/bin/llc-bpf",
+            f"{os.getcwd()}/test/new-e2e/system-probe/test/micro-vm-init.sh": f"{kmt_paths.arch_dir}/opt/micro-vm-init.sh",
+        }
 
-       # for sf, df in copy_files.items():
-       #     if os.path.exists(sf):
-       #         nw.build(inputs=[sf], outputs=[df], rule="copyfiles")
+        for sf, df in copy_executables.items():
+            if os.path.exists(sf):
+                nw.build(inputs=[sf], outputs=[df], rule="copyfiles", variables={"mode": "-m777"})
 
-        #nw.build(inputs=["cmd/test2json"], outputs=[f"{kmt_paths.arch_dir}/go/bin/test2json"], rule="test2json")
-
-    with open("compile_commands.json", "w") as compiledb:
-        ctx.run(f"ninja -f {nf_path} -t compdb", out_stream=compiledb)
     ctx.run(f"ninja -d explain -v -f {nf_path}")
 
 
