@@ -32,6 +32,7 @@ import (
 	kafkadebugging "github.com/DataDog/datadog-agent/pkg/network/protocols/kafka/debugging"
 	"github.com/DataDog/datadog-agent/pkg/network/protocols/telemetry"
 	"github.com/DataDog/datadog-agent/pkg/network/tracer"
+	plainusm "github.com/DataDog/datadog-agent/pkg/network/usm"
 	usm "github.com/DataDog/datadog-agent/pkg/network/usm/utils"
 	"github.com/DataDog/datadog-agent/pkg/process/statsd"
 	"github.com/DataDog/datadog-agent/pkg/util/log"
@@ -249,6 +250,8 @@ func (nt *networkTracer) Register(httpMux *module.Router) error {
 
 	httpMux.HandleFunc("/debug/usm_telemetry", telemetry.Handler)
 	httpMux.HandleFunc("/debug/usm_traced_programs", usm.TracedProgramsEndpoint)
+	httpMux.HandleFunc("/debug/tls/attach-pid", plainusm.AttachPIDEndpoint)
+	httpMux.HandleFunc("/debug/tls/detach-pid", plainusm.DetachPIDEndpoint)
 
 	// Convenience logging if nothing has made any requests to the system-probe in some time, let's log something.
 	// This should be helpful for customers + support to debug the underlying issue.

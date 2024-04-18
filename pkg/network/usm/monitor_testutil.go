@@ -86,14 +86,14 @@ func patchProtocolMock(t *testing.T, spec protocolMockSpec) {
 		knownProtocols[0] = p
 	})
 
-	p.Factory = func(c *config.Config) (protocols.Protocol, error) {
+	p.Factory = func(c *config.Config) (interface{}, error) {
 		inner, err := innerFactory(c)
 		if err != nil {
 			return nil, err
 		}
 
 		return &protocolMock{
-			inner,
+			inner.(protocols.Protocol),
 			spec,
 		}, nil
 	}

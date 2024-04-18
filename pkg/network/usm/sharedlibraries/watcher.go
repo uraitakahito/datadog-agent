@@ -171,7 +171,7 @@ func (w *Watcher) Start() {
 		return nil
 	})
 
-	cleanupExit := w.processMonitor.SubscribeExit(w.registry.Unregister)
+	cleanupExit := w.processMonitor.SubscribeExit(func(pid uint32) { _ = w.registry.Unregister(pid) })
 
 	w.wg.Add(1)
 	go func() {

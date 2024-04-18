@@ -76,7 +76,7 @@ var Spec = &protocols.ProtocolSpec{
 }
 
 // newHTTPProtocol returns a new HTTP protocol.
-func newHTTPProtocol(cfg *config.Config) (protocols.Protocol, error) {
+func newHTTPProtocol(cfg *config.Config) (interface{}, error) {
 	if !cfg.EnableHTTPMonitoring {
 		return nil, nil
 	}

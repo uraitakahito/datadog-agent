@@ -159,7 +159,7 @@ var goTLSSpec = &protocols.ProtocolSpec{
 }
 
 func newGoTLSProgramProtocolFactory(m *manager.Manager) protocols.ProtocolFactory {
-	return func(c *config.Config) (protocols.Protocol, error) {
+	return func(c *config.Config) (interface{}, error) {
 		if !c.EnableGoTLSSupport {
 			return nil, nil
 		}
@@ -212,7 +212,7 @@ func (p *goTLSProgram) PreStart(m *manager.Manager) error {
 
 	procMonitor := monitor.GetProcessMonitor()
 	cleanupExec := procMonitor.SubscribeExec(p.handleProcessStart)
-	cleanupExit := procMonitor.SubscribeExit(p.registry.Unregister)
+	cleanupExit := procMonitor.SubscribeExit(p.handleProcessExit)
 
 	p.wg.Add(1)
 	go func() {
@@ -304,9 +304,26 @@ func registerCBCreator(mgr *manager.Manager, offsetsDataMap *ebpf.Map, probeIDs 
 	}
 }
 
+func (p *goTLSProgram) DetachPID(pid uint32) error {
+	return p.registry.Unregister(pid)
+}
+
+func (p *goTLSProgram) handleProcessExit(pid pid) {
+	_ = p.registry.Unregister(pid)
+}
+
 func (p *goTLSProgram) handleProcessStart(pid pid) {
+	_ = p.AttachPID(pid)
+}
+
+var (
+	errSelfExcluded                = errors.New("self-excluded")
+	errInternalDDogProcessRejected = errors.New("internal datadog process rejected")
+)
+
+func (p *goTLSProgram) AttachPID(pid uint32) error {
 	if p.cfg.GoTLSExcludeSelf && pid == uint32(os.Getpid()) {
-		return
+		return errSelfExcluded
 	}
 
 	pidAsStr := strconv.FormatUint(uint64(pid), 10)
@@ -327,7 +344,7 @@ func (p *goTLSProgram) handleProcessStart(pid pid) {
 	if err != nil {
 		// we can't access to the binary path here (pid probably ended already)
 		// there are not much we can do, and we don't want to flood the logs
-		return
+		return err
 	}
 
 	// Check if the process is datadog's internal process, if so, we don't want to hook the process.
@@ -335,12 +352,12 @@ func (p *goTLSProgram) handleProcessStart(pid pid) {
 		if log.ShouldLog(seelog.DebugLvl) {
 			log.Debugf("ignoring pid %d, as it is an internal datadog component (%q)", pid, binPath)
 		}
-		return
+		return errInternalDDogProcessRejected
 	}
 
 	// Check go process
 	probeList := make([]manager.ProbeIdentificationPair, 0)
-	p.registry.Register(binPath, pid, registerCBCreator(p.manager, p.offsetsDataMap, &probeList, p.binAnalysisMetric), unregisterCBCreator(p.manager, &probeList, p.offsetsDataMap))
+	return p.registry.Register(binPath, pid, registerCBCreator(p.manager, p.offsetsDataMap, &probeList, p.binAnalysisMetric), unregisterCBCreator(p.manager, &probeList, p.offsetsDataMap))
 }
 
 // addInspectionResultToMap runs a binary inspection and adds the result to the

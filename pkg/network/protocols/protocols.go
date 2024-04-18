@@ -72,12 +72,19 @@ type ProtocolStats struct {
 }
 
 // ProtocolFactory is a function that creates a Protocol.
-type ProtocolFactory func(*config.Config) (Protocol, error)
+type ProtocolFactory func(*config.Config) (interface{}, error)
+
+type ProtocolTLS interface {
+	AttachPID(pid uint32) error
+	DetachPID(pid uint32) error
+}
 
 // ProtocolSpec represents a protocol specification.
 type ProtocolSpec struct {
-	Factory   ProtocolFactory
-	Instance  Protocol
+	Factory ProtocolFactory
+	//Instance  Protocol
+	Raw interface{}
+	//TLSProg   ProtocolTLS
 	Maps      []*manager.Map
 	Probes    []*manager.Probe
 	TailCalls []manager.TailCallRoute

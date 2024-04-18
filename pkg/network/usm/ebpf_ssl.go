@@ -424,7 +424,7 @@ type sslProgram struct {
 }
 
 func newSSLProgramProtocolFactory(m *manager.Manager) protocols.ProtocolFactory {
-	return func(c *config.Config) (protocols.Protocol, error) {
+	return func(c *config.Config) (interface{}, error) {
 		if (!c.EnableNativeTLSMonitoring || !http.TLSSupported(c)) && !c.EnableIstioMonitoring && !c.EnableNodeJSMonitoring {
 			return nil, nil
 		}

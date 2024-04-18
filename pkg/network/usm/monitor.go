@@ -130,6 +130,8 @@ func (m *Monitor) Start() error {
 			m.Stop()
 
 			startupError = err
+		} else {
+			ebpfMgr = m.ebpfProgram
 		}
 	}()
 
