@@ -21,6 +21,7 @@ type fileProvider struct {
 	isLeaderNotif         <-chan struct{}
 	pollInterval          time.Duration
 	subscribers           map[TargetObjKind]chan Request
+	responseChan          chan Response
 	lastSuccessfulRefresh time.Time
 	clusterName           string
 	// *instrumentationConfigurationCache
@@ -34,6 +35,7 @@ func newfileProvider(file string, isLeaderNotif <-chan struct{}, clusterName str
 		isLeaderNotif: isLeaderNotif,
 		pollInterval:  5 * time.Second,
 		subscribers:   make(map[TargetObjKind]chan Request),
+		responseChan:  make(chan Response, 10),
 		clusterName:   clusterName,
 	}
 }
@@ -43,6 +45,10 @@ func (fpp *fileProvider) subscribe(kind TargetObjKind) chan Request {
 	fpp.subscribers[kind] = ch
 
 	return ch
+}
+
+func (fpp *fileProvider) getResponseChan() chan Response {
+	return fpp.responseChan
 }
 
 func (fpp *fileProvider) start(stopCh <-chan struct{}) {

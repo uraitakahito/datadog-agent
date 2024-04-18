@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/DataDog/datadog-agent/pkg/remoteconfig/state"
 	"github.com/DataDog/datadog-agent/pkg/util/log"
 )
 
@@ -32,11 +33,12 @@ type enablementConfig struct {
 }
 
 type instrumentationConfigurationCache struct {
-	localConfiguration        *instrumentationConfiguration
-	currentConfiguration      *instrumentationConfiguration
-	configurationUpdatesQueue chan Request
-	clusterName               string
-	namespaceToConfigIdMap    map[string]string // maps the namespace with enabled instrumentation to Remote Enablement rule
+	localConfiguration           *instrumentationConfiguration
+	currentConfiguration         *instrumentationConfiguration
+	configurationUpdatesQueue    chan Request
+	configurationUpdatesResponse chan Response
+	clusterName                  string
+	namespaceToConfigIdMap       map[string]string // maps the namespace with enabled instrumentation to Remote Enablement rule
 
 	mu                  sync.RWMutex
 	lastAppliedRevision int64
@@ -58,8 +60,10 @@ func newInstrumentationConfigurationCache(
 	localConfig := newInstrumentationConfiguration(localEnabled, localEnabledNamespaces, localDisabledNamespaces)
 	currentConfig := newInstrumentationConfiguration(localEnabled, localEnabledNamespaces, localDisabledNamespaces)
 	reqChannel := make(chan Request, 10)
+	respChannel := make(chan Response, 10)
 	if provider != nil {
 		reqChannel = provider.subscribe("cluster")
+		respChannel = provider.getResponseChan()
 	}
 	nsToRules := make(map[string]string)
 	if *localEnabled {
@@ -69,11 +73,12 @@ func newInstrumentationConfigurationCache(
 	}
 
 	return &instrumentationConfigurationCache{
-		localConfiguration:        localConfig,
-		currentConfiguration:      currentConfig,
-		configurationUpdatesQueue: reqChannel,
-		clusterName:               clusterName,
-		namespaceToConfigIdMap:    nsToRules,
+		localConfiguration:           localConfig,
+		currentConfiguration:         currentConfig,
+		configurationUpdatesQueue:    reqChannel,
+		configurationUpdatesResponse: respChannel,
+		clusterName:                  clusterName,
+		namespaceToConfigIdMap:       nsToRules,
 
 		orderedRevisions: make([]int64, 0),
 		enabledConfigIDs: map[string]interface{}{},
@@ -89,7 +94,8 @@ func (c *instrumentationConfigurationCache) start(stopCh <-chan struct{}) {
 			// if err := c.updateConfiguration(nil, nil); err != nil {
 			// 	log.Error(err.Error())
 			// }
-			c.update(req)
+			resp := c.update(req)
+			c.configurationUpdatesResponse <- resp
 		case <-stopCh:
 			log.Info("Shutting down patcher")
 			return
@@ -97,11 +103,12 @@ func (c *instrumentationConfigurationCache) start(stopCh <-chan struct{}) {
 	}
 }
 
-func (c *instrumentationConfigurationCache) update(req Request) {
+func (c *instrumentationConfigurationCache) update(req Request) Response {
 	// if req.K8sTargetV2 == nil || req.K8sTargetV2.ClusterTargets == nil {
 	// 	log.Errorf("K8sTargetV2 is not set for config %s", req.ID)
 	// }
 	k8sClusterTargets := req.K8sTargetV2.ClusterTargets
+	var resp Response
 
 	switch req.Action {
 	case StageConfig:
@@ -119,7 +126,7 @@ func (c *instrumentationConfigurationCache) update(req Request) {
 				newEnabledNamespaces := target.EnabledNamespaces
 
 				c.mu.Lock()
-				c.updateConfiguration(*newEnabled, newEnabledNamespaces, req.ID, int(req.RcVersion))
+				resp = c.updateConfiguration(*newEnabled, newEnabledNamespaces, req.ID, int(req.RcVersion))
 				log.Infof("Updated configuration: %v, %v, %v",
 					c.currentConfiguration.enabled, c.currentConfiguration.enabledNamespaces, c.currentConfiguration.disabledNamespaces)
 
@@ -149,7 +156,7 @@ func (c *instrumentationConfigurationCache) update(req Request) {
 					c.currentConfiguration.enabled, c.currentConfiguration.enabledNamespaces, c.currentConfiguration.disabledNamespaces)
 				//newEnabled := target.Enabled
 				//newEnabledNamespaces := target.EnabledNamespaces
-				c.disableConfiguration(req.ID, req.Revision, req.RcVersion)
+				resp = c.disableConfiguration(req.ID, req.Revision, req.RcVersion)
 				//c.updateConfiguration(*newEnabled, newEnabledNamespaces, req.ID)
 				log.Infof("Updated configuration: %v, %v, %v",
 					c.currentConfiguration.enabled, c.currentConfiguration.enabledNamespaces, c.currentConfiguration.disabledNamespaces)
@@ -159,6 +166,8 @@ func (c *instrumentationConfigurationCache) update(req Request) {
 	default:
 		log.Errorf("unknown action %q", req.Action)
 	}
+
+	return resp
 }
 
 func (c *instrumentationConfigurationCache) readConfiguration() *instrumentationConfiguration {
@@ -170,7 +179,7 @@ func (c *instrumentationConfigurationCache) readLocalConfiguration() *instrument
 }
 
 func (c *instrumentationConfigurationCache) disableConfiguration(
-	configID string, rcRevision int64, rcVersion uint64) {
+	configID string, rcRevision int64, rcVersion uint64) Response {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -194,6 +203,12 @@ func (c *instrumentationConfigurationCache) disableConfiguration(
 		}
 	}
 	c.resetConfiguration()
+	return Response{
+		ID:        configID,
+		Revision:  rcRevision,
+		RcVersion: rcVersion,
+		Status:    state.ApplyStatus{State: state.ApplyStateAcknowledged},
+	}
 }
 
 func (c *instrumentationConfigurationCache) resetConfiguration() {
@@ -204,17 +219,24 @@ func (c *instrumentationConfigurationCache) resetConfiguration() {
 	}
 }
 
-func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, enabledNamespaces *[]string, rcID string, rcVersion int) {
+func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, enabledNamespaces *[]string, rcID string, rcVersion int) Response {
 	log.Debugf("Updating current APM Instrumentation configuration")
 	log.Debugf("Old APM Instrumentation configuration [enabled=%t enabledNamespaces=%v disabledNamespaces=%v]",
 		c.currentConfiguration.enabled,
 		c.currentConfiguration.enabledNamespaces,
 		c.currentConfiguration.disabledNamespaces,
 	)
+	resp := Response{
+		ID:        rcID,
+		RcVersion: uint64(rcVersion),
+		Status:    state.ApplyStatus{State: state.ApplyStateAcknowledged},
+	}
 
 	if c.currentConfiguration.enabled && !enabled {
 		log.Errorf("Disabling APM instrumentation in the cluster remotly is not supported")
-		return
+		resp.Status.State = state.ApplyStateError
+		resp.Status.Error = "Disabling APM instrumentation in the cluster remotly is not supported"
+		return resp
 	}
 
 	if c.currentConfiguration.enabled {
@@ -222,14 +244,28 @@ func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, en
 			len(c.currentConfiguration.disabledNamespaces) == 0 &&
 			enabledNamespaces != nil && len(*enabledNamespaces) > 0 {
 			log.Errorf("Currently APM Insrtumentation is enabled in the whole cluster. Cannot enable it in specific namespaces.")
-			return
+			resp.Status.State = state.ApplyStateError
+			resp.Status.Error = "Failing policy because SSI is enabled in the whole cluster"
+			return resp
 		} else if len(c.currentConfiguration.enabledNamespaces) > 0 {
 			log.Debugf("Appending new enabledNamespaces to the configuration...")
 			// TODO: deduplicate enabledNamespaces and remove enabledNamespcaes from disabledNamespaces list
+			alreadyEnabledNamespaces := []string{}
 			for _, ns := range *enabledNamespaces {
-				c.currentConfiguration.enabledNamespaces = append(c.currentConfiguration.enabledNamespaces, ns)
-				c.namespaceToConfigIdMap[ns] = fmt.Sprintf("%s-%d", rcID, rcVersion)
+				if _, ok := c.namespaceToConfigIdMap[ns]; ok {
+					alreadyEnabledNamespaces = append(alreadyEnabledNamespaces, ns)
+				} else {
+					c.currentConfiguration.enabledNamespaces = append(c.currentConfiguration.enabledNamespaces, ns)
+					c.namespaceToConfigIdMap[ns] = fmt.Sprintf("%s-%d", rcID, rcVersion)
+				}
 			}
+			if len(alreadyEnabledNamespaces) > 0 {
+				resp.Status.State = state.ApplyStateError
+				resp.Status.Error = fmt.Sprintf("Failing policy because SSI in namespaces %v is already enabled", alreadyEnabledNamespaces)
+				return resp
+			}
+		} else if len(c.currentConfiguration.enabledNamespaces) > 0 && (enabledNamespaces == nil || len(*enabledNamespaces) == 0) {
+			// TODO: implement scenario local config enabling a single ns, remote config enabling whole cluster
 		} else if len(c.currentConfiguration.disabledNamespaces) > 0 {
 			log.Debugf("Removing new namespaces to enable from disabledNamespaces...")
 			disabledNsMap := make(map[string]struct{})
@@ -263,7 +299,9 @@ func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, en
 			}
 		} else {
 			log.Errorf("Noop: APM Instrumentation is off")
-			return
+			resp.Status.State = state.ApplyStateError
+			resp.Status.Error = "Noop: APM Instrumentation is off"
+			return resp
 		}
 	}
 
@@ -272,7 +310,7 @@ func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, en
 		c.currentConfiguration.enabledNamespaces,
 		c.currentConfiguration.disabledNamespaces,
 	)
-
+	return resp
 }
 
 func newInstrumentationConfiguration(

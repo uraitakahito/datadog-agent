@@ -11,6 +11,7 @@ import (
 	"errors"
 
 	"github.com/DataDog/datadog-agent/pkg/clusteragent/admission/common"
+	"github.com/DataDog/datadog-agent/pkg/remoteconfig/state"
 )
 
 // TargetObjKind represents the supported k8s object kinds
@@ -54,6 +55,13 @@ type K8sClusterTarget struct {
 
 type K8sTargetV2 struct {
 	ClusterTargets []K8sClusterTarget `json:"cluster_targets"`
+}
+
+type Response struct {
+	ID        string            `json:"id"`
+	Revision  int64             `json:"revision"`
+	RcVersion uint64            `json:"rc_version"`
+	Status    state.ApplyStatus `json:"status"`
 }
 
 // Validate returns whether a patch request is applicable

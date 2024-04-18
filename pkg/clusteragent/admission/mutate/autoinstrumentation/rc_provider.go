@@ -23,6 +23,7 @@ type remoteConfigProvider struct {
 	client                    *rcclient.Client
 	isLeaderNotif             <-chan struct{}
 	subscribers               map[TargetObjKind]chan Request
+	responseChan              chan Response
 	clusterName               string
 	telemetryCollector        telemetry.TelemetryCollector
 	apmInstrumentationState   *instrumentationConfigurationCache
@@ -34,6 +35,7 @@ type remoteConfigProvider struct {
 type rcProvider interface {
 	start(stopCh <-chan struct{})
 	subscribe(kind TargetObjKind) chan Request
+	getResponseChan() chan Response
 }
 
 var _ rcProvider = &remoteConfigProvider{}
@@ -51,6 +53,7 @@ func newRemoteConfigProvider(
 		client:                    client,
 		isLeaderNotif:             isLeaderNotif,
 		subscribers:               make(map[TargetObjKind]chan Request),
+		responseChan:              make(chan Response, 10),
 		clusterName:               clusterName,
 		telemetryCollector:        telemetryCollector,
 		lastProcessedRCRevision:   0,
@@ -83,6 +86,10 @@ func (rcp *remoteConfigProvider) subscribe(kind TargetObjKind) chan Request {
 	return ch
 }
 
+func (rcp *remoteConfigProvider) getResponseChan() chan Response {
+	return rcp.responseChan
+}
+
 // process is the event handler called by the RC client on config updates
 func (rcp *remoteConfigProvider) process(update map[string]state.RawConfig, applyStateCallback func(string, state.ApplyStatus)) {
 	log.Infof("Got %d updates from remote-config", len(update))
@@ -108,7 +115,11 @@ func (rcp *remoteConfigProvider) process(update map[string]state.RawConfig, appl
 		if ch, found := rcp.subscribers["cluster"]; found {
 			valid++
 			ch <- req
-			applyStateCallback(path, state.ApplyStatus{State: state.ApplyStateAcknowledged})
+			resp, _ := <-rcp.responseChan
+			log.Infof("LILIYAB: req ID %s version %d revision %d, ", req.ID, req.RcVersion, req.Revision)
+			log.Infof("LILIYAB: resp ID %s version %d revision %d status %v errMsg %s", resp.ID, resp.RcVersion, resp.Revision, resp.Status.State, resp.Status.Error)
+			//applyStateCallback(path, state.ApplyStatus{State: resp.state.ApplyStateAcknowledged})
+			applyStateCallback(path, resp.Status)
 			rcp.lastProcessedRCRevision = req.Revision
 			rcp.currentlyAppliedConfigIDs[req.ID] = struct{}{}
 		}
