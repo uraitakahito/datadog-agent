@@ -64,7 +64,7 @@ var Spec = &protocols.ProtocolSpec{
 	},
 }
 
-func newKafkaProtocol(cfg *config.Config) (interface{}, error) {
+func newKafkaProtocol(cfg *config.Config) (protocols.Protocol, error) {
 	if !cfg.EnableKafkaMonitoring {
 		return nil, nil
 	}
@@ -143,4 +143,9 @@ func (p *protocol) GetStats() *protocols.ProtocolStats {
 // IsBuildModeSupported returns always true, as kafka module is supported by all modes.
 func (*protocol) IsBuildModeSupported(buildmode.Type) bool {
 	return true
+}
+
+// GetAttacher returns the attacher for the protocol.
+func (*protocol) GetAttacher() protocols.Attacher {
+	return nil
 }

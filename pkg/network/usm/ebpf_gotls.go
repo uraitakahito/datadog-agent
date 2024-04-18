@@ -159,7 +159,7 @@ var goTLSSpec = &protocols.ProtocolSpec{
 }
 
 func newGoTLSProgramProtocolFactory(m *manager.Manager) protocols.ProtocolFactory {
-	return func(c *config.Config) (interface{}, error) {
+	return func(c *config.Config) (protocols.Protocol, error) {
 		if !c.EnableGoTLSSupport {
 			return nil, nil
 		}
@@ -201,7 +201,12 @@ func (p *goTLSProgram) ConfigureOptions(_ *manager.Manager, options *manager.Opt
 	}
 }
 
-// Start launches the goTLS main goroutine to handle events.
+// GetAttacher returns the attacher for the protocol.
+func (p *goTLSProgram) GetAttacher() protocols.Attacher {
+	return p
+}
+
+// PreStart launches the goTLS main goroutine to handle events.
 func (p *goTLSProgram) PreStart(m *manager.Manager) error {
 	var err error
 

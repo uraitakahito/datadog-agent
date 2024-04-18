@@ -424,7 +424,7 @@ type sslProgram struct {
 }
 
 func newSSLProgramProtocolFactory(m *manager.Manager) protocols.ProtocolFactory {
-	return func(c *config.Config) (interface{}, error) {
+	return func(c *config.Config) (protocols.Protocol, error) {
 		if (!c.EnableNativeTLSMonitoring || !http.TLSSupported(c)) && !c.EnableIstioMonitoring && !c.EnableNodeJSMonitoring {
 			return nil, nil
 		}
@@ -544,6 +544,11 @@ func (o *sslProgram) DumpMaps(w io.Writer, mapName string, currentMap *ebpf.Map)
 		}
 	}
 
+}
+
+// GetAttacher returns the attacher for the protocol.
+func (o *sslProgram) GetAttacher() protocols.Attacher {
+	return nil
 }
 
 func (o *sslProgram) GetStats() *protocols.ProtocolStats {

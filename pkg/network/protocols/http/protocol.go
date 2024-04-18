@@ -76,7 +76,7 @@ var Spec = &protocols.ProtocolSpec{
 }
 
 // newHTTPProtocol returns a new HTTP protocol.
-func newHTTPProtocol(cfg *config.Config) (interface{}, error) {
+func newHTTPProtocol(cfg *config.Config) (protocols.Protocol, error) {
 	if !cfg.EnableHTTPMonitoring {
 		return nil, nil
 	}
@@ -151,6 +151,11 @@ func (p *protocol) Stop(_ *manager.Manager) {
 	if p.statkeeper != nil {
 		p.statkeeper.Close()
 	}
+}
+
+// GetAttacher returns the attacher for the protocol.
+func (*protocol) GetAttacher() protocols.Attacher {
+	return nil
 }
 
 func (p *protocol) DumpMaps(w io.Writer, mapName string, currentMap *ebpf.Map) {

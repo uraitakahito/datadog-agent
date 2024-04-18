@@ -23,6 +23,11 @@ const (
 	TLSDispatcherProgramsMap      = "tls_process_progs"
 )
 
+type Attacher interface {
+	AttachPID(pid uint32) error
+	DetachPID(pid uint32) error
+}
+
 // Protocol is the interface that represents a protocol supported by USM.
 //
 // Represents an eBPF program and provides methods used to manage its lifetime and initialisation.
@@ -61,6 +66,9 @@ type Protocol interface {
 
 	// IsBuildModeSupported return true is the given build mode is supported by this protocol.
 	IsBuildModeSupported(buildmode.Type) bool
+
+	// GetAttacher returns the attacher for the protocol.
+	GetAttacher() Attacher
 }
 
 // ProtocolStats is a "tuple" struct that represents monitoring data from a
@@ -72,19 +80,12 @@ type ProtocolStats struct {
 }
 
 // ProtocolFactory is a function that creates a Protocol.
-type ProtocolFactory func(*config.Config) (interface{}, error)
-
-type ProtocolTLS interface {
-	AttachPID(pid uint32) error
-	DetachPID(pid uint32) error
-}
+type ProtocolFactory func(*config.Config) (Protocol, error)
 
 // ProtocolSpec represents a protocol specification.
 type ProtocolSpec struct {
-	Factory ProtocolFactory
-	//Instance  Protocol
-	Raw interface{}
-	//TLSProg   ProtocolTLS
+	Factory   ProtocolFactory
+	Instance  Protocol
 	Maps      []*manager.Map
 	Probes    []*manager.Probe
 	TailCalls []manager.TailCallRoute

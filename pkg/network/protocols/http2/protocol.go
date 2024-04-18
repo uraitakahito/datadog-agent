@@ -188,7 +188,7 @@ var Spec = &protocols.ProtocolSpec{
 	},
 }
 
-func newHTTP2Protocol(cfg *config.Config) (interface{}, error) {
+func newHTTP2Protocol(cfg *config.Config) (protocols.Protocol, error) {
 	if !cfg.EnableHTTP2Monitoring {
 		return nil, nil
 	}
@@ -289,6 +289,11 @@ func (p *Protocol) PostStart(mgr *manager.Manager) error {
 	p.updateKernelTelemetry(mgr)
 
 	return p.dynamicTable.postStart(mgr, p.cfg)
+}
+
+// GetAttacher returns the attacher for the protocol.
+func (*Protocol) GetAttacher() protocols.Attacher {
+	return nil
 }
 
 func getMap(mgr *manager.Manager, name string) (*ebpf.Map, error) {

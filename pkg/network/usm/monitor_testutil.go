@@ -66,6 +66,8 @@ func (p *protocolMock) Stop(mgr *manager.Manager) {
 	}
 }
 
+func (p *protocolMock) GetAttacher() protocols.Attacher { return p.inner.GetAttacher() }
+
 func (p *protocolMock) DumpMaps(io.Writer, string, *ebpf.Map) {}
 func (p *protocolMock) GetStats() *protocols.ProtocolStats    { return nil }
 
@@ -86,14 +88,14 @@ func patchProtocolMock(t *testing.T, spec protocolMockSpec) {
 		knownProtocols[0] = p
 	})
 
-	p.Factory = func(c *config.Config) (interface{}, error) {
+	p.Factory = func(c *config.Config) (protocols.Protocol, error) {
 		inner, err := innerFactory(c)
 		if err != nil {
 			return nil, err
 		}
 
 		return &protocolMock{
-			inner.(protocols.Protocol),
+			inner,
 			spec,
 		}, nil
 	}

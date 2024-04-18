@@ -133,7 +133,7 @@ var javaTLSSpec = &protocols.ProtocolSpec{
 	},
 }
 
-func newJavaTLSProgram(c *config.Config) (interface{}, error) {
+func newJavaTLSProgram(c *config.Config) (protocols.Protocol, error) {
 	if !c.EnableJavaTLSSupport || !http.TLSSupported(c) {
 		return nil, nil
 	}
@@ -179,6 +179,11 @@ func (p *javaTLSProgram) ConfigureOptions(_ *manager.Manager, options *manager.O
 			},
 		},
 	)
+}
+
+// GetAttacher returns the attacher for the protocol.
+func (*javaTLSProgram) GetAttacher() protocols.Attacher {
+	return nil
 }
 
 // isJavaProcess checks if the given PID comm's name is java.

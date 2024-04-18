@@ -254,7 +254,7 @@ func (e *ebpfProgram) Start() error {
 	}
 
 	for _, protocolName := range e.enabledProtocols {
-		log.Infof("enabled USM protocol: %s", protocolName.Raw.(protocols.Protocol).Name())
+		log.Infof("enabled USM protocol: %s", protocolName.Instance.Name())
 	}
 
 	return nil
@@ -309,7 +309,7 @@ func (e *ebpfProgram) getProtocolsForBuildMode() ([]*protocols.ProtocolSpec, []*
 	notSupported = append(notSupported, e.disabledProtocols...)
 
 	for _, p := range e.enabledProtocols {
-		if p.Raw.(protocols.Protocol).IsBuildModeSupported(e.buildMode) {
+		if p.Instance.IsBuildModeSupported(e.buildMode) {
 			supported = append(supported, p)
 		} else {
 			notSupported = append(notSupported, p)
@@ -420,7 +420,7 @@ func (e *ebpfProgram) init(buf bytecode.AssetReader, options manager.Options) er
 	cleanup := e.configureManagerWithSupportedProtocols(supported)
 	options.TailCallRouter = e.tailCallRouter
 	for _, p := range supported {
-		p.Raw.(protocols.Protocol).ConfigureOptions(e.Manager.Manager, &options)
+		p.Instance.ConfigureOptions(e.Manager.Manager, &options)
 	}
 	if e.cfg.InternalTelemetryEnabled {
 		for _, pm := range e.PerfMaps {
@@ -526,7 +526,7 @@ func (e *ebpfProgram) dumpMapsHandler(w io.Writer, _ *manager.Manager, mapName s
 
 	default: // Go through enabled protocols in case one of them now how to handle the current map
 		for _, p := range e.enabledProtocols {
-			p.Raw.(protocols.Protocol).DumpMaps(w, mapName, currentMap)
+			p.Instance.DumpMaps(w, mapName, currentMap)
 		}
 	}
 }
@@ -535,7 +535,7 @@ func (e *ebpfProgram) getProtocolStats() map[protocols.ProtocolType]interface{} 
 	ret := make(map[protocols.ProtocolType]interface{})
 
 	for _, protocol := range e.enabledProtocols {
-		ps := protocol.Raw.(protocols.Protocol).GetStats()
+		ps := protocol.Instance.GetStats()
 		if ps != nil {
 			ret[ps.Type] = ps.Stats
 		}
@@ -552,11 +552,11 @@ func (e *ebpfProgram) executePerProtocol(protocolList []*protocols.ProtocolSpec,
 	// we'll keep in a temporary copy and return it at the end.
 	res := make([]*protocols.ProtocolSpec, 0)
 	for _, protocol := range protocolList {
-		if err := cb(protocol.Raw.(protocols.Protocol), e.Manager.Manager); err != nil {
+		if err := cb(protocol.Instance, e.Manager.Manager); err != nil {
 			if errorCb != nil {
-				errorCb(protocol.Raw.(protocols.Protocol), e.Manager.Manager)
+				errorCb(protocol.Instance, e.Manager.Manager)
 			}
-			log.Errorf("could not complete %q phase of %q monitoring: %s", phaseName, protocol.Raw.(protocols.Protocol).Name(), err)
+			log.Errorf("could not complete %q phase of %q monitoring: %s", phaseName, protocol.Instance.Name(), err)
 			continue
 		}
 		res = append(res, protocol)
@@ -590,10 +590,10 @@ func (e *ebpfProgram) initProtocols(c *config.Config) error {
 		}
 
 		if protocol != nil {
-			spec.Raw = protocol
+			spec.Instance = protocol
 			e.enabledProtocols = append(e.enabledProtocols, spec)
 
-			log.Infof("%v monitoring enabled", protocol.(protocols.Protocol).Name())
+			log.Infof("%v monitoring enabled", protocol.Name())
 		} else {
 			e.disabledProtocols = append(e.disabledProtocols, spec)
 		}

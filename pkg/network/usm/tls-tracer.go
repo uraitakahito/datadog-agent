@@ -65,22 +65,21 @@ func runTLSCallback(w http.ResponseWriter, r *http.Request, mode callbackType) {
 	// Validate the type field
 	switch reqBody.Type {
 	case "go-tls", "native", "nodejs", "istio":
-		var found bool
-		var moduleTLS protocols.ProtocolTLS
+		var attacher protocols.Attacher
 		for _, module := range ebpfMgr.enabledProtocols {
-			if module.Raw.(protocols.Protocol).Name() == reqBody.Type {
-				moduleTLS, found = module.Raw.(protocols.ProtocolTLS)
+			if module.Instance.Name() == reqBody.Type {
+				attacher = module.Instance.GetAttacher()
 				break
 			}
 		}
-		if !found {
+		if attacher == nil {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "Module %q is not enabled", reqBody.Type)
 			return
 		}
-		cb := moduleTLS.AttachPID
+		cb := attacher.AttachPID
 		if mode == detach {
-			cb = moduleTLS.DetachPID
+			cb = attacher.DetachPID
 		}
 		if err := cb(reqBody.PID); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
