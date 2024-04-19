@@ -18,6 +18,7 @@ import (
 	"github.com/DataDog/datadog-agent/test/new-e2e/pkg/e2e"
 	"github.com/DataDog/datadog-agent/test/new-e2e/pkg/environments"
 	awshost "github.com/DataDog/datadog-agent/test/new-e2e/pkg/environments/aws/host"
+	windowsCommon "github.com/DataDog/datadog-agent/test/new-e2e/tests/windows/common"
 	windowsAgent "github.com/DataDog/datadog-agent/test/new-e2e/tests/windows/common/agent"
 
 	"github.com/DataDog/test-infra-definitions/components/os"
@@ -56,8 +57,7 @@ func (v *vmSuite) TestPowershellModule() {
 
 	v.T().Run("Install module", v.installModule)
 	v.T().Run("Test agent install", v.testInstallAgent751)
-	v.T().Run("Test agent upgrade", v.testAgentUpgradeLatest)
-	//v.T().Run("Test Dotnet tracer install", v.testDotNetTracerInstall)
+	v.T().Run("Test agent upgrade with dotnet tracer", v.testAgentUpgradeWithDotnetTracer)
 	v.T().Run("Test failed agent downgrade", v.testFailedAgentDowngrade)
 }
 
@@ -127,7 +127,7 @@ func (v *vmSuite) testInstallAgent751(t *testing.T) {
 	windowsAgent.TestAgentVersion(t, params["AgentVersion"], installedVersion)
 }
 
-func (v *vmSuite) testAgentUpgradeLatest(t *testing.T) {
+func (v *vmSuite) testAgentUpgradeWithDotnetTracer(t *testing.T) {
 	vm := v.Env().RemoteHost
 
 	// In order to test the 'AgentInstallerPath' parameter, we'll download the installer directly to the test VM and pass its location to the script
@@ -139,7 +139,7 @@ func (v *vmSuite) testAgentUpgradeLatest(t *testing.T) {
 	vm.MustExecute(fmt.Sprintf("(New-Object System.Net.WebClient).DownloadFile(\"%s\", \"%s\")", latestAgent.URL, remoteInstallerPath))
 
 	newApiKey := "newApiKey"
-	command := fmt.Sprintf("Install-DDAgent -AgentInstallerPath '%s' -ApiKey '%s'", remoteInstallerPath, newApiKey)
+	command := fmt.Sprintf("Install-DDAgent -AgentInstallerPath '%s' -ApiKey '%s' -WithAPMTracers dotnet", remoteInstallerPath, newApiKey)
 
 	v.T().Log(command)
 	out, err := vm.Execute(command)
@@ -162,16 +162,11 @@ func (v *vmSuite) testAgentUpgradeLatest(t *testing.T) {
 	installedVersion, err := v.getAgentVersion(projectLocation)
 	v.Require().NoError(err)
 	windowsAgent.TestAgentVersion(t, latestAgent.Version, installedVersion)
-}
 
-func (v *vmSuite) testDotNetTracerInstall(t *testing.T) {
-	vm := v.Env().RemoteHost
-
-	out, err := vm.Execute(fmt.Sprintf("Install-DDAgent -WithAPMTracers dotnet"))
-	v.T().Logf("%s", out)
+	// Validate the .NET Tracer install succeeded
+	installPath, err := windowsCommon.GetRegistryValue(vm, "HKLM:\\SOFTWARE\\Datadog\\Datadog .NET Tracer 64-bit", "InstallPath")
 	v.Require().NoError(err)
-
-	// TODO assert that dotnet tracer was installed
+	v.Require().Equal(installPath, "C:\\Program Files\\Datadog\\.NET Tracer\\")
 }
 
 func (v *vmSuite) testFailedAgentDowngrade(t *testing.T) {
