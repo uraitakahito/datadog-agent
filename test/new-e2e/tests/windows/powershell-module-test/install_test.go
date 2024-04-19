@@ -53,7 +53,7 @@ func TestVMSuite(t *testing.T) {
 }
 
 func (v *vmSuite) TestPowershellModule() {
-	v.installPowershellYAML()
+	v.setupTestHost()
 
 	v.T().Run("Install module", v.installModule)
 	v.T().Run("Test agent install", v.testInstallAgent751)
@@ -61,7 +61,7 @@ func (v *vmSuite) TestPowershellModule() {
 	v.T().Run("Test failed agent downgrade", v.testFailedAgentDowngrade)
 }
 
-func (v *vmSuite) installModule(t *testing.T) {
+func (v *vmSuite) installModule(_ *testing.T) {
 	vm := v.Env().RemoteHost
 
 	err := vm.MkdirAll(remoteModuleDir)
@@ -138,8 +138,8 @@ func (v *vmSuite) testAgentUpgradeWithDotnetTracer(t *testing.T) {
 	remoteInstallerPath := "C:\\Users\\Administrator\\ddagentLatest.msi"
 	vm.MustExecute(fmt.Sprintf("(New-Object System.Net.WebClient).DownloadFile(\"%s\", \"%s\")", latestAgent.URL, remoteInstallerPath))
 
-	newApiKey := "newApiKey"
-	command := fmt.Sprintf("Install-DDAgent -AgentInstallerPath '%s' -ApiKey '%s' -WithAPMTracers dotnet", remoteInstallerPath, newApiKey)
+	newAPIKey := "newApiKey"
+	command := fmt.Sprintf("Install-DDAgent -AgentInstallerPath '%s' -ApiKey '%s' -WithAPMTracers dotnet", remoteInstallerPath, newAPIKey)
 
 	v.T().Log(command)
 	out, err := vm.Execute(command)
@@ -151,9 +151,9 @@ func (v *vmSuite) testAgentUpgradeWithDotnetTracer(t *testing.T) {
 	applicationDataDirectory, err := windowsAgent.GetConfigRootFromRegistry(vm)
 	v.Require().NoError(err)
 
-	configuredApiKey, err := v.getConfiguredValue(applicationDataDirectory, "api_key")
+	configuredAPIKey, err := v.getConfiguredValue(applicationDataDirectory, "api_key")
 	v.Require().NoError(err)
-	v.Assert().NotEqual(newApiKey, configuredApiKey)
+	v.Assert().NotEqual(newAPIKey, configuredAPIKey)
 
 	// Validate that the correct agent version is running
 	projectLocation, err := windowsAgent.GetInstallPathFromRegistry(vm)
@@ -169,12 +169,12 @@ func (v *vmSuite) testAgentUpgradeWithDotnetTracer(t *testing.T) {
 	v.Require().Equal(installPath, "C:\\Program Files\\Datadog\\.NET Tracer\\")
 }
 
-func (v *vmSuite) testFailedAgentDowngrade(t *testing.T) {
+func (v *vmSuite) testFailedAgentDowngrade(_ *testing.T) {
 	vm := v.Env().RemoteHost
 
-	downgradeUrl := "https://s3.amazonaws.com/ddagent-windows-stable/ddagent-cli-7.50.0.msi"
+	downgradeURL := "https://s3.amazonaws.com/ddagent-windows-stable/ddagent-cli-7.50.0.msi"
 	installLog := "C:\\Users\\Administrator\\ddagentInstall.log"
-	command := fmt.Sprintf("Install-DDAgent -AgentInstallerURL %s -AgentInstallLogPath %s", downgradeUrl, installLog)
+	command := fmt.Sprintf("Install-DDAgent -AgentInstallerURL %s -AgentInstallLogPath %s", downgradeURL, installLog)
 
 	v.T().Log(command)
 	_, err := vm.Execute(command)
@@ -184,8 +184,10 @@ func (v *vmSuite) testFailedAgentDowngrade(t *testing.T) {
 	v.Require().ErrorContains(err, installLog)
 }
 
-func (v *vmSuite) installPowershellYAML() {
+func (v *vmSuite) setupTestHost() {
 	vm := v.Env().RemoteHost
+
+	// Install powershell-yaml
 	vm.MustExecute("Install-PackageProvider NuGet -Force")
 	vm.MustExecute("Set-PSRepository PSGallery -InstallationPolicy Trusted")
 	vm.MustExecute("Install-Module powershell-yaml -Repository PSGallery")
