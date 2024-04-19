@@ -39,6 +39,7 @@ type instrumentationConfigurationCache struct {
 	configurationUpdatesResponse chan Response
 	clusterName                  string
 	namespaceToConfigIdMap       map[string]string // maps the namespace with enabled instrumentation to Remote Enablement rule
+	namespaceToEnvMap            map[string]string
 
 	mu                  sync.RWMutex
 	lastAppliedRevision int64
@@ -79,6 +80,7 @@ func newInstrumentationConfigurationCache(
 		configurationUpdatesResponse: respChannel,
 		clusterName:                  clusterName,
 		namespaceToConfigIdMap:       nsToRules,
+		namespaceToEnvMap:            make(map[string]string),
 
 		orderedRevisions: make([]int64, 0),
 		enabledConfigIDs: map[string]interface{}{},
@@ -126,7 +128,7 @@ func (c *instrumentationConfigurationCache) update(req Request) Response {
 				newEnabledNamespaces := target.EnabledNamespaces
 
 				c.mu.Lock()
-				resp = c.updateConfiguration(*newEnabled, newEnabledNamespaces, req.ID, int(req.RcVersion))
+				resp = c.updateConfiguration(*newEnabled, newEnabledNamespaces, req.ID, int(req.RcVersion), *req.LibConfig.Env)
 				log.Infof("Updated configuration: %v, %v, %v",
 					c.currentConfiguration.enabled, c.currentConfiguration.enabledNamespaces, c.currentConfiguration.disabledNamespaces)
 
@@ -215,11 +217,11 @@ func (c *instrumentationConfigurationCache) resetConfiguration() {
 	c.currentConfiguration = c.localConfiguration
 	for _, rev := range c.orderedRevisions {
 		conf := c.enabledRevisions[rev]
-		c.updateConfiguration(*conf.enabled, conf.enabledNamespaces, conf.configID, conf.rcVersion)
+		c.updateConfiguration(*conf.enabled, conf.enabledNamespaces, conf.configID, conf.rcVersion, *conf.env)
 	}
 }
 
-func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, enabledNamespaces *[]string, rcID string, rcVersion int) Response {
+func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, enabledNamespaces *[]string, rcID string, rcVersion int, env string) Response {
 	log.Debugf("Updating current APM Instrumentation configuration")
 	log.Debugf("Old APM Instrumentation configuration [enabled=%t enabledNamespaces=%v disabledNamespaces=%v]",
 		c.currentConfiguration.enabled,
@@ -258,6 +260,10 @@ func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, en
 					c.currentConfiguration.enabledNamespaces = append(c.currentConfiguration.enabledNamespaces, ns)
 					c.namespaceToConfigIdMap[ns] = fmt.Sprintf("%s-%d", rcID, rcVersion)
 				}
+
+				if _, ok := c.namespaceToEnvMap[ns]; !ok {
+					c.namespaceToEnvMap[ns] = env
+				}
 			}
 			if len(alreadyEnabledNamespaces) > 0 {
 				resp.Status.State = state.ApplyStateError
@@ -276,6 +282,9 @@ func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, en
 				if _, ok := disabledNsMap[ns]; ok {
 					delete(disabledNsMap, ns)
 					c.namespaceToConfigIdMap[ns] = fmt.Sprintf("%s-%d", rcID, rcVersion)
+					if _, ok := c.namespaceToEnvMap[ns]; !ok {
+						c.namespaceToEnvMap[ns] = env
+					}
 				}
 			}
 			disabledNs := make([]string, 0, len(disabledNsMap))
@@ -292,10 +301,16 @@ func (c *instrumentationConfigurationCache) updateConfiguration(enabled bool, en
 				for _, ns := range *enabledNamespaces {
 					c.currentConfiguration.enabledNamespaces = append(c.currentConfiguration.enabledNamespaces, ns)
 					c.namespaceToConfigIdMap[ns] = fmt.Sprintf("%s-%d", rcID, rcVersion)
+					if _, ok := c.namespaceToEnvMap[ns]; !ok {
+						c.namespaceToEnvMap[ns] = env
+					}
 				}
 			} else {
 				log.Debugf("Enabling APM instrumentation in the whole cluster...")
 				c.namespaceToConfigIdMap["cluster"] = fmt.Sprintf("%s-%d", rcID, rcVersion)
+				if _, ok := c.namespaceToEnvMap["cluster"]; !ok {
+					c.namespaceToEnvMap["cluster"] = env
+				}
 			}
 		} else {
 			log.Errorf("Noop: APM Instrumentation is off")

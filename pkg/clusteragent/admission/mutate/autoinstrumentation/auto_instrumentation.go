@@ -332,6 +332,17 @@ func (w *Webhook) inject(pod *corev1.Pod, _ string, _ dynamic.Interface) error {
 	}
 	_ = mutatecommon.InjectEnv(pod, rcConfigIDEnvVar)
 
+	envEnvVar := corev1.EnvVar{
+		Name:  "DD_ENV",
+		Value: "",
+	}
+	if env, ok := w.apmInstrumentationState.namespaceToEnvMap[pod.Namespace]; ok {
+		envEnvVar.Value = env
+	} else if env, ok := w.apmInstrumentationState.namespaceToEnvMap["cluster"]; ok {
+		envEnvVar.Value = env
+	}
+	_ = mutatecommon.InjectEnv(pod, envEnvVar)
+
 	if w.isEnabledInNamespace(pod.Namespace) {
 		// if Single Step Instrumentation is enabled, pods can still opt out using the label
 		if pod.GetLabels()[common.EnabledLabelKey] == "false" {
