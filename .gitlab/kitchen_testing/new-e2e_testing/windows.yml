@@ -46,12 +46,13 @@
       - E2E_MSI_TEST: TestInstallFail
 
 new-e2e_windows_powershell_module_test:
+  stage: kitchen_testing
+  extends: .new_e2e_template
+  rules:
+    !reference [ .on_powershell_module_or_e2e_changes_or_manual ]
   variables:
     TARGETS: ./tests/windows/powershell-module-test
     TEAM: windows-kernel-integrations
-  extends: .new_e2e_template
-  rules:
-    !reference [.on_powershell_module_or_e2e_changes_or_manual]
   script:
     # LAST_STABLE_VERSION is used for upgrade test
     - export LAST_STABLE_VERSION=$(invoke release.get-release-json-value "last_stable::$AGENT_MAJOR_VERSION")
