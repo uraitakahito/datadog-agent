@@ -3,7 +3,15 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2023-present Datadog, Inc.
 
+//go:build windows
+
 // Package main implements 'installer'.
 package main
 
-func rootToDDInstaller() {}
+func dropPrivileges() error {
+	return nil
+}
+
+func restorePrivileges() error {
+	return nil
+}

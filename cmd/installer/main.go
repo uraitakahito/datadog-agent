@@ -7,6 +7,7 @@
 package main
 
 import (
+	"log"
 	"os"
 
 	"github.com/DataDog/datadog-agent/cmd/installer/command"
@@ -15,7 +16,9 @@ import (
 )
 
 func main() {
-	// root user is changed to dd-installer to avoid permission issues
-	rootToDDInstaller()
+	err := dropPrivileges()
+	if err != nil {
+		log.Printf("error dropping privileges: %v", err)
+	}
 	os.Exit(runcmd.Run(command.MakeCommand(subcommands.InstallerSubcommands())))
 }
