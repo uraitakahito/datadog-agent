@@ -559,41 +559,46 @@ func TestEOLParsing(t *testing.T) {
 func TestE2EParsing(t *testing.T) {
 	cfg := make(map[string]interface{})
 
-	cfg["dogstatsd_port"] = listeners.RandomPortName
+	t.Run("dogstatsd_port", func(t *testing.T) {
+		cfg["dogstatsd_port"] = listeners.RandomPortName
 
-	deps := fulfillDepsWithConfigOverride(t, cfg)
-	demux := deps.Demultiplexer
-	requireStart(t, deps.Server)
+		deps := fulfillDepsWithConfigOverride(t, cfg)
+		demux := deps.Demultiplexer
+		requireStart(t, deps.Server)
 
-	conn, err := net.Dial("udp", deps.Server.UDPLocalAddr())
-	require.NoError(t, err, "cannot connect to DSD socket")
-	defer conn.Close()
+		conn, err := net.Dial("udp", deps.Server.UDPLocalAddr())
+		require.NoError(t, err, "cannot connect to DSD socket")
+		defer conn.Close()
 
-	// Test metric
-	conn.Write([]byte("daemon:666|g|#foo:bar\ndaemon:666|g|#foo:bar"))
-	samples, timedSamples := demux.WaitForSamples(time.Second * 2)
-	assert.Equal(t, 2, len(samples))
-	assert.Equal(t, 0, len(timedSamples))
-	demux.Reset()
-	demux.Stop(false)
+		// Test metric
+		conn.Write([]byte("daemon:666|g|#foo:bar\ndaemon:666|g|#foo:bar"))
+		samples, timedSamples := demux.WaitForSamples(time.Second * 2)
+		assert.Equal(t, 2, len(samples))
+		assert.Equal(t, 0, len(timedSamples))
+		demux.Reset()
+		demux.Stop(false)
+	})
 
-	// EOL enabled
-	cfg["dogstatsd_eol_required"] = []string{"udp"}
+	t.Run("dogstatsd_port", func(t *testing.T) {
+		// EOL enabled
+		cfg["dogstatsd_eol_required"] = []string{"udp"}
 
-	deps = fulfillDepsWithConfigOverride(t, cfg)
-	demux = deps.Demultiplexer
-	requireStart(t, deps.Server)
+		deps := fulfillDepsWithConfigOverride(t, cfg)
+		demux := deps.Demultiplexer
+		requireStart(t, deps.Server)
 
-	conn, err = net.Dial("udp", deps.Server.UDPLocalAddr())
-	require.NoError(t, err, "cannot connect to DSD socket")
-	defer conn.Close()
+		conn, err := net.Dial("udp", deps.Server.UDPLocalAddr())
+		require.NoError(t, err, "cannot connect to DSD socket")
+		defer conn.Close()
 
-	// Test metric expecting an EOL
-	conn.Write([]byte("daemon:666|g|#foo:bar\ndaemon:666|g|#foo:bar"))
-	samples, timedSamples = demux.WaitForSamples(time.Second * 2)
-	require.Equal(t, 1, len(samples))
-	assert.Equal(t, 0, len(timedSamples))
-	demux.Reset()
+		// Test metric expecting an EOL
+		conn.Write([]byte("daemon:666|g|#foo:bar\ndaemon:666|g|#foo:bar"))
+		samples, timedSamples := demux.WaitForSamples(time.Second * 2)
+		require.Equal(t, 1, len(samples))
+		assert.Equal(t, 0, len(timedSamples))
+		demux.Reset()
+	})
+
 }
 
 func TestExtraTags(t *testing.T) {
