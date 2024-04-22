@@ -46,6 +46,7 @@
       - E2E_MSI_TEST: TestInstallFail
 
 new-e2e_windows_powershell_module_test:
+  stage: setup
   extends: .new_e2e_template
   rules:
     !reference [ .on_powershell_module_or_e2e_changes_or_manual ]
