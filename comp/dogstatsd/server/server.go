@@ -433,8 +433,6 @@ func (s *server) start(context.Context) error {
 	// ----------------------
 
 	s.health = health.RegisterLiveness("dogstatsd-main")
-	s.handleMessages()
-	s.Started = true
 
 	// start the debug loop
 	// ----------------------
@@ -460,6 +458,8 @@ func (s *server) start(context.Context) error {
 			s.mapper = mapperInstance
 		}
 	}
+	s.handleMessages()
+	s.Started = true
 	return nil
 }
 
