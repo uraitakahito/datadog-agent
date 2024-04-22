@@ -331,7 +331,7 @@ func (s *server) startHook(context context.Context) error {
 }
 
 func (s *server) start(context.Context) error {
-
+	s.Started = true
 	packetsChannel := make(chan packets.Packets, s.config.GetInt("dogstatsd_queue_size"))
 	tmpListeners := make([]listeners.StatsdListener, 0, 2)
 
@@ -431,8 +431,6 @@ func (s *server) start(context.Context) error {
 			go s.forwarder(con)
 		}
 	}
-
-	s.Started = true
 
 	// map some metric name
 	// ----------------------
