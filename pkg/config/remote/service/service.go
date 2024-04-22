@@ -26,11 +26,11 @@ import (
 	"github.com/DataDog/go-tuf/data"
 	tufutil "github.com/DataDog/go-tuf/util"
 	"github.com/benbjohnson/clock"
+	retry "github.com/cenkalti/backoff"
 	"github.com/secure-systems-lab/go-securesystemslib/cjson"
+	"go.etcd.io/bbolt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"go.etcd.io/bbolt"
 
 	"github.com/DataDog/datadog-agent/pkg/config/model"
 	"github.com/DataDog/datadog-agent/pkg/config/remote/api"
@@ -158,6 +158,7 @@ type options struct {
 	site                           string
 	rcKey                          string
 	apiKey                         string
+	apiKeyConfigRefresh            string
 	traceAgentEnv                  string
 	databaseFileName               string
 	configRootOverride             string
@@ -172,6 +173,7 @@ type options struct {
 var defaultOptions = options{
 	rcKey:                          "",
 	apiKey:                         "",
+	apiKeyConfigRefresh:            "",
 	traceAgentEnv:                  "",
 	databaseFileName:               "remote-config.db",
 	configRootOverride:             "",
@@ -256,6 +258,11 @@ func WithAPIKey(apiKey string) func(s *options) {
 	return func(s *options) { s.apiKey = apiKey }
 }
 
+// WithAPIKeyConfigRefresh sets the configuration key on which to listen to refresh the API key
+func WithAPIKeyConfigRefresh(apiKeyConfigRefresh string) func(s *options) {
+	return func(s *options) { s.apiKeyConfigRefresh = apiKeyConfigRefresh }
+}
+
 // WithClientCacheBypassLimit validates and sets the service client cache bypass limit
 func WithClientCacheBypassLimit(limit int, cfgPath string) func(s *options) {
 	if limit < minCacheBypassLimit || limit > maxCacheBypassLimit {
@@ -309,40 +316,18 @@ func NewService(cfg model.Reader, rcType, baseRawURL, hostname string, tags []st
 	backoffPolicy := backoff.NewExpBackoffPolicy(minBackoffFactor, baseBackoffTime,
 		options.maxBackoff.Seconds(), recoveryInterval, recoveryReset)
 
-	authKeys, err := getRemoteConfigAuthKeys(options.apiKey, options.rcKey)
-	if err != nil {
-		return nil, err
-	}
-
 	baseURL, err := url.Parse(baseRawURL)
-	if err != nil {
-		return nil, err
-	}
-	http, err := api.NewHTTPClient(authKeys.apiAuth(), cfg, baseURL)
 	if err != nil {
 		return nil, err
 	}
 
 	dbPath := path.Join(cfg.GetString("run_path"), options.databaseFileName)
-	db, err := openCacheDB(dbPath, agentVersion, authKeys.apiKey)
+	db, err := openCacheDB(dbPath, agentVersion, options.apiKey)
 	if err != nil {
 		return nil, err
 	}
-	site := cfg.GetString("site")
-	configRoot := options.configRootOverride
-	directorRoot := options.directorRootOverride
-	opt := []uptane.ClientOption{
-		uptane.WithConfigRootOverride(site, configRoot),
-		uptane.WithDirectorRootOverride(site, directorRoot),
-	}
-	if authKeys.rcKeySet {
-		opt = append(opt, uptane.WithOrgIDCheck(authKeys.rcKey.OrgID))
-	}
-	uptaneClient, err := uptane.NewClient(
-		db,
-		newRCBackendOrgUUIDProvider(http),
-		opt...,
-	)
+
+	http, uptaneClient, err := getUptaneClient(cfg, options, baseURL, db)
 	if err != nil {
 		db.Close()
 		return nil, err
@@ -350,7 +335,7 @@ func NewService(cfg model.Reader, rcType, baseRawURL, hostname string, tags []st
 
 	clock := clock.New()
 
-	return &Service{
+	service := &Service{
 		rcType:                         rcType,
 		firstUpdate:                    true,
 		defaultRefreshInterval:         options.refresh,
@@ -382,7 +367,95 @@ func NewService(cfg model.Reader, rcType, baseRawURL, hostname string, tags []st
 		agentVersion:      agentVersion,
 		stopOrgPoller:     make(chan struct{}),
 		stopConfigPoller:  make(chan struct{}),
-	}, nil
+	}
+
+	if options.apiKeyConfigRefresh != "" {
+		cfg.OnUpdate(func(setting string, oldValue, newValue any) {
+			if setting != options.apiKeyConfigRefresh {
+				return
+			}
+
+			options.apiKey = newValue.(string)
+
+			err := retry.Retry(func() error {
+				return service.refreshAPIKey(cfg, options, baseURL, true)
+			}, retry.WithMaxRetries(retry.NewConstantBackOff(30*time.Second), 10))
+
+			// At some point we have to start using the new key, even if it doesn't work
+			if err != nil {
+				log.Error("Got an error trying to refresh the API key: ", err)
+				err = service.refreshAPIKey(cfg, options, baseURL, false)
+				if err != nil {
+					log.Error("Could not refresh Remote Config API key: ", err)
+				}
+			}
+		})
+	}
+
+	return service, nil
+}
+
+func getUptaneClient(cfg model.Reader, options options, baseURL *url.URL, db *bbolt.DB) (*api.HTTPClient, *uptane.Client, error) {
+	authKeys, err := getRemoteConfigAuthKeys(options.apiKey, options.rcKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	http, err := api.NewHTTPClient(authKeys.apiAuth(), cfg, baseURL)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	site := cfg.GetString("site")
+	configRoot := options.configRootOverride
+	directorRoot := options.directorRootOverride
+	opt := []uptane.ClientOption{
+		uptane.WithConfigRootOverride(site, configRoot),
+		uptane.WithDirectorRootOverride(site, directorRoot),
+	}
+	if authKeys.rcKeySet {
+		opt = append(opt, uptane.WithOrgIDCheck(authKeys.rcKey.OrgID))
+	}
+	uptaneClient, err := uptane.NewClient(
+		db,
+		newRCBackendOrgUUIDProvider(http),
+		opt...,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return http, uptaneClient, nil
+}
+
+func (s *Service) refreshAPIKey(cfg model.Reader, options options, baseURL *url.URL, checkStatus bool) error {
+	http, uptaneClient, err := getUptaneClient(cfg, options, baseURL, s.db)
+	if err != nil {
+		return err
+	}
+
+	var response *pbgo.OrgStatusResponse
+	if checkStatus {
+		response, err = http.FetchOrgStatus(context.Background())
+		if err != nil {
+			return err
+		}
+	}
+
+	s.Lock()
+	defer s.Unlock()
+
+	if checkStatus {
+		if s.previousOrgStatus != nil &&
+			(s.previousOrgStatus.Enabled != response.Enabled ||
+				s.previousOrgStatus.Authorized != response.Authorized) {
+			return fmt.Errorf("Remote Configuration org status has changed")
+		}
+	}
+
+	s.api = http
+	s.uptane = uptaneClient
+
+	return nil
 }
 
 func newRCBackendOrgUUIDProvider(http api.API) uptane.OrgUUIDProvider {

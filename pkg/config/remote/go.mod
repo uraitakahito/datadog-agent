@@ -29,6 +29,7 @@ require (
 	github.com/DataDog/datadog-agent/pkg/util/uuid v0.53.0-rc.2
 	github.com/Masterminds/semver v1.5.0
 	github.com/benbjohnson/clock v1.3.0
+	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/secure-systems-lab/go-securesystemslib v0.7.0
 	github.com/stretchr/testify v1.9.0
