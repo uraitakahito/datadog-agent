@@ -432,6 +432,8 @@ func (s *server) start(context.Context) error {
 		}
 	}
 
+	s.Started = true
+
 	// map some metric name
 	// ----------------------
 
@@ -454,7 +456,6 @@ func (s *server) start(context.Context) error {
 
 	s.health = health.RegisterLiveness("dogstatsd-main")
 	s.handleMessages()
-	s.Started = true
 
 	// start the debug loop
 	// ----------------------
