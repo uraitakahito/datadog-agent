@@ -802,30 +802,36 @@ dogstatsd_mapper_profiles:
 
 func TestNewServerExtraTags(t *testing.T) {
 	cfg := make(map[string]interface{})
-
 	require := require.New(t)
-	cfg["dogstatsd_port"] = listeners.RandomPortName
+	t.Run("dogstatsd_port", func(t *testing.T) {
+		cfg["dogstatsd_port"] = listeners.RandomPortName
 
-	deps := fulfillDepsWithConfigOverride(t, cfg)
-	s := deps.Server.(*server)
-	requireStart(t, s)
-	require.Len(s.extraTags, 0, "no tags should have been read")
+		deps := fulfillDepsWithConfigOverride(t, cfg)
+		s := deps.Server.(*server)
+		requireStart(t, s)
+		require.Len(s.extraTags, 0, "no tags should have been read")
+	})
 
-	// when the extraTags parameter isn't used, the DogStatsD server is not reading this env var
-	cfg["tags"] = "hello:world"
-	deps = fulfillDepsWithConfigOverride(t, cfg)
-	s = deps.Server.(*server)
-	requireStart(t, s)
-	require.Len(s.extraTags, 0, "no tags should have been read")
+	t.Run("tags", func(t *testing.T) {
+		// when the extraTags parameter isn't used, the DogStatsD server is not reading this env var
+		cfg["tags"] = "hello:world"
+		deps := fulfillDepsWithConfigOverride(t, cfg)
+		s := deps.Server.(*server)
+		requireStart(t, s)
+		require.Len(s.extraTags, 0, "no tags should have been read")
+	})
 
-	// when the extraTags parameter isn't used, the DogStatsD server is automatically reading this env var for extra tags
-	cfg["dogstatsd_tags"] = "hello:world extra:tags"
-	deps = fulfillDepsWithConfigOverride(t, cfg)
-	s = deps.Server.(*server)
-	requireStart(t, s)
-	require.Len(s.extraTags, 2, "two tags should have been read")
-	require.Equal(s.extraTags[0], "extra:tags", "the tag extra:tags should be set")
-	require.Equal(s.extraTags[1], "hello:world", "the tag hello:world should be set")
+	t.Run("dogstatsd_tags", func(t *testing.T) {
+		// when the extraTags parameter isn't used, the DogStatsD server is automatically reading this env var for extra tags
+		cfg["dogstatsd_tags"] = "hello:world extra:tags"
+		deps := fulfillDepsWithConfigOverride(t, cfg)
+		s := deps.Server.(*server)
+		requireStart(t, s)
+		require.Len(s.extraTags, 2, "two tags should have been read")
+		require.Equal(s.extraTags[0], "extra:tags", "the tag extra:tags should be set")
+		require.Equal(s.extraTags[1], "hello:world", "the tag hello:world should be set")
+	})
+
 }
 
 func TestProcessedMetricsOrigin(t *testing.T) {
