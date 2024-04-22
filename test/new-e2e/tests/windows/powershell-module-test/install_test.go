@@ -7,7 +7,6 @@
 package powershellmoduletest
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	runneros "os"
@@ -20,6 +19,7 @@ import (
 	awshost "github.com/DataDog/datadog-agent/test/new-e2e/pkg/environments/aws/host"
 	windowsCommon "github.com/DataDog/datadog-agent/test/new-e2e/tests/windows/common"
 	windowsAgent "github.com/DataDog/datadog-agent/test/new-e2e/tests/windows/common/agent"
+	installtest "github.com/DataDog/datadog-agent/test/new-e2e/tests/windows/install-test"
 
 	"github.com/DataDog/test-infra-definitions/components/os"
 	"github.com/DataDog/test-infra-definitions/scenarios/aws/ec2"
@@ -122,9 +122,22 @@ func (v *vmSuite) testInstallAgent751(t *testing.T) {
 	}
 
 	// Validate that the correct agent version is running
-	installedVersion, err := v.getAgentVersion(projectLocation)
+	//testClient := common.NewWindowsTestClient(t, vm)
+	//installedVersion, err := testClient.GetAgentVersion()
+	//v.Assert().NoError(err)
+	//windowsAgent.TestAgentVersion(t, params["AgentVersion"], installedVersion)
+
+	// Test the installation
+	hostinfo, err := windowsCommon.GetHostInfo(vm)
 	v.Require().NoError(err)
-	windowsAgent.TestAgentVersion(t, params["AgentVersion"], installedVersion)
+	testerOpts := []installtest.TesterOption{
+		installtest.WithAgentPackage(&windowsAgent.Package{Version: params["AgentVersion"]}),
+		installtest.WithExpectedAgentUser(windowsCommon.NameToNetBIOSName(hostinfo.Hostname), params["DDAgentUsername"]),
+	}
+	tester, err := installtest.NewTester(t, vm, testerOpts...)
+	v.Require().NoError(err)
+
+	tester.TestInstallExpectations(t)
 }
 
 func (v *vmSuite) testAgentUpgradeWithDotnetTracer(t *testing.T) {
@@ -156,12 +169,28 @@ func (v *vmSuite) testAgentUpgradeWithDotnetTracer(t *testing.T) {
 	v.Assert().NotEqual(newAPIKey, configuredAPIKey)
 
 	// Validate that the correct agent version is running
-	projectLocation, err := windowsAgent.GetInstallPathFromRegistry(vm)
+	//projectLocation, err := windowsAgent.GetInstallPathFromRegistry(vm)
+	//v.Require().NoError(err)
+	//installedVersion, err := v.getAgentVersion(projectLocation)
+	//v.Require().NoError(err)
+	//windowsAgent.TestAgentVersion(t, latestAgent.Version, installedVersion)
+
+	//v.T().Log("getting client")
+	//testClient := common.NewWindowsTestClient(t, vm)
+	//v.T().Log("checking agent version")
+	//installedVersion, err := testClient.GetAgentVersion()
+	//v.Assert().NoError(err)
+	//windowsAgent.TestAgentVersion(t, latestAgent.Version, installedVersion)
+
+	// Test the installation
+	testerOpts := []installtest.TesterOption{
+		installtest.WithPreviousVersion(),
+		installtest.WithAgentPackage(latestAgent),
+	}
+	tester, err := installtest.NewTester(t, vm, testerOpts...)
 	v.Require().NoError(err)
 
-	installedVersion, err := v.getAgentVersion(projectLocation)
-	v.Require().NoError(err)
-	windowsAgent.TestAgentVersion(t, latestAgent.Version, installedVersion)
+	tester.TestInstallExpectations(t)
 
 	// Validate the .NET Tracer install succeeded
 	installPath, err := windowsCommon.GetRegistryValue(vm, "HKLM:\\SOFTWARE\\Datadog\\Datadog .NET Tracer 64-bit", "InstallPath")
@@ -198,19 +227,19 @@ func (v *vmSuite) getConfiguredValue(applicationDataDirectory, keyName string) (
 	return vm.Execute(fmt.Sprintf("$(Get-Content -path '%s\\datadog.yaml' | ConvertFrom-Yaml).%s", applicationDataDirectory, keyName))
 }
 
-func (v *vmSuite) getAgentVersion(projectLocation string) (string, error) {
-	vm := v.Env().RemoteHost
-
-	statusString, err := vm.Execute(fmt.Sprintf("& '%s\\bin\\agent.exe' status -j", projectLocation))
-	if err != nil {
-		return "", err
-	}
-
-	statusJSON := map[string]any{}
-	err = json.Unmarshal([]byte(statusString), &statusJSON)
-	if err != nil {
-		return "", err
-	}
-
-	return statusJSON["version"].(string), nil
-}
+//func (v *vmSuite) getAgentVersion(projectLocation string) (string, error) {
+//	vm := v.Env().RemoteHost
+//
+//	statusString, err := vm.Execute(fmt.Sprintf("& '%s\\bin\\agent.exe' status -j", projectLocation))
+//	if err != nil {
+//		return "", err
+//	}
+//
+//	statusJSON := map[string]any{}
+//	err = json.Unmarshal([]byte(statusString), &statusJSON)
+//	if err != nil {
+//		return "", err
+//	}
+//
+//	return statusJSON["version"].(string), nil
+//}
