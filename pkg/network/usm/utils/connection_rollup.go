@@ -108,7 +108,7 @@ func (c *ConnectionAggregator) RollupKey(key types.ConnectionKey) (result types.
 			return
 		}
 
-		log.Debugf("rollup_key: input=%+v output=%+v modified=%v", key, result, key == result)
+		log.Debugf("rollup_key: input=%s output=%s modified=%v", key.String(), result.String(), key != result)
 	}()
 
 	if c == nil {
