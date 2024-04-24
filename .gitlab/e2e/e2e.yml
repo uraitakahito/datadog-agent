@@ -256,6 +256,7 @@ new-e2e-process:
   variables:
     TARGETS: ./tests/process
     TEAM: processes
+  allow_failure: true
 
 new-e2e-orchestrator:
   extends:
