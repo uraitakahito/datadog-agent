@@ -46,7 +46,11 @@ const (
 
 // Spec is the protocol spec for the HTTP protocol.
 var Spec = &protocols.ProtocolSpec{
+	Name:    "HTTP",
 	Factory: newHTTPProtocol,
+	ChangeProtocolConfig: func(c *config.Config, enabled bool) {
+		c.EnableHTTPMonitoring = enabled
+	},
 	Maps: []*manager.Map{
 		{Name: inFlightMap},
 	},

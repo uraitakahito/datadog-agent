@@ -81,6 +81,7 @@ type javaTLSProgram struct {
 }
 
 var javaTLSSpec = &protocols.ProtocolSpec{
+	Name:    "java-TLS",
 	Factory: newJavaTLSProgram,
 	Maps: []*manager.Map{
 		{

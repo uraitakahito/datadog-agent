@@ -74,7 +74,11 @@ const (
 
 // Spec is the protocol spec for HTTP/2.
 var Spec = &protocols.ProtocolSpec{
+	Name:    "HTTP2",
 	Factory: newHTTP2Protocol,
+	ChangeProtocolConfig: func(c *config.Config, enabled bool) {
+		c.EnableHTTP2Monitoring = enabled
+	},
 	Maps: []*manager.Map{
 		{
 			Name: InFlightMap,

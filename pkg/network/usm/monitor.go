@@ -8,14 +8,16 @@
 package usm
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"go.uber.org/atomic"
 	"io"
+	"net/http"
 	"syscall"
 	"time"
 
 	"github.com/cilium/ebpf"
-	"go.uber.org/atomic"
 
 	manager "github.com/DataDog/ebpf-manager"
 
@@ -56,6 +58,142 @@ type Monitor struct {
 	closeFilterFn func()
 
 	lastUpdateTime *atomic.Int64
+}
+
+var (
+	mon *Monitor
+)
+
+type Request struct {
+	Protocol string `json:"protocol"`
+}
+
+func StartModule(w http.ResponseWriter, r *http.Request) {
+	if mon == nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		fmt.Fprintf(w, "USM is not enabled")
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		fmt.Fprintf(w, "Method not allowed")
+		return
+	}
+
+	var req Request
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Invalid request: %s", err)
+		return
+	}
+
+	if req.Protocol == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Invalid request: protocol is required")
+		return
+	}
+
+	var protocol *protocols.ProtocolSpec
+	var index int
+	for i, p := range mon.ebpfProgram.disabledProtocols {
+		if p.Name == req.Protocol {
+			protocol = p
+			index = i
+			break
+		}
+	}
+	if protocol == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Invalid request: protocol %s is not disabled", req.Protocol)
+		return
+	}
+	protocol.ChangeProtocolConfig(mon.cfg, true)
+	if protocol.Instance == nil {
+		instance, err := protocol.Factory(mon.cfg)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "error creating protocol instance: %s", err)
+			return
+		}
+		protocol.Instance = instance
+		mm, _, _ := mon.ebpfProgram.GetMap("a")
+		mon.ebpfProgram.CloneMap()
+	}
+	for _, p := range protocol.Probes {
+		probe, ok := mon.ebpfProgram.GetProbe(p.ProbeIdentificationPair)
+		if !ok || probe == nil {
+			continue
+		}
+		if err := probe.Attach(); err != nil {
+			log.Errorf("error starting probe: %s", err)
+		}
+	}
+	for _, tc := range protocol.TailCalls {
+		if err := mon.ebpfProgram.UpdateTailCallRoutes(tc); err != nil {
+			log.Errorf("error stopping tc: %s", err)
+		}
+	}
+
+	mon.ebpfProgram.enabledProtocols = append(mon.ebpfProgram.enabledProtocols, protocol)
+	mon.ebpfProgram.disabledProtocols = append(mon.ebpfProgram.disabledProtocols[:index], mon.ebpfProgram.disabledProtocols[index+1:]...)
+	w.WriteHeader(200)
+}
+
+func StopModule(w http.ResponseWriter, r *http.Request) {
+	if mon == nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		fmt.Fprintf(w, "USM is not enabled")
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		fmt.Fprintf(w, "Method not allowed")
+		return
+	}
+
+	var req Request
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Invalid request: %s", err)
+		return
+	}
+
+	if req.Protocol == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Invalid request: protocol is required")
+		return
+	}
+
+	var protocol *protocols.ProtocolSpec
+	var index int
+	for i, p := range mon.ebpfProgram.enabledProtocols {
+		if p.Name == req.Protocol {
+			protocol = p
+			index = i
+			break
+		}
+	}
+	if protocol == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Invalid request: protocol %s is not enabled", req.Protocol)
+		return
+	}
+	for _, p := range protocol.Probes {
+		if err := mon.ebpfProgram.DetachHook(p.ProbeIdentificationPair); err != nil {
+			log.Errorf("error stopping probe: %s", err)
+		}
+	}
+	for _, tc := range protocol.TailCalls {
+		if err := mon.ebpfProgram.DetachTailCall(tc); err != nil {
+			log.Errorf("error stopping tc: %s", err)
+		}
+	}
+
+	mon.ebpfProgram.disabledProtocols = append(mon.ebpfProgram.disabledProtocols, protocol)
+	mon.ebpfProgram.enabledProtocols = append(mon.ebpfProgram.enabledProtocols[:index], mon.ebpfProgram.enabledProtocols[index+1:]...)
+	w.WriteHeader(200)
 }
 
 // NewMonitor returns a new Monitor instance
@@ -130,6 +268,8 @@ func (m *Monitor) Start() error {
 			m.Stop()
 
 			startupError = err
+		} else {
+			mon = m
 		}
 	}()
 

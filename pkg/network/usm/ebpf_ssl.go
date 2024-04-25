@@ -246,6 +246,10 @@ var (
 // The constructor of SSLProgram requires more parameters than we provide in the general way, thus we need to have
 // a dynamic initialization.
 var opensslSpec = &protocols.ProtocolSpec{
+	Name: "openssl",
+	ChangeProtocolConfig: func(c *config.Config, b bool) {
+		c.EnableNativeTLSMonitoring = b
+	},
 	Maps: []*manager.Map{
 		{
 			Name: sslSockByCtxMap,

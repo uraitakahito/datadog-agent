@@ -51,7 +51,11 @@ const (
 
 // Spec is the protocol spec for the kafka protocol.
 var Spec = &protocols.ProtocolSpec{
+	Name:    "Kafka",
 	Factory: newKafkaProtocol,
+	ChangeProtocolConfig: func(c *config.Config, enabled bool) {
+		c.EnableKafkaMonitoring = enabled
+	},
 	Maps: []*manager.Map{
 		{
 			Name: protocolDispatcherClassificationPrograms,

@@ -126,6 +126,10 @@ type goTLSProgram struct {
 var _ utils.Attacher = &goTLSProgram{}
 
 var goTLSSpec = &protocols.ProtocolSpec{
+	Name: "go-TLS",
+	ChangeProtocolConfig: func(c *config.Config, b bool) {
+		c.EnableGoTLSSupport = b
+	},
 	Maps: []*manager.Map{
 		{Name: offsetsDataMap},
 		{Name: goTLSReadArgsMap},

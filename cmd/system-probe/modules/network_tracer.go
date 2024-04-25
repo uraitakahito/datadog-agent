@@ -32,6 +32,7 @@ import (
 	kafkadebugging "github.com/DataDog/datadog-agent/pkg/network/protocols/kafka/debugging"
 	"github.com/DataDog/datadog-agent/pkg/network/protocols/telemetry"
 	"github.com/DataDog/datadog-agent/pkg/network/tracer"
+	plainusm "github.com/DataDog/datadog-agent/pkg/network/usm"
 	usm "github.com/DataDog/datadog-agent/pkg/network/usm/utils"
 	"github.com/DataDog/datadog-agent/pkg/process/statsd"
 	"github.com/DataDog/datadog-agent/pkg/util/log"
@@ -145,10 +146,10 @@ func (nt *networkTracer) Register(httpMux *module.Router) error {
 	})
 
 	httpMux.HandleFunc("/debug/http_monitoring", func(w http.ResponseWriter, req *http.Request) {
-		if !coreconfig.SystemProbe.GetBool("service_monitoring_config.enable_http_monitoring") {
-			writeDisabledProtocolMessage("http", w)
-			return
-		}
+		//if !coreconfig.SystemProbe.GetBool("service_monitoring_config.enable_http_monitoring") {
+		//	writeDisabledProtocolMessage("http", w)
+		//	return
+		//}
 		id := getClientID(req)
 		cs, err := nt.tracer.GetActiveConnections(id)
 		if err != nil {
@@ -251,6 +252,8 @@ func (nt *networkTracer) Register(httpMux *module.Router) error {
 	httpMux.HandleFunc("/debug/usm/traced_programs", usm.TracedProgramsEndpoint)
 	httpMux.HandleFunc("/debug/usm/attach-pid", usm.AttachPIDEndpoint)
 	httpMux.HandleFunc("/debug/usm/detach-pid", usm.DetachPIDEndpoint)
+	httpMux.HandleFunc("/debug/usm/stop", plainusm.StopModule)
+	httpMux.HandleFunc("/debug/usm/start", plainusm.StartModule)
 
 	// Convenience logging if nothing has made any requests to the system-probe in some time, let's log something.
 	// This should be helpful for customers + support to debug the underlying issue.

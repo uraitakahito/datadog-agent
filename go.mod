@@ -313,6 +313,8 @@ require (
 
 )
 
+replace github.com/DataDog/ebpf-manager v0.6.0 => ../ebpf-manager
+
 require (
 	cloud.google.com/go v0.112.1 // indirect
 	cloud.google.com/go/compute v1.24.0 // indirect

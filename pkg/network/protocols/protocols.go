@@ -74,11 +74,15 @@ type ProtocolStats struct {
 // ProtocolFactory is a function that creates a Protocol.
 type ProtocolFactory func(*config.Config) (Protocol, error)
 
+type ChangeProtocolConfig func(*config.Config, bool)
+
 // ProtocolSpec represents a protocol specification.
 type ProtocolSpec struct {
-	Factory   ProtocolFactory
-	Instance  Protocol
-	Maps      []*manager.Map
-	Probes    []*manager.Probe
-	TailCalls []manager.TailCallRoute
+	Factory              ProtocolFactory
+	ChangeProtocolConfig ChangeProtocolConfig
+	Instance             Protocol
+	Name                 string
+	Maps                 []*manager.Map
+	Probes               []*manager.Probe
+	TailCalls            []manager.TailCallRoute
 }
