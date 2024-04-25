@@ -1523,46 +1523,57 @@ def process_btfhub_archive(ctx, branch="main"):
                 f"git clone --depth=1 --single-branch --branch={branch} https://github.com/DataDog/btfhub-archive.git"
             )
             with ctx.cd("btfhub-archive"):
-                # iterate over all top-level directories, which are platforms (amzn, ubuntu, etc.)
-                with os.scandir(ctx.cwd) as pit:
-                    for pdir in pit:
-                        if not pdir.is_dir() or pdir.name.startswith("."):
-                            continue
+                ninja_file_path = os.path.join(ctx.cwd, 'process-btfhub.ninja')
+                with open(ninja_file_path, 'w') as ninja_file:
+                    nw = NinjaWriter(ninja_file, width=180)
+                    nw.rule(name="decompress_btf", command="tar -C $out_dir -xf $in")
 
-                        # iterate over second-level directories, which are release versions (2, 20.04, etc.)
-                        with os.scandir(pdir.path) as rit:
-                            for rdir in rit:
-                                if not rdir.is_dir() or rdir.is_symlink():
-                                    continue
+                    # iterate over all top-level directories, which are platforms (amzn, ubuntu, etc.)
+                    with os.scandir(ctx.cwd) as pit:
+                        for pdir in pit:
+                            if not pdir.is_dir() or pdir.name.startswith("."):
+                                continue
 
-                                # iterate over arch directories
-                                with os.scandir(rdir.path) as ait:
-                                    for adir in ait:
-                                        if not adir.is_dir() or adir.name not in {"x86_64", "arm64"}:
-                                            continue
+                            # iterate over second-level directories, which are release versions (2, 20.04, etc.)
+                            with os.scandir(pdir.path) as rit:
+                                for rdir in rit:
+                                    if not rdir.is_dir() or rdir.is_symlink():
+                                        continue
 
-                                        print(f"{pdir.name}/{rdir.name}/{adir.name}")
-                                        src_dir = adir.path
-                                        # list BTF .tar.xz files in arch dir
-                                        btf_files = os.listdir(src_dir)
-                                        for file in btf_files:
-                                            if not file.endswith(".tar.xz"):
+                                    # iterate over arch directories
+                                    with os.scandir(rdir.path) as ait:
+                                        for adir in ait:
+                                            if not adir.is_dir() or adir.name not in {"x86_64", "arm64"}:
                                                 continue
-                                            src_file = os.path.join(src_dir, file)
 
-                                            # remove release and arch from destination
-                                            btfs_dir = os.path.join(temp_dir, f"btfs-{adir.name}")
-                                            dst_dir = os.path.join(btfs_dir, pdir.name)
-                                            # ubuntu retains release version
-                                            if pdir.name == "ubuntu":
-                                                dst_dir = os.path.join(btfs_dir, pdir.name, rdir.name)
+                                            print(f"{pdir.name}/{rdir.name}/{adir.name}")
+                                            src_dir = adir.path
+                                            # list BTF .tar.xz files in arch dir
+                                            btf_files = os.listdir(src_dir)
+                                            for file in btf_files:
+                                                if not file.endswith(".tar.xz"):
+                                                    continue
+                                                src_file = os.path.join(src_dir, file)
 
-                                            os.makedirs(dst_dir, exist_ok=True)
-                                            dst_file = os.path.join(dst_dir, file.removesuffix(".tar.xz"))
-                                            if os.path.exists(dst_file):
-                                                raise Exit(message=f"{dst_file} already exists")
+                                                # remove release and arch from destination
+                                                btfs_dir = os.path.join(temp_dir, f"btfs-{adir.name}")
+                                                dst_dir = os.path.join(btfs_dir, pdir.name)
+                                                # ubuntu retains release version
+                                                if pdir.name == "ubuntu":
+                                                    dst_dir = os.path.join(btfs_dir, pdir.name, rdir.name)
 
-                                            ctx.run(f"tar -C {dst_dir} -xf {src_file}")
+                                                os.makedirs(dst_dir, exist_ok=True)
+                                                dst_file = os.path.join(dst_dir, file.removesuffix(".tar.xz"))
+                                                nw.build(
+                                                    rule="decompress_btf",
+                                                    inputs=[src_file],
+                                                    outputs=[dst_file],
+                                                    variables={
+                                                        "out_dir": dst_dir,
+                                                    }
+                                                )
+
+                ctx.run(f"ninja -f {ninja_file_path}", env={"NINJA_STATUS": "(%r running) (%c/s) (%es) [%f/%t] "})
 
         # generate both tarballs
         for arch in ["x86_64", "arm64"]:
