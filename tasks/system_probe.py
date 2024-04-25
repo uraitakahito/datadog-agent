@@ -9,6 +9,7 @@ import string
 import sys
 import tarfile
 import tempfile
+from collections import defaultdict
 from pathlib import Path
 from subprocess import check_output
 
@@ -1488,10 +1489,10 @@ def generate_minimized_btfs(ctx, source_dir, output_dir, bpf_programs):
                 os.makedirs(output_subdir, exist_ok=True)
 
             for file in files:
-                if not file.endswith(".btf.tar.xz"):
+                if not file.endswith(".btf.tar.zst"):
                     continue
 
-                btf_filename = file.removesuffix(".tar.xz")
+                btf_filename = file.removesuffix(".tar.zst")
                 minimized_btf_path = os.path.join(output_dir, path_from_root, btf_filename)
 
                 nw.build(
@@ -1539,55 +1540,86 @@ def process_btfhub_archive(ctx, branch="main"):
                 f"git clone --depth=1 --single-branch --branch={branch} https://github.com/DataDog/btfhub-archive.git"
             )
             with ctx.cd("btfhub-archive"):
-                # iterate over all top-level directories, which are platforms (amzn, ubuntu, etc.)
-                with os.scandir(ctx.cwd) as pit:
-                    for pdir in pit:
-                        if not pdir.is_dir() or pdir.name.startswith("."):
-                            continue
+                ninja_file_path = os.path.join(ctx.cwd, 'process-btfhub.ninja')
+                with open(ninja_file_path, 'w') as ninja_file:
+                    nw = NinjaWriter(ninja_file, width=180)
+                    nw.rule(name="decompress_btf", command="tar -C $out_dir -xf $in")
+                    nw.rule(name="compress_btf", command="tar -I zstd -cf $out -C $out_dir $rel_in && rm $in")
+                    nw.rule(name="tar_archive", command="tar -C $work_dir -cf $out $in_dir")
 
-                        # iterate over second-level directories, which are release versions (2, 20.04, etc.)
-                        with os.scandir(pdir.path) as rit:
-                            for rdir in rit:
-                                if not rdir.is_dir() or rdir.is_symlink():
-                                    continue
+                    out_files = defaultdict(list)
+                    # iterate over all top-level directories, which are platforms (amzn, ubuntu, etc.)
+                    with os.scandir(ctx.cwd) as pit:
+                        for pdir in pit:
+                            if not pdir.is_dir() or pdir.name.startswith("."):
+                                continue
 
-                                # iterate over arch directories
-                                with os.scandir(rdir.path) as ait:
-                                    for adir in ait:
-                                        if not adir.is_dir() or adir.name not in {"x86_64", "arm64"}:
-                                            continue
+                            # iterate over second-level directories, which are release versions (2, 20.04, etc.)
+                            with os.scandir(pdir.path) as rit:
+                                for rdir in rit:
+                                    if not rdir.is_dir() or rdir.is_symlink():
+                                        continue
 
-                                        print(f"{pdir.name}/{rdir.name}/{adir.name}")
-                                        src_dir = adir.path
-                                        # list BTF .tar.xz files in arch dir
-                                        btf_files = os.listdir(src_dir)
-                                        for file in btf_files:
-                                            if not file.endswith(".tar.xz"):
+                                    # iterate over arch directories
+                                    with os.scandir(rdir.path) as ait:
+                                        for adir in ait:
+                                            if not adir.is_dir() or adir.name not in {"x86_64", "arm64"}:
                                                 continue
-                                            src_file = os.path.join(src_dir, file)
 
-                                            # remove release and arch from destination
-                                            btfs_dir = os.path.join(temp_dir, f"btfs-{adir.name}")
-                                            dst_dir = os.path.join(btfs_dir, pdir.name)
-                                            # ubuntu retains release version
-                                            if pdir.name == "ubuntu":
-                                                dst_dir = os.path.join(btfs_dir, pdir.name, rdir.name)
+                                            print(f"{pdir.name}/{rdir.name}/{adir.name}")
+                                            src_dir = adir.path
+                                            # list BTF .tar.xz files in arch dir
+                                            btf_files = os.listdir(src_dir)
+                                            for file in btf_files:
+                                                if not file.endswith(".tar.xz"):
+                                                    continue
+                                                src_file = os.path.join(src_dir, file)
 
-                                            os.makedirs(dst_dir, exist_ok=True)
-                                            dst_file = os.path.join(dst_dir, file)
-                                            if os.path.exists(dst_file):
-                                                raise Exit(message=f"{dst_file} already exists")
-                                            shutil.move(src_file, os.path.join(dst_dir, file))
+                                                # remove release and arch from destination
+                                                btfs_dir = os.path.join(temp_dir, f"btfs-{adir.name}")
+                                                dst_dir = os.path.join(btfs_dir, pdir.name)
+                                                # ubuntu retains release version
+                                                if pdir.name == "ubuntu":
+                                                    dst_dir = os.path.join(btfs_dir, pdir.name, rdir.name)
 
-        # generate both tarballs
-        for arch in ["x86_64", "arm64"]:
-            btfs_dir = os.path.join(temp_dir, f"btfs-{arch}")
-            output_path = os.path.join(output_dir, f"btfs-{arch}.tar")
-            # at least one file needs to be moved for directory to exist
-            if os.path.exists(btfs_dir):
-                with ctx.cd(temp_dir):
-                    # include btfs-$ARCH as prefix for all paths
-                    ctx.run(f"tar -cf {output_path} btfs-{arch}")
+                                                os.makedirs(dst_dir, exist_ok=True)
+                                                btf_filename = file.removesuffix(".tar.xz")
+                                                btf_file = os.path.join(dst_dir, btf_filename)
+                                                dst_file = os.path.join(dst_dir, f"{btf_filename}.tar.zst")
+                                                nw.build(
+                                                    rule="decompress_btf",
+                                                    inputs=[src_file],
+                                                    outputs=[btf_file],
+                                                    variables={
+                                                        "out_dir": dst_dir,
+                                                    }
+                                                )
+                                                nw.build(
+                                                    rule="compress_btf",
+                                                    inputs=[btf_file],
+                                                    outputs=[dst_file],
+                                                    variables={
+                                                        "out_dir": dst_dir,
+                                                        "rel_in": btf_filename,
+                                                    }
+                                                )
+                                                out_files[adir.name].append(dst_file)
+
+                    for arch in ["x86_64", "arm64"]:
+                        output_path = os.path.join(output_dir, f"btfs-{arch}.tar")
+                        in_files = out_files[arch]
+                        if len(in_files) > 0:
+                            nw.build(
+                                rule="tar_archive",
+                                inputs=[out_files[arch]],
+                                outputs=[output_path],
+                                variables={
+                                    "in_dir": f"btfs-{arch}",
+                                    "work_dir": temp_dir,
+                                }
+                            )
+
+                ctx.run(f"ninja -f {ninja_file_path}", env={"NINJA_STATUS": "(%r running) (%c/s) (%es) [%f/%t] "})
 
 
 @task
