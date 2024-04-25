@@ -1471,7 +1471,6 @@ def generate_minimized_btfs(ctx, source_dir, output_dir, bpf_programs):
     with open(ninja_file_path, 'w') as ninja_file:
         nw = NinjaWriter(ninja_file, width=180)
 
-        nw.rule(name="decompress_btf", command="tar -xf $in -C $target_directory")
         nw.rule(name="minimize_btf", command="bpftool gen min_core_btf $in $out $input_bpf_programs")
         nw.rule(name="compress_minimized_btf", command="tar -cJf $out -C $tar_working_directory $rel_in && rm $in")
 
@@ -1483,24 +1482,14 @@ def generate_minimized_btfs(ctx, source_dir, output_dir, bpf_programs):
                 os.makedirs(output_subdir, exist_ok=True)
 
             for file in files:
-                if not file.endswith(".btf.tar.xz"):
+                if not file.endswith(".btf"):
                     continue
 
-                btf_filename = file.removesuffix(".tar.xz")
-                minimized_btf_path = os.path.join(output_dir, path_from_root, btf_filename)
-
-                nw.build(
-                    rule="decompress_btf",
-                    inputs=[os.path.join(root, file)],
-                    outputs=[os.path.join(root, btf_filename)],
-                    variables={
-                        "target_directory": root,
-                    },
-                )
+                minimized_btf_path = os.path.join(output_dir, path_from_root, file)
 
                 nw.build(
                     rule="minimize_btf",
-                    inputs=[os.path.join(root, btf_filename)],
+                    inputs=[os.path.join(root, file)],
                     outputs=[minimized_btf_path],
                     variables={
                         "input_bpf_programs": bpf_programs,
@@ -1513,7 +1502,7 @@ def generate_minimized_btfs(ctx, source_dir, output_dir, bpf_programs):
                     outputs=[f"{minimized_btf_path}.tar.xz"],
                     variables={
                         "tar_working_directory": os.path.join(output_dir, path_from_root),
-                        "rel_in": btf_filename,
+                        "rel_in": file,
                     },
                 )
 
@@ -1569,20 +1558,21 @@ def process_btfhub_archive(ctx, branch="main"):
                                                 dst_dir = os.path.join(btfs_dir, pdir.name, rdir.name)
 
                                             os.makedirs(dst_dir, exist_ok=True)
-                                            dst_file = os.path.join(dst_dir, file)
+                                            dst_file = os.path.join(dst_dir, file.removesuffix(".tar.xz"))
                                             if os.path.exists(dst_file):
                                                 raise Exit(message=f"{dst_file} already exists")
-                                            shutil.move(src_file, os.path.join(dst_dir, file))
+
+                                            ctx.run(f"tar -C {dst_dir} -xf {src_file}")
 
         # generate both tarballs
         for arch in ["x86_64", "arm64"]:
             btfs_dir = os.path.join(temp_dir, f"btfs-{arch}")
-            output_path = os.path.join(output_dir, f"btfs-{arch}.tar")
+            output_path = os.path.join(output_dir, f"btfs-{arch}.tar.xz")
             # at least one file needs to be moved for directory to exist
             if os.path.exists(btfs_dir):
                 with ctx.cd(temp_dir):
                     # include btfs-$ARCH as prefix for all paths
-                    ctx.run(f"tar -cf {output_path} btfs-{arch}")
+                    ctx.run(f"tar -cJf {output_path} btfs-{arch}")
 
 
 @task
