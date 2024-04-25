@@ -43,7 +43,7 @@ build do
     command "rpm2cpio #{project_dir}/#{name}-#{package_name} | (cd #{project_dir}/#{relative_path} && cpio -idmv)"
   end
   # Fix rpath first
-  command "patchelf --force-rpath --set-rpath '#{install_dir}/embedded/lib' '#{project_dir}/#{relative_path}/opt/microsoft/msodbcsql18/lib64/libmsodbcsql-18.3.so.2.1'"
+  command "patchelf --force-rpath --set-rpath '$ORIGIN/embedded/lib' '#{project_dir}/#{relative_path}/opt/microsoft/msodbcsql18/lib64/libmsodbcsql-18.3.so.2.1'"
   # Manually move the files we need and ensure the symlink aren't broken
   move "#{project_dir}/#{relative_path}/opt/microsoft/msodbcsql18/*", "#{install_dir}/embedded/msodbcsql/", :force => true
   link "#{install_dir}/embedded/msodbcsql/lib64/libmsodbcsql-18.3.so.2.1", "#{install_dir}/embedded/msodbcsql/lib/libmsodbcsql-18.3.so"
