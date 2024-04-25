@@ -162,7 +162,7 @@ new-e2e-containers:
     TEAM: container-integrations
   parallel:
     matrix:
-      - EXTRA_PARAMS: --run TestKindSuite
+      - EXTRA_PARAMS: --run TestKindSuite --keep-stacks
       - EXTRA_PARAMS: --run TestEKSSuite
       - EXTRA_PARAMS: --run TestECSSuite
       - EXTRA_PARAMS: --run TestDockerSuite

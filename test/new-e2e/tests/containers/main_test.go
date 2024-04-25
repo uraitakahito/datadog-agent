@@ -12,7 +12,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/DataDog/datadog-agent/test/new-e2e/pkg/runner"
 	"github.com/DataDog/datadog-agent/test/new-e2e/pkg/utils/infra"
 )
 
@@ -20,7 +19,7 @@ var keepStacks = flag.Bool("keep-stacks", false, "Do not destroy the Pulumi stac
 
 func TestMain(m *testing.M) {
 	code := m.Run()
-	if runner.GetProfile().AllowDevMode() && *keepStacks {
+	if /* runner.GetProfile().AllowDevMode() && */ *keepStacks {
 		fmt.Fprintln(os.Stderr, "Keeping stacks")
 	} else {
 		fmt.Fprintln(os.Stderr, "Cleaning up stacks")
