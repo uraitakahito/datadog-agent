@@ -1611,7 +1611,7 @@ def process_btfhub_archive(ctx, branch="main"):
                         if len(in_files) > 0:
                             nw.build(
                                 rule="tar_archive",
-                                inputs=[out_files[arch]],
+                                inputs=out_files[arch],
                                 outputs=[output_path],
                                 variables={
                                     "in_dir": f"btfs-{arch}",
