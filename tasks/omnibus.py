@@ -288,17 +288,24 @@ def build(
 
     if use_omnibus_git_cache:
         stale_tags = ctx.run(f'git -C {omnibus_cache_dir} tag --no-merged', warn=True).stdout
+        print('Stale tags:')
+        print(stale_tags)
         # Purge the cache manually as omnibus will stick to not restoring a tag when
         # a mismatch is detected, but will keep the old cached tags.
         # Do this before checking for tag differences, in order to remove staled tags
         # in case they were included in the bundle in a previous build
         for _, tag in enumerate(stale_tags.split(os.linesep)):
+            print(f'Removing stale tag: {tag}')
             ctx.run(f'git -C {omnibus_cache_dir} tag -d {tag}')
-        if use_remote_cache and ctx.run(f"git -C {omnibus_cache_dir} tag -l").stdout != cache_state:
-            print('Updating cache...')
-            with timed(quiet=True) as update_cache:
-                ctx.run(f"git -C {omnibus_cache_dir} bundle create {bundle_path} --tags")
-                ctx.run(f"{aws_cmd} s3 cp --only-show-errors {bundle_path} {git_cache_url}")
+        if use_remote_cache:
+            new_cache_state = ctx.run(f"git -C {omnibus_cache_dir} tag -l").stdout
+            if new_cache_state != cache_state:
+                print('Updating cache...')
+                print('new_cache_state:')
+                print(new_cache_state)
+                with timed(quiet=True) as update_cache:
+                    ctx.run(f"git -C {omnibus_cache_dir} bundle create {bundle_path} --tags")
+                    ctx.run(f"{aws_cmd} s3 cp --only-show-errors {bundle_path} {git_cache_url}")
 
     print("Build component timing:")
     if not skip_deps:
