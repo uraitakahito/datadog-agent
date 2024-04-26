@@ -160,7 +160,8 @@ func MakeCommand(globalParamsGetter func() GlobalParams) *cobra.Command {
 					ConfigParams:         config.NewAgentParams(globalParams.ConfFilePath, config.WithConfigName(globalParams.ConfigName)),
 					SecretParams:         secrets.NewEnabledParams(),
 					SysprobeConfigParams: sysprobeconfigimpl.NewParams(sysprobeconfigimpl.WithSysProbeConfFilePath(globalParams.SysProbeConfFilePath)),
-					LogParams:            logimpl.ForOneShot(globalParams.LoggerName, "off", true)}),
+					LogParams:            logimpl.ForOneShot(globalParams.LoggerName, "off", true),
+				}),
 				core.Bundle(),
 
 				// workloadmeta setup
@@ -181,7 +182,6 @@ func MakeCommand(globalParamsGetter func() GlobalParams) *cobra.Command {
 				fx.Supply(status.NewInformationProvider(statuscollector.Provider{})),
 				fx.Provide(func() optional.Option[logagent.Component] {
 					return optional.NewNoneOption[logagent.Component]()
-
 				}),
 				fx.Provide(func() serializer.MetricSerializer { return nil }),
 				fx.Supply(defaultforwarder.Params{UseNoopForwarder: true}),
@@ -290,7 +290,6 @@ func run(
 	if cliParams.generateIntegrationTraces {
 		if pkgconfig.Datadog.IsSet("integration_tracing") {
 			previousIntegrationTracing = pkgconfig.Datadog.GetBool("integration_tracing")
-
 		}
 		if pkgconfig.Datadog.IsSet("integration_tracing_exhaustive") {
 			previousIntegrationTracingExhaustive = pkgconfig.Datadog.GetBool("integration_tracing_exhaustive")
@@ -481,14 +480,12 @@ func run(
 	var instancesData []interface{}
 	printer := aggregator.AgentDemultiplexerPrinter{DemultiplexerWithAggregator: demultiplexer}
 	data, err := statusComponent.GetStatusBySections([]string{status.CollectorSection}, "json", false)
-
 	if err != nil {
 		return err
 	}
 
 	collectorData := map[string]interface{}{}
 	err = json.Unmarshal(data, &collectorData)
-
 	if err != nil {
 		return err
 	}
@@ -581,7 +578,7 @@ func run(
 			printer.PrintMetrics(&checkFileOutput, cliParams.formatTable)
 
 			p := func(data string) {
-				fmt.Println(data)
+				fmt.Printf("%s\n", data)
 				checkFileOutput.WriteString(data + "\n")
 			}
 
