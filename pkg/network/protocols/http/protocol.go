@@ -44,6 +44,7 @@ const (
 	eventStream            = "http"
 )
 
+// GetConsumerTelemetry doc
 func GetConsumerTelemetry() int64 {
 	instance := Spec.Instance
 	if instance == nil {

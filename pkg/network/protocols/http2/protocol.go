@@ -28,6 +28,7 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/util/log"
 )
 
+// GetConsumerTelemetry doc
 func GetConsumerTelemetry() int64 {
 	instance := Spec.Instance
 	if instance == nil {
