@@ -180,7 +180,7 @@ func (s *tlsSuite) TestHTTPSViaLibraryIntegration() {
 func testHTTPSLibrary(t *testing.T, cfg *config.Config, fetchCmd, prefetchLibs []string) {
 	usmMonitor := setupUSMTLSMonitor(t, cfg)
 	// not ideal but, short process are hard to catch
-	utils.WaitForProgramsToBeTraced(t, "shared_libraries", prefetchLib(t, prefetchLibs...).Process.Pid)
+	WaitForProgramsToBeTraced2(t, "shared_libraries", prefetchLib(t, prefetchLibs...).Process.Pid)
 
 	// Issue request using fetchCmd (wget, curl, ...)
 	// This is necessary (as opposed to using net/http) because we want to
@@ -195,7 +195,7 @@ func testHTTPSLibrary(t *testing.T, cfg *config.Config, fetchCmd, prefetchLibs [
 	requestCmd.Stderr = requestCmd.Stdout
 	require.NoError(t, requestCmd.Start())
 
-	utils.WaitForProgramsToBeTraced(t, "shared_libraries", requestCmd.Process.Pid)
+	WaitForProgramsToBeTraced2(t, "shared_libraries", requestCmd.Process.Pid)
 
 	if err := requestCmd.Wait(); err != nil {
 		output, err := io.ReadAll(stdout)
@@ -282,7 +282,7 @@ func (s *tlsSuite) TestOpenSSLVersions() {
 		EnableTLS: true,
 	})
 
-	utils.WaitForProgramsToBeTraced(t, "shared_libraries", cmd.Process.Pid)
+	WaitForProgramsToBeTraced2(t, "shared_libraries", cmd.Process.Pid)
 
 	client, requestFn := simpleGetRequestsGenerator(t, addressOfHTTPPythonServer)
 	var requests []*nethttp.Request
@@ -349,7 +349,7 @@ func (s *tlsSuite) TestOpenSSLVersionsSlowStart() {
 
 	usmMonitor := setupUSMTLSMonitor(t, cfg)
 	// Giving the tracer time to install the hooks
-	utils.WaitForProgramsToBeTraced(t, "shared_libraries", cmd.Process.Pid)
+	WaitForProgramsToBeTraced2(t, "shared_libraries", cmd.Process.Pid)
 
 	// Send a warmup batch of requests to trigger the fallback behavior
 	for i := 0; i < numberOfRequests; i++ {
@@ -547,8 +547,6 @@ func (s *tlsSuite) TestJavaInjection() {
 }
 
 func TestHTTPGoTLSAttachProbes(t *testing.T) {
-	t.Skip("skipping GoTLS tests while we investigate their flakiness")
-
 	modes := []ebpftest.BuildMode{ebpftest.RuntimeCompiled, ebpftest.CORE}
 	ebpftest.TestBuildModes(t, modes, "", func(t *testing.T) {
 		if !gotlstestutil.GoTLSSupported(t, config.New()) {
@@ -649,7 +647,7 @@ func TestOldConnectionRegression(t *testing.T) {
 		usmMonitor := setupUSMTLSMonitor(t, cfg)
 
 		// Ensure this test program is being traced
-		utils.WaitForProgramsToBeTraced(t, "go-tls", os.Getpid())
+		WaitForProgramsToBeTraced2(t, "go-tls", os.Getpid())
 
 		// The HTTPServer used here effectively works as an "echo" servers and
 		// returns back in the response whatever it received in the request
@@ -720,7 +718,7 @@ func TestLimitListenerRegression(t *testing.T) {
 		usmMonitor := setupUSMTLSMonitor(t, cfg)
 
 		// Ensure this test program is being traced
-		utils.WaitForProgramsToBeTraced(t, "go-tls", os.Getpid())
+		WaitForProgramsToBeTraced2(t, "go-tls", os.Getpid())
 
 		// Issue multiple HTTP requests
 		for i := 0; i < 10; i++ {
@@ -745,6 +743,13 @@ func TestLimitListenerRegression(t *testing.T) {
 	})
 }
 
+// WaitForProgramsToBeTraced waits for the program to be traced by the debugger
+func WaitForProgramsToBeTraced2(t *testing.T, programType string, pid int) {
+	assert.Eventuallyf(t, func() bool {
+		return utils.IsProgramTraced(programType, pid)
+	}, time.Second*5, time.Millisecond*100, "process %v is not traced by %v", pid, programType)
+}
+
 // Test that we can capture HTTPS traffic from Go processes started after the
 // tracer.
 func testHTTPGoTLSCaptureNewProcess(t *testing.T, cfg *config.Config, isHTTP2 bool) {
@@ -762,11 +767,8 @@ func testHTTPGoTLSCaptureNewProcess(t *testing.T, cfg *config.Config, isHTTP2 bo
 	t.Cleanup(closeServer)
 
 	cfg.EnableGoTLSSupport = true
-	if isHTTP2 {
-		cfg.EnableHTTP2Monitoring = true
-	} else {
-		cfg.EnableHTTPMonitoring = true
-	}
+	cfg.EnableHTTP2Monitoring = isHTTP2
+	cfg.EnableHTTPMonitoring = !isHTTP2
 
 	usmMonitor := setupUSMTLSMonitor(t, cfg)
 
@@ -780,7 +782,7 @@ func testHTTPGoTLSCaptureNewProcess(t *testing.T, cfg *config.Config, isHTTP2 bo
 
 	// spin-up goTLS client and issue requests after initialization
 	command, runRequests := gotlstestutil.NewGoTLSClient(t, serverAddr, expectedOccurrences, isHTTP2)
-	utils.WaitForProgramsToBeTraced(t, "go-tls", command.Process.Pid)
+	WaitForProgramsToBeTraced2(t, "go-tls", command.Process.Pid)
 	runRequests()
 	checkRequests(t, usmMonitor, expectedOccurrences, reqs, isHTTP2)
 }
@@ -817,7 +819,7 @@ func testHTTPGoTLSCaptureAlreadyRunning(t *testing.T, cfg *config.Config, isHTTP
 		reqs[req] = false
 	}
 
-	utils.WaitForProgramsToBeTraced(t, "go-tls", command.Process.Pid)
+	WaitForProgramsToBeTraced2(t, "go-tls", command.Process.Pid)
 	issueRequestsFn()
 	checkRequests(t, usmMonitor, expectedOccurrences, reqs, isHTTP2)
 }
@@ -894,7 +896,7 @@ func checkRequests(t *testing.T, usmMonitor *Monitor, expectedOccurrences int, r
 	t.Helper()
 
 	occurrences := PrintableInt(0)
-	require.Eventually(t, func() bool {
+	assert.Eventually(t, func() bool {
 		protocolType := protocols.HTTP
 		if isHTTP2 {
 			protocolType = protocols.HTTP2
@@ -902,7 +904,14 @@ func checkRequests(t *testing.T, usmMonitor *Monitor, expectedOccurrences int, r
 		stats := getHTTPLikeProtocolStats(usmMonitor, protocolType)
 		occurrences += PrintableInt(countRequestsOccurrences(t, stats, reqs))
 		return int(occurrences) == expectedOccurrences
-	}, 3*time.Second, 100*time.Millisecond, "Expected to find the request %v times, got %v captured. Requests not found:\n%v", expectedOccurrences, &occurrences, reqs)
+	}, 5*time.Second, 100*time.Millisecond, "Expected to find the request %v times, got %v captured. Requests not found:\n%v", expectedOccurrences, &occurrences, reqs)
+	if t.Failed() {
+		if isHTTP2 {
+			t.Logf("http2 failed flush - %v", http2.GetConsumerTelemetry())
+		} else {
+			t.Logf("http failed flush - %v", http.GetConsumerTelemetry())
+		}
+	}
 }
 
 func countRequestsOccurrences(t *testing.T, conns map[http.Key]*http.RequestStats, reqs map[*nethttp.Request]bool) (occurrences int) {
@@ -989,7 +998,7 @@ func (s *tlsSuite) TestNodeJSTLS() {
 	cfg.EnableNodeJSMonitoring = true
 
 	usmMonitor := setupUSMTLSMonitor(t, cfg)
-	utils.WaitForProgramsToBeTraced(t, "nodejs", int(nodeJSPID))
+	WaitForProgramsToBeTraced2(t, "nodejs", int(nodeJSPID))
 
 	// This maps will keep track of whether the tracer saw this request already or not
 	client, requestFn := simpleGetRequestsGenerator(t, fmt.Sprintf("localhost:%s", serverPort))

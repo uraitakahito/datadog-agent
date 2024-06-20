@@ -47,7 +47,7 @@ type Consumer[V any] struct {
 	// telemetry
 	metricGroup        *telemetry.MetricGroup
 	eventsCount        *telemetry.Counter
-	failedFlushesCount *telemetry.Counter
+	FailedFlushesCount *telemetry.Counter
 	kernelDropsCount   *telemetry.Counter
 	invalidEventsCount *telemetry.Counter
 }
@@ -90,7 +90,7 @@ func NewConsumer[V any](proto string, ebpf *manager.Manager, callback func([]V))
 	kernelDropsCount := metricGroup.NewCounter("kernel_dropped_events")
 	invalidEventsCount := metricGroup.NewCounter("invalid_events")
 
-	// failedFlushesCount tracks the number of failed calls to
+	// FailedFlushesCount tracks the number of failed calls to
 	// `bpf_perf_event_output`. This is usually indicative of a slow-consumer
 	// problem, because flushing a perf event will fail when there is no space
 	// available in the perf ring. Having said that, in the context of this
@@ -102,7 +102,7 @@ func NewConsumer[V any](proto string, ebpf *manager.Manager, callback func([]V))
 	//
 	// The exact number of events dropped can be obtained using the metric
 	// `kernel_dropped_events`.
-	failedFlushesCount := metricGroup.NewCounter("failed_flushes")
+	FailedFlushesCount := metricGroup.NewCounter("failed_flushes")
 
 	return &Consumer[V]{
 		proto:       proto,
@@ -115,7 +115,7 @@ func NewConsumer[V any](proto string, ebpf *manager.Manager, callback func([]V))
 		// telemetry
 		metricGroup:        metricGroup,
 		eventsCount:        eventsCount,
-		failedFlushesCount: failedFlushesCount,
+		FailedFlushesCount: FailedFlushesCount,
 		kernelDropsCount:   kernelDropsCount,
 		invalidEventsCount: invalidEventsCount,
 	}, nil
@@ -143,7 +143,7 @@ func (c *Consumer[V]) Start() {
 					break
 				}
 
-				c.failedFlushesCount.Add(int64(b.Failed_flushes))
+				c.FailedFlushesCount.Add(int64(b.Failed_flushes))
 				c.kernelDropsCount.Add(int64(b.Dropped_events))
 				c.process(b, false)
 				dataEvent.Done()

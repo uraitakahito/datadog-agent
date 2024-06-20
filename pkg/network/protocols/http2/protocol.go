@@ -28,6 +28,18 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/util/log"
 )
 
+func GetConsumerTelemetry() int64 {
+	instance := Spec.Instance
+	if instance == nil {
+		return 0
+	}
+	protocol, ok := instance.(*Protocol)
+	if !ok {
+		return 0
+	}
+	return protocol.eventsConsumer.FailedFlushesCount.Get()
+}
+
 // Protocol implements the interface that represents a protocol supported by USM for HTTP/2.
 type Protocol struct {
 	cfg                     *config.Config

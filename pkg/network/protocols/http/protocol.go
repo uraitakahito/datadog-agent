@@ -44,6 +44,18 @@ const (
 	eventStream            = "http"
 )
 
+func GetConsumerTelemetry() int64 {
+	instance := Spec.Instance
+	if instance == nil {
+		return 0
+	}
+	protocol, ok := instance.(*protocol)
+	if !ok {
+		return 0
+	}
+	return protocol.eventsConsumer.FailedFlushesCount.Get()
+}
+
 // Spec is the protocol spec for the HTTP protocol.
 var Spec = &protocols.ProtocolSpec{
 	Factory: newHTTPProtocol,
