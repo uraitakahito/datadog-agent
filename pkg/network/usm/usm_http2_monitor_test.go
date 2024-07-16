@@ -492,6 +492,11 @@ func (s *usmHTTP2Suite) TestHTTP2ManyDifferentPaths() {
 			t.Logf("path: /test-%d should have %d occurrences but instead has %d", i+1, repetitionsPerRequest, v)
 		}
 	}
+
+	if t.Failed() {
+		ebpftest.DumpMapsTestHelper(t, monitor.DumpMaps, usmhttp2.InFlightMap, "http2_dynamic_table", "http2_batches")
+		dumpTelemetry(t, monitor, s.isTLS)
+	}
 }
 
 // DynamicTableSize is the size of the dynamic table used in the HPACK encoder.
