@@ -436,20 +436,17 @@ func (s *usmHTTP2Suite) TestHTTP2KernelTelemetry() {
 	}
 }
 
-func (s *usmHTTP2Suite) TestHTTP2ManyDifferentPaths() {
-	t := s.T()
-	cfg := s.getCfg()
-
+func testHTTP2ManyDifferentPaths(t *testing.T, cfg *config.Config, isTLS bool) {
 	// Start local server and register its cleanup.
-	t.Cleanup(startH2CServer(t, authority, s.isTLS))
+	t.Cleanup(startH2CServer(t, authority, isTLS))
 
 	// Start the proxy server.
-	proxyProcess, cancel := proxy.NewExternalUnixTransparentProxyServer(t, unixPath, authority, s.isTLS)
+	proxyProcess, cancel := proxy.NewExternalUnixTransparentProxyServer(t, unixPath, authority, isTLS)
 	t.Cleanup(cancel)
 	require.NoError(t, proxy.WaitForConnectionReady(unixPath))
 
 	monitor := setupUSMTLSMonitor(t, cfg)
-	if s.isTLS {
+	if isTLS {
 		utils.WaitForProgramsToBeTraced(t, "go-tls", proxyProcess.Process.Pid)
 	}
 
@@ -495,7 +492,16 @@ func (s *usmHTTP2Suite) TestHTTP2ManyDifferentPaths() {
 
 	if t.Failed() {
 		ebpftest.DumpMapsTestHelper(t, monitor.DumpMaps, usmhttp2.InFlightMap, "http2_dynamic_table", "http2_batches")
-		dumpTelemetry(t, monitor, s.isTLS)
+		dumpTelemetry(t, monitor, isTLS)
+	}
+}
+
+func (s *usmHTTP2Suite) TestHTTP2ManyDifferentPaths() {
+	t := s.T()
+	for i := 0; i < 10; i++ {
+		t.Run("run "+strconv.Itoa(i), func(t *testing.T) {
+			testHTTP2ManyDifferentPaths(t, s.getCfg(), s.isTLS)
+		})
 	}
 }
 
