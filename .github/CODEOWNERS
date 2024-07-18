@@ -199,6 +199,7 @@
 /cmd/installer/                         @DataDog/fleet
 
 /dev/                                   @DataDog/agent-devx-loops
+/deva/                                  @DataDog/agent-devx-loops
 /devenv/                                @DataDog/agent-devx-loops
 
 /Dockerfiles/                            @DataDog/container-integrations

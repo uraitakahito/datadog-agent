@@ -93,6 +93,7 @@ from tasks.gotest import (
 from tasks.install_tasks import download_tools, install_devcontainer_cli, install_shellcheck, install_tools
 from tasks.junit_tasks import junit_upload
 from tasks.libs.common.go_workspaces import handle_go_work
+from tasks.ng import ng
 from tasks.show_linters_issues.show_linters_issues import show_linters_issues
 from tasks.update_go import go_version, update_go
 from tasks.windows_resources import build_messagetable
@@ -103,6 +104,7 @@ Task.__call__ = custom__call__
 ns = Collection()
 
 # add single tasks to the root
+ns.add_task(ng)
 ns.add_task(test)
 ns.add_task(integration_tests)
 ns.add_task(deps)
