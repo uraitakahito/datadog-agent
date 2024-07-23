@@ -333,6 +333,7 @@ func testEdgeCasesProtocolClassification(t *testing.T, tr *tracer.Tracer, client
 }
 
 func waitForConnectionsWithProtocol(t *testing.T, tr *tracer.Tracer, targetAddr, serverAddr string, expectedStack *protocols.Stack) {
+	t.Helper()
 	t.Logf("looking for target addr %s", targetAddr)
 	t.Logf("looking for server addr %s", serverAddr)
 	var outgoing, incoming *network.ConnectionStats

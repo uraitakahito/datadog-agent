@@ -61,6 +61,7 @@ func IsProgramTraced(programType string, pid int) bool {
 
 // WaitForProgramsToBeTraced waits for the program to be traced by the debugger
 func WaitForProgramsToBeTraced(t *testing.T, programType string, pid int, traceManually TraceMethod) {
+	t.Helper()
 	// Wait for the program to be traced
 	end := time.Now().Add(time.Second * 5)
 	for time.Now().Before(end) {
@@ -92,6 +93,7 @@ func WaitForProgramsToBeTraced(t *testing.T, programType string, pid int, traceM
 // WaitForPathToBeBlocked waits for the path to be blocked from tracing in the
 // registry (due to failing activation).
 func WaitForPathToBeBlocked(t *testing.T, programType string, path string) {
+	t.Helper()
 	pathID, err := NewPathIdentifier(path)
 	require.NoError(t, err)
 	require.Eventuallyf(t, func() bool {

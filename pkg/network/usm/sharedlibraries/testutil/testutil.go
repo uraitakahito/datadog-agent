@@ -28,6 +28,7 @@ var mux sync.Mutex
 
 // OpenFromAnotherProcess launches an external file that holds active handler to the given paths.
 func OpenFromAnotherProcess(t *testing.T, paths ...string) (*exec.Cmd, error) {
+	t.Helper()
 	programExecutable := build(t)
 
 	cmd := exec.Command(programExecutable, paths...)
@@ -58,6 +59,7 @@ func OpenFromAnotherProcess(t *testing.T, paths ...string) (*exec.Cmd, error) {
 
 // build only gets executed when running tests locally
 func build(t *testing.T) string {
+	t.Helper()
 	mux.Lock()
 	defer mux.Unlock()
 

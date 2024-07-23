@@ -140,6 +140,7 @@ func TestIstioSync(t *testing.T) {
 // PID 2 -> Bash process
 // PID 3 -> Envoy process
 func createFakeProcFS(t *testing.T) (procRoot string) {
+	t.Helper()
 	procRoot = t.TempDir()
 
 	// Inject fake ProcFS path
@@ -190,12 +191,14 @@ func createFakeProcFS(t *testing.T) (procRoot string) {
 }
 
 func createFile(t *testing.T, path, data string) {
+	t.Helper()
 	dir := filepath.Dir(path)
 	require.NoError(t, os.MkdirAll(dir, 0775))
 	require.NoError(t, os.WriteFile(path, []byte(data), 0775))
 }
 
 func newIstioTestMonitor(t *testing.T) *istioMonitor {
+	t.Helper()
 	cfg := config.New()
 	cfg.EnableIstioMonitoring = true
 

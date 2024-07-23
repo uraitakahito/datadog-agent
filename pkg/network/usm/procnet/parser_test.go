@@ -219,6 +219,7 @@ func BenchmarkInodeParsing(b *testing.B) {
 }
 
 func createTempFile(t *testing.T, contents string) string {
+	t.Helper()
 	f, err := os.CreateTemp(t.TempDir(), "")
 	assert.NoError(t, err)
 	defer f.Close()

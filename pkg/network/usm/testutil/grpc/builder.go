@@ -21,6 +21,7 @@ import (
 // NewGRPCTLSServer triggers an external go tls client that runs `numRequests` HTTPs requests to `serverAddr`.
 // Returns the command executed and a callback to start sending requests.
 func NewGRPCTLSServer(t *testing.T, addr string, useTLS bool) (*exec.Cmd, context.CancelFunc) {
+	t.Helper()
 	serverBin := buildGRPCServerBin(t)
 	args := []string{serverBin, "-addr", addr}
 	if useTLS {

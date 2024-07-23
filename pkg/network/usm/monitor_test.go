@@ -486,6 +486,7 @@ func (s *HTTPTestSuite) TestKeepAliveWithIncompleteResponseRegression() {
 }
 
 func assertAllRequestsExists(t *testing.T, monitor *Monitor, requests []*nethttp.Request) {
+	t.Helper()
 	requestsExist := make([]bool, len(requests))
 
 	assert.Eventually(t, func() bool {
@@ -533,6 +534,7 @@ var (
 )
 
 func requestGenerator(t *testing.T, targetAddr string, reqBody []byte) func() *nethttp.Request {
+	t.Helper()
 	var (
 		random  = rand.New(rand.NewSource(time.Now().Unix()))
 		idx     = 0
@@ -594,6 +596,7 @@ func requestGenerator(t *testing.T, targetAddr string, reqBody []byte) func() *n
 }
 
 func checkRequestIncluded(t *testing.T, allStats map[http.Key]*http.RequestStats, req *nethttp.Request, expectedToBeIncluded bool) {
+	t.Helper()
 	included, err := isRequestIncludedOnce(allStats, req)
 	require.NoError(t, err)
 	if included != expectedToBeIncluded {
@@ -637,6 +640,7 @@ func countRequestOccurrences(allStats map[http.Key]*http.RequestStats, req *neth
 }
 
 func newHTTPMonitorWithCfg(t *testing.T, cfg *config.Config) *Monitor {
+	t.Helper()
 	cfg.EnableHTTPMonitoring = true
 
 	monitor, err := NewMonitor(cfg, nil)
@@ -654,6 +658,7 @@ func newHTTPMonitorWithCfg(t *testing.T, cfg *config.Config) *Monitor {
 }
 
 func skipIfNotSupported(t *testing.T, err error) {
+	t.Helper()
 	notSupported := new(errNotSupported)
 	if errors.As(err, &notSupported) {
 		t.Skipf("skipping test because this kernel is not supported: %s", notSupported)
@@ -669,6 +674,7 @@ var (
 )
 
 func cleanProtocolMaps(t *testing.T, protocolName string, manager *manager.Manager) {
+	t.Helper()
 	// Getting all maps loaded into the manager
 	maps, err := manager.GetMaps()
 	if err != nil {

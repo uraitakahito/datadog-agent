@@ -108,6 +108,7 @@ func classificationSupported(config *config.Config) bool {
 
 // skipIfUsingNAT skips the test if we have a NAT rules applied.
 func skipIfUsingNAT(t *testing.T, ctx testContext) {
+	t.Helper()
 	if ctx.targetAddress != ctx.serverAddress {
 		t.Skip("test is not supported when NAT is applied")
 	}
@@ -115,6 +116,7 @@ func skipIfUsingNAT(t *testing.T, ctx testContext) {
 
 // skipIfGoTLSNotSupported skips the test if GoTLS is not supported.
 func skipIfGoTLSNotSupported(t *testing.T, _ testContext) {
+	t.Helper()
 	if !gotlstestutil.GoTLSSupported(t, config.New()) {
 		t.Skip("GoTLS is not supported")
 	}
@@ -122,6 +124,7 @@ func skipIfGoTLSNotSupported(t *testing.T, _ testContext) {
 
 // composeSkips skips if one of the given filters is matched.
 func composeSkips(skippers ...func(t *testing.T, ctx testContext)) func(t *testing.T, ctx testContext) {
+	t.Helper()
 	return func(t *testing.T, ctx testContext) {
 		for _, skipFunction := range skippers {
 			skipFunction(t, ctx)
@@ -463,6 +466,7 @@ func (s *USMSuite) TestTLSClassificationAlreadyRunning() {
 }
 
 func skipIfHTTPSNotSupported(t *testing.T, _ testContext) {
+	t.Helper()
 	if !httpsSupported() {
 		t.Skip("https is not supported")
 	}
@@ -1219,6 +1223,7 @@ func testMySQLProtocolClassificationInner(t *testing.T, tr *tracer.Tracer, clien
 // We need that function (and cannot relay on the RunServer method) as the target regex is being logged a couple os
 // milliseconds before the server is actually ready to accept connections.
 func waitForPostgresServer(t *testing.T, serverAddress string, enableTLS bool) {
+	t.Helper()
 	pgClient := pgutils.NewPGClient(pgutils.ConnectionOptions{
 		ServerAddress: serverAddress,
 		EnableTLS:     enableTLS,

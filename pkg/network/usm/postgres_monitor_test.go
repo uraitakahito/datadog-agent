@@ -141,6 +141,7 @@ func (s *postgresProtocolParsingSuite) TestDecoding() {
 // We need that function (and cannot relay on the RunServer method) as the target regex is being logged a couple os
 // milliseconds before the server is actually ready to accept connections.
 func waitForPostgresServer(t *testing.T, serverAddress string, enableTLS bool) {
+	t.Helper()
 	pgClient, err := postgres.NewPGXClient(postgres.ConnectionOptions{
 		ServerAddress: serverAddress,
 		EnableTLS:     enableTLS,
@@ -512,6 +513,7 @@ func testDecoding(t *testing.T, isTLS bool) {
 
 // getPostgresInFlightEntries returns the entries in the in-flight map.
 func getPostgresInFlightEntries(t *testing.T, monitor *Monitor) map[postgres.ConnTuple]postgres.EbpfTx {
+	t.Helper()
 	postgresInFlightMap, _, err := monitor.ebpfProgram.GetMap(postgres.InFlightMap)
 	require.NoError(t, err)
 
@@ -588,6 +590,7 @@ func getPostgresDefaultTestConfiguration(enableTLS bool) *config.Config {
 }
 
 func validatePostgres(t *testing.T, monitor *Monitor, expectedStats map[string]map[postgres.Operation]int, tls bool) {
+	t.Helper()
 	found := make(map[string]map[postgres.Operation]int)
 	require.Eventually(t, func() bool {
 		postgresProtocolStats, exists := monitor.GetProtocolStats()[protocols.Postgres]

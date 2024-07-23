@@ -81,6 +81,7 @@ func TestGRPCScenarios(t *testing.T) {
 }
 
 func getGRPCClientsArray(t *testing.T, size int, withTLS bool) ([]*grpc.Client, func()) {
+	t.Helper()
 	res := make([]*grpc.Client, size)
 	for i := 0; i < size; i++ {
 		client, err := grpc.NewClient(srvAddr, grpc.Options{}, withTLS)

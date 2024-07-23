@@ -95,6 +95,7 @@ type kafkaParsingValidationWithErrorCodes struct {
 }
 
 func skipTestIfKernelNotSupported(t *testing.T) {
+	t.Helper()
 	currKernelVersion, err := kernel.HostVersion()
 	require.NoError(t, err)
 	if currKernelVersion < usmconfig.MinimumKernelVersion {
@@ -677,6 +678,7 @@ type CannedClientServer struct {
 }
 
 func newCannedClientServer(t *testing.T, tls bool) *CannedClientServer {
+	t.Helper()
 	return &CannedClientServer{
 		control:  make(chan []Message, 100),
 		done:     make(chan bool, 1),
@@ -1447,6 +1449,7 @@ func (i *PrintableInt) Add(other int) {
 }
 
 func getAndValidateKafkaStats(t *testing.T, monitor *Monitor, expectedStatsCount int, topicName string, validation kafkaParsingValidation, errorCode int32) map[kafka.Key]*kafka.RequestStats {
+	t.Helper()
 	kafkaStats := make(map[kafka.Key]*kafka.RequestStats)
 	require.EventuallyWithT(t, func(collect *assert.CollectT) {
 		protocolStats := monitor.GetProtocolStats()
@@ -1472,6 +1475,7 @@ func getAndValidateKafkaStats(t *testing.T, monitor *Monitor, expectedStatsCount
 }
 
 func getAndValidateKafkaStatsWithErrorCodes(t *testing.T, monitor *Monitor, expectedStatsCount int, topicName string, validation kafkaParsingValidationWithErrorCodes) map[kafka.Key]*kafka.RequestStats {
+	t.Helper()
 	kafkaStats := make(map[kafka.Key]*kafka.RequestStats)
 	require.EventuallyWithT(t, func(collect *assert.CollectT) {
 		protocolStats := monitor.GetProtocolStats()
@@ -1562,6 +1566,7 @@ func validateProduceFetchCountWithErrorCodes(t *assert.CollectT, kafkaStats map[
 }
 
 func newKafkaMonitor(t *testing.T, cfg *config.Config) *Monitor {
+	t.Helper()
 	monitor, err := NewMonitor(cfg, nil)
 	skipIfNotSupported(t, err)
 	require.NoError(t, err)
@@ -1590,6 +1595,7 @@ func TestLoadKafkaBinary(t *testing.T) {
 }
 
 func loadKafkaBinary(t *testing.T, debug bool) {
+	t.Helper()
 	cfg := config.New()
 	// We don't have a way of enabling kafka without http at the moment
 	cfg.EnableKafkaMonitoring = true

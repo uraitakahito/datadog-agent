@@ -241,6 +241,7 @@ func testHTTPSLibrary(t *testing.T, cfg *config.Config, fetchCmd, prefetchLibs [
 }
 
 func generateTemporaryFile(t *testing.T) string {
+	t.Helper()
 	tmpFile, err := os.CreateTemp("", "example")
 	require.NoError(t, err)
 	t.Cleanup(func() { os.Remove(tmpFile.Name()) })
@@ -251,6 +252,7 @@ func generateTemporaryFile(t *testing.T) string {
 }
 
 func buildPrefetchFileBin(t *testing.T) string {
+	t.Helper()
 	curDir, err := testutil.CurDir()
 	require.NoError(t, err)
 	serverBin, err := usmtestutil.BuildGoBinaryWrapper(filepath.Join(curDir, "testutil"), "prefetch_file")
@@ -259,6 +261,7 @@ func buildPrefetchFileBin(t *testing.T) string {
 }
 
 func prefetchLib(t *testing.T, filenames ...string) *exec.Cmd {
+	t.Helper()
 	prefetchBin := buildPrefetchFileBin(t)
 	cmd := exec.Command(prefetchBin, filenames...)
 	require.NoError(t, cmd.Start())
@@ -414,6 +417,7 @@ const (
 
 // TODO: Get rid of it, in favor of `requestGenerator`
 func simpleGetRequestsGenerator(t *testing.T, targetAddr string) (*nethttp.Client, func() *nethttp.Request) {
+	t.Helper()
 	var (
 		random = rand.New(rand.NewSource(time.Now().Unix()))
 		idx    = 0
@@ -946,6 +950,7 @@ func (m requestsMap) String() string {
 }
 
 func setupUSMTLSMonitor(t *testing.T, cfg *config.Config) *Monitor {
+	t.Helper()
 	usmMonitor, err := NewMonitor(cfg, nil)
 	require.NoError(t, err)
 	require.NoError(t, usmMonitor.Start())

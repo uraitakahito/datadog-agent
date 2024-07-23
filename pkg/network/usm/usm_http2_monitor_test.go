@@ -84,6 +84,7 @@ func (s *usmHTTP2Suite) getCfg() *config.Config {
 }
 
 func skipIfKernelNotSupported(t *testing.T) {
+	t.Helper()
 	currKernelVersion, err := kernel.HostVersion()
 	require.NoError(t, err)
 	if currKernelVersion < usmhttp2.MinimumKernelVersion {
@@ -1811,6 +1812,7 @@ func getExpectedOutcomeForPathWithRepeatedChars() map[usmhttp.Key]captureRange {
 }
 
 func startH2CServer(t *testing.T, address string, isTLS bool) func() {
+	t.Helper()
 	srv := &http.Server{
 		Addr: authority,
 		Handler: h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1856,6 +1858,7 @@ func getClientsIndex(index, totalCount int) int {
 
 // validateDynamicTableMap validates that the dynamic table map contains the expected indexes.
 func validateDynamicTableMap(t *testing.T, ebpfProgram *ebpfProgram, expectedDynamicTablePathIndexes []int) {
+	t.Helper()
 	dynamicTableMap, _, err := ebpfProgram.GetMap("http2_dynamic_table")
 	require.NoError(t, err)
 	resultIndexes := make([]int, 0)
@@ -1872,6 +1875,7 @@ func validateDynamicTableMap(t *testing.T, ebpfProgram *ebpfProgram, expectedDyn
 
 // getRemainderTableMapKeys returns the keys of the remainder table map.
 func getRemainderTableMapKeys(t *testing.T, ebpfProgram *ebpfProgram) []usmhttp.ConnTuple {
+	t.Helper()
 	remainderMap, _, err := ebpfProgram.GetMap("http2_remainder")
 	require.NoError(t, err)
 	resultIndexes := make([]usmhttp.ConnTuple, 0)
@@ -1887,6 +1891,7 @@ func getRemainderTableMapKeys(t *testing.T, ebpfProgram *ebpfProgram) []usmhttp.
 
 // validateHuffmanEncoded validates that the dynamic table map contains the expected huffman encoded paths.
 func validateHuffmanEncoded(t *testing.T, ebpfProgram *ebpfProgram, expectedHuffmanEncoded map[int]bool) bool {
+	t.Helper()
 	dynamicTableMap, _, err := ebpfProgram.GetMap("http2_dynamic_table")
 	if err != nil {
 		t.Logf("could not get dynamic table map: %v", err)
@@ -1906,6 +1911,7 @@ func validateHuffmanEncoded(t *testing.T, ebpfProgram *ebpfProgram, expectedHuff
 
 // dialHTTP2Server dials the http2 server and performs the initial handshake
 func dialHTTP2Server(t *testing.T) net.Conn {
+	t.Helper()
 	c, err := net.Dial("unix", unixPath)
 	require.NoError(t, err, "failed to dial")
 	t.Cleanup(func() { _ = c.Close() })
@@ -1937,6 +1943,7 @@ func getHTTP2KernelTelemetry(monitor *Monitor, isTLS bool) (*usmhttp2.HTTP2Telem
 }
 
 func dumpTelemetry(t *testing.T, usmMonitor *Monitor, isTLS bool) {
+	t.Helper()
 	if telemetry, err := getHTTP2KernelTelemetry(usmMonitor, isTLS); err == nil {
 		tlsMarker := ""
 		if isTLS {

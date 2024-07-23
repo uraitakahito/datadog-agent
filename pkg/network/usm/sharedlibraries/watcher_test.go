@@ -38,6 +38,7 @@ import (
 )
 
 func launchProcessMonitor(t *testing.T, useEventStream bool) {
+	t.Helper()
 	pm := monitor.GetProcessMonitor()
 	t.Cleanup(pm.Stop)
 	require.NoError(t, pm.Initialize(useEventStream))
@@ -340,6 +341,7 @@ func (s *SharedLibrarySuite) TestSoWatcherProcessAlreadyHoldingReferences() {
 }
 
 func createTempTestFile(t *testing.T, name string) (string, utils.PathIdentifier) {
+	t.Helper()
 	fullPath := filepath.Join(t.TempDir(), name)
 
 	f, err := os.Create(fullPath)

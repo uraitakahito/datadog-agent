@@ -192,6 +192,7 @@ func TestRelativeFilePathInCallbackArgument(t *testing.T) {
 }
 
 func createTempTestFile(t *testing.T, name string) (string, PathIdentifier) {
+	t.Helper()
 	path := filepath.Join(t.TempDir(), name)
 
 	f, err := os.Create(path)

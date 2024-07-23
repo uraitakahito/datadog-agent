@@ -23,6 +23,7 @@ import (
 )
 
 func createJavaTempFile(t *testing.T, dir string) string {
+	t.Helper()
 	tempfile, err := os.CreateTemp(dir, "TestAgentLoaded.agentmain.*")
 	require.NoError(t, err)
 	tempfile.Close()
