@@ -78,7 +78,7 @@ static __always_inline bool is_tls_handshake(tls_hello_message_t *msg) {
     switch (msg->handshake_type) {
     case TLS_HANDSHAKE_CLIENT_HELLO:
     case TLS_HANDSHAKE_SERVER_HELLO:
-        return is_valid_tls_version(bpf_ntohs(msg->version));
+        return is_valid_tls_version(msg->version);
     }
 
     return false;
