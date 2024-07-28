@@ -37,7 +37,7 @@ static __always_inline void http_process(http_event_t *event, skb_info_t *skb_in
 /* it's used for classify the subset of protocols that is supported by `classify_protocol_for_dispatcher` */
 static __always_inline void classify_decrypted_payload(protocol_stack_t *stack, conn_tuple_t *t, void *buffer, size_t len) {
     // we're in the context of TLS hookpoints, thus the protocol is TLS.
-    set_protocol(stack, PROTOCOL_TLS);
+//    set_protocol(stack, PROTOCOL_TLS);
 
     if (is_protocol_layer_known(stack, LAYER_APPLICATION)) {
         // No classification is needed.
