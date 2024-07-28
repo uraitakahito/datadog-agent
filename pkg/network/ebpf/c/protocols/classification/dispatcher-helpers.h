@@ -137,7 +137,7 @@ static __always_inline void protocol_dispatcher_entrypoint(struct __sk_buff *skb
         return;
     }
 
-    if (cur_fragment_protocol == PROTOCOL_UNKNOWN) {
+    if (cur_fragment_protocol == PROTOCOL_UNKNOWN && !is_fully_classified(stack)) {
         log_debug("[protocol_dispatcher_entrypoint]: %p was not classified", skb);
         char request_fragment[CLASSIFICATION_MAX_BUFFER];
         bpf_memset(request_fragment, 0, sizeof(request_fragment));
