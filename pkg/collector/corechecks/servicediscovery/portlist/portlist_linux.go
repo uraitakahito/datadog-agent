@@ -25,6 +25,7 @@ import (
 	"go4.org/mem"
 	"golang.org/x/sys/unix"
 
+	"github.com/DataDog/datadog-agent/pkg/util/kernel"
 	"github.com/DataDog/datadog-agent/pkg/util/log"
 )
 
@@ -54,7 +55,7 @@ func newLinuxImplBase(includeLocalhost bool) *linuxImpl {
 		br:               bufio.NewReader(eofReader),
 		known:            map[string]*portMeta{},
 		includeLocalhost: includeLocalhost,
-		procMountPath:    "/proc",
+		procMountPath:    kernel.ProcFSRoot(),
 	}
 }
 
