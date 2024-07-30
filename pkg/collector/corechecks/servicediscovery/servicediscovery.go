@@ -144,11 +144,7 @@ func (c *Check) Configure(senderManager sender.SenderManager, _ uint64, instance
 	c.sender = newTelemetrySender(s)
 
 	c.os, err = newOSImpl(ignoreCfg)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // Run executes the check.

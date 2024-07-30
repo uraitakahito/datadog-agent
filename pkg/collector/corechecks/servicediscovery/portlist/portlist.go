@@ -8,9 +8,11 @@ package portlist
 
 import (
 	"errors"
-	"github.com/DataDog/datadog-agent/pkg/util/log"
 	"path/filepath"
 	"runtime"
+
+	"github.com/DataDog/datadog-agent/pkg/util/kernel"
+	"github.com/DataDog/datadog-agent/pkg/util/log"
 )
 
 var (
@@ -33,19 +35,15 @@ type config struct {
 	procMountPoint   string
 }
 
-func newDefaultConfig() *config {
-	return &config{
-		includeLocalhost: false,
-		procMountPoint:   "/proc",
-	}
-}
-
 // NewPoller initializes a new Poller.
 func NewPoller(opts ...Option) (*Poller, error) {
 	if newOSImpl == nil {
 		return nil, errors.New("poller not implemented on " + runtime.GOOS)
 	}
-	cfg := newDefaultConfig()
+	cfg := &config{
+		includeLocalhost: false,
+		procMountPoint:   kernel.ProcFSRoot(),
+	}
 	for _, opt := range opts {
 		opt(cfg)
 	}
