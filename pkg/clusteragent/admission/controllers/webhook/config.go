@@ -23,6 +23,7 @@ type Config struct {
 	webhookName              string
 	secretName               string
 	namespace                string
+	webhookType              string
 	admissionV1Enabled       bool
 	namespaceSelectorEnabled bool
 	svcName                  string
@@ -38,6 +39,7 @@ func NewConfig(admissionV1Enabled, namespaceSelectorEnabled bool) Config {
 		webhookName:              config.Datadog().GetString("admission_controller.webhook_name"),
 		secretName:               config.Datadog().GetString("admission_controller.certificate.secret_name"),
 		namespace:                common.GetResourcesNamespace(),
+		webhookType:              webhookType,
 		admissionV1Enabled:       admissionV1Enabled,
 		namespaceSelectorEnabled: namespaceSelectorEnabled,
 		svcName:                  config.Datadog().GetString("admission_controller.service_name"),

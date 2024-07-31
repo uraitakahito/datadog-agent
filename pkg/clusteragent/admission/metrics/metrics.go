@@ -47,6 +47,9 @@ var (
 	MutationAttempts = telemetry.NewGaugeWithOpts("admission_webhooks", "mutation_attempts",
 		[]string{"mutation_type", "status", "injected", "error"}, "Number of pod mutation attempts by mutation type",
 		telemetry.Options{NoDoubleUnderscoreSep: true})
+	ValidationAttempts = telemetry.NewGaugeWithOpts("admission_webhooks", "validation_attempts",
+		[]string{"validation_type", "status", "injected", "error"}, "Number of pod validation attempts by validation type",
+		telemetry.Options{NoDoubleUnderscoreSep: true})
 	WebhooksReceived = telemetry.NewCounterWithOpts("admission_webhooks", "webhooks_received",
 		[]string{"mutation_type"}, "Number of mutation webhook requests received.",
 		telemetry.Options{NoDoubleUnderscoreSep: true})

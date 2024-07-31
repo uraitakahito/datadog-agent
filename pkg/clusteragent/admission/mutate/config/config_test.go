@@ -504,11 +504,11 @@ func TestJSONPatchCorrectness(t *testing.T) {
 				fx.Replace(config.MockParams{Overrides: tt.overrides}),
 			)
 			webhook := NewWebhook(wmeta, autoinstrumentation.GetInjectionFilter())
-			request := admission.MutateRequest{
+			request := admission.Request{
 				Raw:       podJSON,
 				Namespace: "bar",
 			}
-			jsonPatch, err := webhook.MutateFunc()(&request)
+			jsonPatch, err := webhook.WebhookFunc()(&request)
 			assert.NoError(t, err)
 
 			expected, err := os.ReadFile(tt.file)
@@ -539,11 +539,11 @@ func BenchmarkJSONPatch(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		request := admission.MutateRequest{
+		request := admission.Request{
 			Raw:       podJSON,
 			Namespace: "bar",
 		}
-		jsonPatch, err := webhook.MutateFunc()(&request)
+		jsonPatch, err := webhook.WebhookFunc()(&request)
 		if err != nil {
 			b.Fatal(err)
 		}

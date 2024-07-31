@@ -163,12 +163,12 @@ func (w *Webhook) LabelSelectors(useNamespaceSelector bool) (namespaceSelector *
 }
 
 // MutateFunc returns the function that mutates the resources
-func (w *Webhook) MutateFunc() admission.WebhookFunc {
+func (w *Webhook) WebhookFunc() admission.WebhookFunc {
 	return w.mutate
 }
 
 // mutate adds the DD_AGENT_HOST and DD_ENTITY_ID env vars to the pod template if they don't exist
-func (w *Webhook) mutate(request *admission.MutateRequest) ([]byte, error) {
+func (w *Webhook) mutate(request *admission.Request) ([]byte, error) {
 	return common.Mutate(request.Raw, request.Namespace, w.Name(), w.inject, request.DynamicClient)
 }
 

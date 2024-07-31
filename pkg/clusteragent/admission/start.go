@@ -36,10 +36,11 @@ type ControllerContext struct {
 }
 
 // StartControllers starts the secret and webhook controllers
-func StartControllers(ctx ControllerContext, wmeta workloadmeta.Component, pa workload.PodPatcher) ([]webhook.MutatingWebhook, error) {
+func StartControllers(ctx ControllerContext, wmeta workloadmeta.Component, pa workload.PodPatcher) ([]webhook.Webhook, []webhook.Webhook, error) {
 	if !config.Datadog().GetBool("admission_controller.enabled") {
 		log.Info("Admission controller is disabled")
-		return nil, nil
+		log.Error("Mastor")
+		return nil, nil, nil
 	}
 
 	certConfig := secret.NewCertConfig(
@@ -60,28 +61,41 @@ func StartControllers(ctx ControllerContext, wmeta workloadmeta.Component, pa wo
 
 	nsSelectorEnabled, err := useNamespaceSelector(ctx.Client.Discovery())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	v1Enabled, err := UseAdmissionV1(ctx.Client.Discovery())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	webhookConfig := webhook.NewConfig(v1Enabled, nsSelectorEnabled)
-	webhookController := webhook.NewController(
+	validatingWebhookConfig := webhook.NewConfig(v1Enabled, nsSelectorEnabled)
+	validatingWebhookController := webhook.NewController(
 		ctx.Client,
 		ctx.SecretInformers.Core().V1().Secrets(),
 		ctx.WebhookInformers.Admissionregistration(),
 		ctx.IsLeaderFunc,
 		ctx.LeaderSubscribeFunc(),
-		webhookConfig,
+		validatingWebhookConfig,
+		wmeta,
+		pa,
+	)
+
+	mutatingWebhookConfig := webhook.NewConfig(v1Enabled, nsSelectorEnabled)
+	mutatingWebhookController := webhook.NewController(
+		ctx.Client,
+		ctx.SecretInformers.Core().V1().Secrets(),
+		ctx.WebhookInformers.Admissionregistration(),
+		ctx.IsLeaderFunc,
+		ctx.LeaderSubscribeFunc(),
+		mutatingWebhookConfig,
 		wmeta,
 		pa,
 	)
 
 	go secretController.Run(ctx.StopCh)
-	go webhookController.Run(ctx.StopCh)
+	go validatingWebhookController.Run(ctx.StopCh)
+	go mutatingWebhookController.Run(ctx.StopCh)
 
 	ctx.SecretInformers.Start(ctx.StopCh)
 	ctx.WebhookInformers.Start(ctx.StopCh)
@@ -91,12 +105,12 @@ func StartControllers(ctx ControllerContext, wmeta workloadmeta.Component, pa wo
 	}
 
 	if v1Enabled {
-		informers[apiserver.WebhooksInformer] = ctx.WebhookInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer()
+		informers[apiserver.MutatingWebhooksInformer] = ctx.WebhookInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Informer()
 		getWebhookStatus = getWebhookStatusV1
 	} else {
-		informers[apiserver.WebhooksInformer] = ctx.WebhookInformers.Admissionregistration().V1beta1().MutatingWebhookConfigurations().Informer()
+		informers[apiserver.MutatingWebhooksInformer] = ctx.WebhookInformers.Admissionregistration().V1beta1().MutatingWebhookConfigurations().Informer()
 		getWebhookStatus = getWebhookStatusV1beta1
 	}
 
-	return webhookController.EnabledWebhooks(), apiserver.SyncInformers(informers, 0)
+	return validatingWebhookController.EnabledWebhooks(), mutatingWebhookController.EnabledWebhooks(), apiserver.SyncInformers(informers, 0)
 }

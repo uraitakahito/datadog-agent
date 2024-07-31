@@ -104,12 +104,12 @@ func (w *Webhook) LabelSelectors(_ bool) (namespaceSelector *metav1.LabelSelecto
 }
 
 // MutateFunc returns the function that mutates the resources
-func (w *Webhook) MutateFunc() admission.WebhookFunc {
+func (w *Webhook) WebhookFunc() admission.WebhookFunc {
 	return w.mutate
 }
 
 // mutate handles mutating pod requests for the agentsidecar webhook
-func (w *Webhook) mutate(request *admission.MutateRequest) ([]byte, error) {
+func (w *Webhook) mutate(request *admission.Request) ([]byte, error) {
 	return common.Mutate(request.Raw, request.Namespace, w.Name(), w.injectAgentSidecar, request.DynamicClient)
 }
 

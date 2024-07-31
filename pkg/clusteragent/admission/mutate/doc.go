@@ -44,7 +44,7 @@
 // minimize the number of requests that the webhook receives. The label
 // selectors help us with that. There are some default label selectors defined
 // in the "common" package.
-// - MutateFunc: the function that mutates the Kubernetes object.
+// - WebhookFunc: the function that mutates the Kubernetes object.
 //
 // As any other feature, mutating webhooks can be configured using the Datadog
 // configuration. When adding new configuration parameters, please try to follow

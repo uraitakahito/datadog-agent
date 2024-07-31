@@ -139,7 +139,7 @@ func (w *WebhookForPods) LabelSelectors(useNamespaceSelector bool) (namespaceSel
 }
 
 // MutateFunc returns the function that mutates the resources
-func (w *WebhookForPods) MutateFunc() admission.WebhookFunc {
+func (w *WebhookForPods) WebhookFunc() admission.WebhookFunc {
 	return w.admissionFunc
 }
 
@@ -199,7 +199,7 @@ func (w *WebhookForCommands) LabelSelectors(_ bool) (namespaceSelector *metav1.L
 }
 
 // MutateFunc returns the function that mutates the resources
-func (w *WebhookForCommands) MutateFunc() admission.WebhookFunc {
+func (w *WebhookForCommands) WebhookFunc() admission.WebhookFunc {
 	return w.admissionFunc
 }
 
@@ -357,7 +357,7 @@ func (ci *CWSInstrumentation) WebhookForCommands() *WebhookForCommands {
 	return ci.webhookForCommands
 }
 
-func (ci *CWSInstrumentation) injectForCommand(request *admission.MutateRequest) ([]byte, error) {
+func (ci *CWSInstrumentation) injectForCommand(request *admission.Request) ([]byte, error) {
 	return mutatePodExecOptions(request.Raw, request.Name, request.Namespace, ci.webhookForCommands.Name(), request.UserInfo, ci.injectCWSCommandInstrumentation, request.DynamicClient, request.APIClient)
 }
 
@@ -604,7 +604,7 @@ func (ci *CWSInstrumentation) injectCWSCommandInstrumentationRemoteCopy(pod *cor
 	return health.Run(cwsInstrumentationRemotePath, pod, container)
 }
 
-func (ci *CWSInstrumentation) injectForPod(request *admission.MutateRequest) ([]byte, error) {
+func (ci *CWSInstrumentation) injectForPod(request *admission.Request) ([]byte, error) {
 	return common.Mutate(request.Raw, request.Namespace, ci.webhookForPods.Name(), ci.injectCWSPodInstrumentation, request.DynamicClient)
 }
 

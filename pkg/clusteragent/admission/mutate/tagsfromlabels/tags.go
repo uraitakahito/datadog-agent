@@ -100,7 +100,7 @@ func (w *Webhook) LabelSelectors(useNamespaceSelector bool) (namespaceSelector *
 }
 
 // MutateFunc returns the function that mutates the resources
-func (w *Webhook) MutateFunc() admission.WebhookFunc {
+func (w *Webhook) WebhookFunc() admission.WebhookFunc {
 	return w.mutate
 }
 
@@ -125,7 +125,7 @@ func (o *ownerInfo) buildID(ns string) string {
 
 // mutate adds the DD_ENV, DD_VERSION, DD_SERVICE env vars to
 // the pod template from pod and higher-level resource labels
-func (w *Webhook) mutate(request *admission.MutateRequest) ([]byte, error) {
+func (w *Webhook) mutate(request *admission.Request) ([]byte, error) {
 	return common.Mutate(request.Raw, request.Namespace, w.Name(), func(pod *corev1.Pod, ns string, dc dynamic.Interface) (bool, error) {
 		return w.injectTags(pod, ns, dc)
 	}, request.DynamicClient)

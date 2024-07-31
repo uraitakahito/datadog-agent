@@ -38,8 +38,8 @@ import (
 
 const jsonContentType = "application/json"
 
-// MutateRequest contains the information of a mutation request
-type MutateRequest struct {
+// Request contains the information of a mutation request
+type Request struct {
 	// Raw is the raw request object
 	Raw []byte
 	// Name is the name of the object
@@ -55,7 +55,7 @@ type MutateRequest struct {
 }
 
 // WebhookFunc is the function that runs the webhook logic
-type WebhookFunc func(request *MutateRequest) ([]byte, error)
+type WebhookFunc func(request *Request) ([]byte, error)
 
 // Server TODO <container-integrations>
 type Server struct {
@@ -95,6 +95,10 @@ func (s *Server) initDecoder() {
 func (s *Server) Register(uri string, webhookName string, f WebhookFunc, dc dynamic.Interface, apiClient kubernetes.Interface) {
 	s.mux.HandleFunc(uri, func(w http.ResponseWriter, r *http.Request) {
 		s.mutateHandler(w, r, webhookName, f, dc, apiClient)
+	})
+
+	s.mux.HandleFunc(uri, func(w http.ResponseWriter, r *http.Request) {
+		s.validationHandler(w, r, webhookName, f, dc, apiClient)
 	})
 }
 
@@ -180,7 +184,7 @@ func (s *Server) mutateHandler(w http.ResponseWriter, r *http.Request, webhookNa
 		}
 		admissionReviewResp := &admiv1.AdmissionReview{}
 		admissionReviewResp.SetGroupVersionKind(*gvk)
-		mutateRequest := MutateRequest{
+		mutateRequest := Request{
 			Raw:           admissionReviewReq.Request.Object.Raw,
 			Name:          admissionReviewReq.Request.Name,
 			Namespace:     admissionReviewReq.Request.Namespace,
@@ -188,6 +192,7 @@ func (s *Server) mutateHandler(w http.ResponseWriter, r *http.Request, webhookNa
 			DynamicClient: dc,
 			APIClient:     apiClient,
 		}
+		log.Error("Mutate request: %v", mutateRequest)
 		jsonPatch, err := mutateFunc(&mutateRequest)
 		admissionReviewResp.Response = mutationResponse(jsonPatch, err)
 		admissionReviewResp.Response.UID = admissionReviewReq.Request.UID
@@ -199,7 +204,7 @@ func (s *Server) mutateHandler(w http.ResponseWriter, r *http.Request, webhookNa
 		}
 		admissionReviewResp := &admiv1beta1.AdmissionReview{}
 		admissionReviewResp.SetGroupVersionKind(*gvk)
-		mutateRequest := MutateRequest{
+		mutateRequest := Request{
 			Raw:           admissionReviewReq.Request.Object.Raw,
 			Name:          admissionReviewReq.Request.Name,
 			Namespace:     admissionReviewReq.Request.Namespace,
@@ -230,6 +235,36 @@ func (s *Server) mutateHandler(w http.ResponseWriter, r *http.Request, webhookNa
 func mutationResponse(jsonPatch []byte, err error) *admiv1.AdmissionResponse {
 	if err != nil {
 		log.Warnf("Failed to mutate: %v", err)
+
+		return &admiv1.AdmissionResponse{
+			Result: &metav1.Status{
+				Message: err.Error(),
+			},
+			Allowed: true,
+		}
+
+	}
+
+	patchType := admiv1.PatchTypeJSONPatch
+
+	return &admiv1.AdmissionResponse{
+		Patch:     jsonPatch,
+		PatchType: &patchType,
+		Allowed:   true,
+	}
+}
+
+// validationHandler contains the main logic responsible for handling validation requests.
+// It supports both v1 and v1beta1 requests.
+func (s *Server) validationHandler(w http.ResponseWriter, r *http.Request, webhookName string, mutateFunc WebhookFunc, dc dynamic.Interface, apiClient kubernetes.Interface) {
+	// TODO
+	log.Criticalf("Validation handler not implemented")
+}
+
+// validationResponse returns the adequate v1.AdmissionResponse based on the validation result.
+func validationResponse(jsonPatch []byte, err error) *admiv1.AdmissionResponse {
+	if err != nil {
+		log.Warnf("Failed to validate: %v", err)
 
 		return &admiv1.AdmissionResponse{
 			Result: &metav1.Status{

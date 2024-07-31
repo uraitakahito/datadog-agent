@@ -237,12 +237,12 @@ func (w *Webhook) LabelSelectors(useNamespaceSelector bool) (namespaceSelector *
 }
 
 // MutateFunc returns the function that mutates the resources
-func (w *Webhook) MutateFunc() admission.WebhookFunc {
+func (w *Webhook) WebhookFunc() admission.WebhookFunc {
 	return w.injectAutoInstrumentation
 }
 
 // injectAutoInstrumentation injects APM libraries into pods
-func (w *Webhook) injectAutoInstrumentation(request *admission.MutateRequest) ([]byte, error) {
+func (w *Webhook) injectAutoInstrumentation(request *admission.Request) ([]byte, error) {
 	return mutatecommon.Mutate(request.Raw, request.Namespace, w.Name(), w.inject, request.DynamicClient)
 }
 
