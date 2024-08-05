@@ -469,7 +469,7 @@ func start(log log.Component,
 			StopCh:              stopCh,
 		}
 
-		webhooks, err := admissionpkg.StartControllers(admissionCtx, wmeta, pa)
+		mutatingWebhooks, err := admissionpkg.StartControllers(admissionCtx, wmeta, pa)
 		if err != nil {
 			pkglog.Errorf("Could not start admission controller: %v", err)
 		} else {
@@ -477,7 +477,7 @@ func start(log log.Component,
 			// Setup the k8s admission webhook server
 			server := admissioncmd.NewServer()
 
-			for _, webhookConf := range webhooks {
+			for _, webhookConf := range mutatingWebhooks {
 				server.Register(webhookConf.Endpoint(), webhookConf.Name(), webhookConf.MutateFunc(), apiCl.DynamicCl, apiCl.Cl)
 			}
 
