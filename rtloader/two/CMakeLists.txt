@@ -66,8 +66,6 @@ if(WIN32)
   endif()
 elseif(APPLE)
   set_target_properties(datadog-agent-two PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
-else()
-  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libstdc++")
 endif()
 
 target_link_libraries(datadog-agent-two ${Python2_LIBRARIES} datadog-agent-rtloader)
