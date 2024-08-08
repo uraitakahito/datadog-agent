@@ -54,7 +54,7 @@ if(WIN32)
 elseif(APPLE)
   set_target_properties(datadog-agent-three PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 else()
-  set(CMAKE_SHARED_LINKER_FLAGS "-static-libstdc++")
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libstdc++")
 endif()
 
 add_compile_definitions(DATADOG_AGENT_THREE)
