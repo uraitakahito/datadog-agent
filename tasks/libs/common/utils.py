@@ -335,9 +335,10 @@ def get_build_flags(
         env["CGO_ENABLED"] = "1"  # If we're cross-compiling, CGO is disabled by default. Ensure it's always enabled
         env["CC"] = arch.gcc_compiler()
     if os.getenv('USE_UPDATED_TOOLCHAIN'):
-        arch = platform.processor()
-        env['CC'] = f'{arch}-unknown-linux-gnu-gcc'
-        env['CXX'] = f'{arch}-unknown-linux-gnu-gcc'
+        print('Using updated toolchain to compile the agent')
+        cpu_arch = platform.processor()
+        env['CC'] = f'{cpu_arch}-unknown-linux-gnu-gcc'
+        env['CXX'] = f'{cpu_arch}-unknown-linux-gnu-g++'
 
     if extldflags:
         ldflags += f"'-extldflags={extldflags}' "
