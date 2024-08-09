@@ -150,6 +150,8 @@ def get_omnibus_env(
     if 'INSTALL_DIR' in os.environ:
         print('Forwarding INSTALL_DIR')
         env['INSTALL_DIR'] = os.environ['INSTALL_DIR']
+    if 'USE_UPDATED_TOOLCHAIN' in os.environ:
+        env['USE_UPDATED_TOOLCHAIN'] = os.environ['USE_UPDATED_TOOLCHAIN']
 
     return env
 
