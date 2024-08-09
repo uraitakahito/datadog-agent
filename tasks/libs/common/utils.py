@@ -338,7 +338,6 @@ def get_build_flags(
         cpu_arch = platform.processor()
         env['CC'] = f'{cpu_arch}-unknown-linux-gnu-gcc'
         env['CXX'] = f'{cpu_arch}-unknown-linux-gnu-g++'
-        print(f'Using CC: {env["CC"]} CXX: {env["CXX"]}')
 
     if extldflags:
         ldflags += f"'-extldflags={extldflags}' "

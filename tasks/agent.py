@@ -204,7 +204,7 @@ def build(
             all_tags |= set(build_tags)
         build_tags = list(all_tags)
 
-    cmd = "go build -x -mod={go_mod} {race_opt} {build_type} -tags \"{go_build_tags}\" "
+    cmd = "go build -mod={go_mod} {race_opt} {build_type} -tags \"{go_build_tags}\" "
 
     if not agent_bin:
         agent_bin = os.path.join(BIN_PATH, bin_name("agent"))
@@ -225,7 +225,6 @@ def build(
         "flavor": "iot-agent" if flavor.is_iot() else "agent",
     }
     with gitlab_section("Build agent", collapsed=True):
-        print(f'Building agent with env CC: {env["CC"]} CXX: {env["CXX"]}')
         ctx.run(cmd.format(**args), env=env)
 
     if embedded_path is None:
