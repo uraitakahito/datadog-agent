@@ -225,7 +225,7 @@ def build(
         "flavor": "iot-agent" if flavor.is_iot() else "agent",
     }
     with gitlab_section("Build agent", collapsed=True):
-        print(f'Building agent with env CC: {os.environ["CC"]} CXX: {os.environ["CXX"]}')
+        print(f'Building agent with env CC: {env["CC"]} CXX: {env["CXX"]}')
         ctx.run(cmd.format(**args), env=env)
 
     if embedded_path is None:
