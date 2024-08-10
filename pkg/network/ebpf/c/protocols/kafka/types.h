@@ -18,7 +18,7 @@ typedef struct {
 
 #define KAFKA_MIN_LENGTH (sizeof(kafka_header_t))
 
-typedef struct kafka_transaction_t {
+typedef struct {
     __u64 request_started;
     __u32 records_count;
     // Request API key and version are 16-bit in the protocol but we store
@@ -32,12 +32,12 @@ typedef struct kafka_transaction_t {
     __s8 error_code;
 } kafka_transaction_t;
 
-typedef struct kafka_event_t {
+typedef struct {
     conn_tuple_t tup;
     kafka_transaction_t transaction;
 } kafka_event_t;
 
-typedef struct kafka_transaction_key_t {
+typedef struct {
     conn_tuple_t tuple;
     __s32 correlation_id;
 } kafka_transaction_key_t;
@@ -61,13 +61,13 @@ typedef enum {
     KAFKA_FETCH_RESPONSE_PARTITION_END,
 } __attribute__ ((packed)) kafka_response_state;
 
-typedef struct kafka_fetch_response_record_batches_array_t {
+typedef struct {
     __u32 num_bytes;
     __u32 offset;
     __s8 partition_error_code;
 } kafka_fetch_response_record_batches_array_t;
 
-typedef struct kafka_response_context_t {
+typedef struct {
     kafka_transaction_t transaction;
     kafka_response_state state;
     // The number of remainder bytes stored from the previous packet into
@@ -102,7 +102,7 @@ typedef struct kafka_response_context_t {
 #define KAFKA_MAX_RECORD_BATCHES_ARRAYS 50u
 
 // Used as a scratch buffer, one per CPU.
-typedef struct kafka_info_t {
+typedef struct {
     kafka_response_context_t response;
     kafka_event_t event;
     kafka_fetch_response_record_batches_array_t record_batches_arrays[KAFKA_MAX_RECORD_BATCHES_ARRAYS];
