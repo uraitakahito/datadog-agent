@@ -1345,7 +1345,8 @@ def check_for_misaligned_stack_objects(ctx: Context, build_dir: str | Path = Non
     if not build_dir:
         build_dir = get_ebpf_build_dir(Arch.from_str(CURRENT_ARCH))
     build_dir = Path(build_dir).absolute()
-    ctx.run(f"go run ./tools/ebpf/stack-align {build_dir}")
+    with ctx.cd("./tools/ebpf/stack-align"):
+        ctx.run(f"go run . {build_dir}")
 
 
 def build_object_files(
