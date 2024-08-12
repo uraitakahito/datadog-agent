@@ -22,7 +22,7 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
+		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 		os.Exit(1)
 	}
 }
@@ -129,7 +129,7 @@ func structSize(paholePath string, structName string, objFile string) (uint64, e
 			}
 		}
 	}
-	return 0, fmt.Errorf("missing struct size: %s", structName)
+	return 0, fmt.Errorf("missing struct %q size in %q", structName, objFile)
 }
 
 func glob(dir, filePattern string) ([]string, error) {
