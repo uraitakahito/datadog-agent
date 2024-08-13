@@ -30,7 +30,7 @@ def get_build_image_suffix_and_version() -> tuple[str, str]:
         ci_config = yaml.load(f, Loader=GitlabYamlLoader())
 
     ci_vars = ci_config['variables']
-    return ci_vars['DATADOG_AGENT_BUILDIMAGES_SUFFIX'], ci_vars['DATADOG_AGENT_BUILDIMAGES']
+    return ci_vars['DATADOG_AGENT_SYSPROBE_BUILDIMAGES_SUFFIX'], ci_vars['DATADOG_AGENT_SYSPROBE_BUILDIMAGES']
 
 
 def has_ddtool_helpers() -> bool:
@@ -71,7 +71,7 @@ class CompilerImage:
             warn(f"[!] Dry run, not checking if compiler {self.name} is running")
             return True
 
-        res = self.ctx.run(f"docker ps -aqf \"name={self.name}\"", hide=True)
+        res = self.ctx.run(f"docker ps -qf \"name={self.name}\"", hide=True)
         if res is not None and res.ok:
             return res.stdout.rstrip() != ""
         return False
