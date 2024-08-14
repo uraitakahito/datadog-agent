@@ -117,15 +117,18 @@ static __always_inline grpc_status_t is_grpc(struct __sk_buff *skb, const skb_in
     // to the first byte after it if the magic is present.
     skip_preface(skb, &info);
 
+    u64 max_offset = skb->len - HTTP2_FRAME_HEADER_SIZE;
+    u64 offset = info.data_off;
+
     // Loop through the HTTP2 frames in the packet
 #pragma unroll(GRPC_MAX_FRAMES_TO_FILTER)
     for (__u8 i = 0; i < GRPC_MAX_FRAMES_TO_FILTER; ++i) {
-        if (info.data_off + HTTP2_FRAME_HEADER_SIZE > skb->len) {
+        if (offset > max_offset) {
             break;
         }
 
-        bpf_skb_load_bytes(skb, info.data_off, frame_buf, HTTP2_FRAME_HEADER_SIZE);
-        info.data_off += HTTP2_FRAME_HEADER_SIZE;
+        bpf_skb_load_bytes(skb, offset, frame_buf, HTTP2_FRAME_HEADER_SIZE);
+        offset += HTTP2_FRAME_HEADER_SIZE;
 
         if (!read_http2_frame_header(frame_buf, HTTP2_FRAME_HEADER_SIZE, &current_frame)) {
             break;
@@ -136,8 +139,10 @@ static __always_inline grpc_status_t is_grpc(struct __sk_buff *skb, const skb_in
             break;
         }
 
-        info.data_off += current_frame.length;
+        offset += current_frame.length;
     }
+
+    info.data_off = offset;
 
     if (!found_headers) {
         return PAYLOAD_UNDETERMINED;
