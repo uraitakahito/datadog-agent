@@ -6,28 +6,22 @@
 #include "perf_ring.h"
 
 __attribute__((always_inline)) int parse_dns_request(struct __sk_buff *skb, struct packet_t *pkt, struct dns_event_t *evt) {
+    char *name_ptr = &evt->name[0];
     u16 qname_length = 0;
-    u8 end_of_name = 0;
+    u32 off = pkt->offset; //asdf
 
 // Handle DNS request
 #pragma unroll
-    for (int i = 0; i < DNS_MAX_LENGTH; i++) {
-        if (end_of_name) {
-            evt->name[i] = 0;
-            break;
-        }
-
-        if (bpf_skb_load_bytes(skb, pkt->offset, &evt->name[i], sizeof(u8)) < 0) {
+    for (int i = 0; i < DNS_MAX_LENGTH; i++, name_ptr++, qname_length++, off++) {
+        if (bpf_skb_load_bytes(skb, off, name_ptr, sizeof(u8)) < 0) {
             return -1;
         }
-
-        qname_length += 1;
-        pkt->offset += 1;
-
         if (evt->name[i] == 0) {
-            end_of_name = 1;
+            qname_length += 1;
+            break;
         }
     }
+    pkt->offset += qname_length;
 
     // Handle qtype
     if (bpf_skb_load_bytes(skb, pkt->offset, &evt->qtype, sizeof(u16)) < 0) {
