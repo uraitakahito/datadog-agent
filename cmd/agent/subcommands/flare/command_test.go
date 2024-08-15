@@ -31,6 +31,7 @@ type commandTestSuite struct {
 	sysprobeSocketPath string
 	tcpServer          *httptest.Server
 	unixServer         *httptest.Server
+	systemProbeServer  *httptest.Server
 }
 
 func (c *commandTestSuite) SetupSuite() {
@@ -44,11 +45,13 @@ func (c *commandTestSuite) TearDownSuite() {
 	if c.unixServer != nil {
 		c.unixServer.Close()
 	}
+	if c.systemProbeServer != nil {
+		c.systemProbeServer.Close()
+	}
 }
 
-func (c *commandTestSuite) getPprofTestServer() (tcpServer *httptest.Server, unixServer *httptest.Server) {
-	t := c.T()
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func newMockHandler() http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/debug/pprof/heap":
 			w.Write([]byte("heap_profile"))
@@ -67,7 +70,12 @@ func (c *commandTestSuite) getPprofTestServer() (tcpServer *httptest.Server, uni
 			w.WriteHeader(500)
 		}
 	})
+}
 
+func (c *commandTestSuite) getPprofTestServer() (tcpServer *httptest.Server, unixServer *httptest.Server) {
+	t := c.T()
+
+	handler := newMockHandler()
 	tcpServer = httptest.NewServer(handler)
 	if runtime.GOOS == "linux" {
 		unixServer = httptest.NewUnstartedServer(handler)
@@ -86,6 +94,8 @@ func TestCommandTestSuite(t *testing.T) {
 
 func (c *commandTestSuite) TestReadProfileData() {
 	t := c.T()
+	RestartSystemProbeTestServer(c)
+
 	u, err := url.Parse(c.tcpServer.URL)
 	require.NoError(t, err)
 	port := u.Port()
@@ -154,6 +164,8 @@ func (c *commandTestSuite) TestReadProfileData() {
 
 func (c *commandTestSuite) TestReadProfileDataNoTraceAgent() {
 	t := c.T()
+	RestartSystemProbeTestServer(c)
+
 	u, err := url.Parse(c.tcpServer.URL)
 	require.NoError(t, err)
 	port := u.Port()
@@ -217,6 +229,8 @@ func (c *commandTestSuite) TestReadProfileDataNoTraceAgent() {
 
 func (c *commandTestSuite) TestReadProfileDataErrors() {
 	t := c.T()
+	RestartSystemProbeTestServer(c)
+
 	mockConfig := configmock.New(t)
 	// setting Core Agent Expvar port to 0 to ensure failing on fetch (using the default value can lead to
 	// successful request when running next to an Agent)
@@ -226,9 +240,15 @@ func (c *commandTestSuite) TestReadProfileDataErrors() {
 	mockConfig.SetWithoutSource("process_config.enabled", true)
 	mockConfig.SetWithoutSource("process_config.expvar_port", 0)
 
+	mockSysProbeConfig := configmock.NewSystemProbe(t)
+	InjectConnectionFailures(mockSysProbeConfig, mockConfig)
+
 	data, err := readProfileData(10)
+
+	ClearConnectionFailures()
+
 	require.Error(t, err)
-	require.Regexp(t, "^4 errors occurred:\n", err.Error())
+	CheckExpectedConnectionFailures(c, err)
 	require.Len(t, data, 0)
 }
 
