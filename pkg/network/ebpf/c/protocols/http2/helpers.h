@@ -14,6 +14,10 @@ static __always_inline bool is_empty_frame_header(const char *frame) {
 
 // This function reads the http2 frame header and validate the frame.
 static __always_inline bool read_http2_frame_header(const char *buf, size_t buf_size, http2_frame_t *out) {
+    if (buf == NULL) {
+        return false;
+    }
+
     if (buf_size < HTTP2_FRAME_HEADER_SIZE) {
         return false;
     }
