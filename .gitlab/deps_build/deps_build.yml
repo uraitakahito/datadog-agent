@@ -78,7 +78,7 @@ build_clang_x64:
   tags: ["arch:amd64"]
   variables:
     ARCH: amd64
-    DEFAULT_TARGET: x86-64-unknown-linux-gnu
+    DEFAULT_TARGET: x86_64-unknown-linux-gnu
 
 build_clang_arm64:
   extends: .build_clang_common
