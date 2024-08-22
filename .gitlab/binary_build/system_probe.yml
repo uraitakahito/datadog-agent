@@ -21,6 +21,7 @@
     KUBERNETES_MEMORY_REQUEST: "6Gi"
     KUBERNETES_MEMORY_LIMIT: "12Gi"
     KUBERNETES_CPU_REQUEST: 6
+    DD_SYSPROBE_SKIP_CLANG_CHECK: "true"
   artifacts:
     expire_in: 2 weeks
     paths:
