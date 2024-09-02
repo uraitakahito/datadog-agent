@@ -466,6 +466,7 @@ func start(log log.Component,
 		}
 
 		admissionCtx := admissionpkg.ControllerContext{
+			Demultiplexer:       demultiplexer,
 			IsLeaderFunc:        le.IsLeader,
 			LeaderSubscribeFunc: le.Subscribe,
 			SecretInformers:     apiCl.CertificateSecretInformerFactory,

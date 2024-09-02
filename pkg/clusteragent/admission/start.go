@@ -11,6 +11,7 @@ package admission
 import (
 	"time"
 
+	"github.com/DataDog/datadog-agent/comp/aggregator/demultiplexer"
 	workloadmeta "github.com/DataDog/datadog-agent/comp/core/workloadmeta/def"
 	"github.com/DataDog/datadog-agent/pkg/clusteragent/admission/controllers/secret"
 	"github.com/DataDog/datadog-agent/pkg/clusteragent/admission/controllers/webhook"
@@ -27,6 +28,7 @@ import (
 
 // ControllerContext holds necessary context for the admission controllers
 type ControllerContext struct {
+	Demultiplexer       demultiplexer.Component
 	IsLeaderFunc        func() bool
 	LeaderSubscribeFunc func() <-chan struct{}
 	SecretInformers     informers.SharedInformerFactory
@@ -80,6 +82,7 @@ func StartControllers(ctx ControllerContext, wmeta workloadmeta.Component, pa wo
 		webhookConfig,
 		wmeta,
 		pa,
+		ctx.Demultiplexer,
 	)
 
 	go secretController.Run(ctx.StopCh)

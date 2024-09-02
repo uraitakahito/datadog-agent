@@ -22,8 +22,10 @@ import (
 	admiv1 "k8s.io/api/admission/v1"
 	admiv1beta1 "k8s.io/api/admission/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
@@ -41,16 +43,28 @@ const jsonContentType = "application/json"
 type Request struct {
 	// Raw is the raw request object
 	Raw []byte
+	// UID is the unique identifier of the AdmissionRequest
+	UID types.UID
 	// Name is the name of the object
 	Name string
 	// Namespace is the namespace of the object
 	Namespace string
+	// Kind is the kind of the object
+	Kind metav1.GroupVersionKind
+	// Resource is the resource of the object
+	Resource metav1.GroupVersionResource
+	// Operation is the operation of the request
+	Operation string
 	// UserInfo contains information about the requesting user
 	UserInfo *authenticationv1.UserInfo
 	// DynamicClient holds a dynamic Kubernetes client
 	DynamicClient dynamic.Interface
 	// APIClient holds a Kubernetes client
 	APIClient kubernetes.Interface
+}
+
+type AdmissionRequest struct {
+	UID types.UID
 }
 
 // WebhookFunc is the function that runs the webhook logic.
@@ -190,8 +204,12 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request, webhookName stri
 		admissionReview.SetGroupVersionKind(*gvk)
 		admissionRequest := Request{
 			Raw:           admissionReviewReq.Request.Object.Raw,
+			UID:           admissionReviewReq.Request.UID,
+			Kind:          admissionReviewReq.Request.Kind,
+			Resource:      admissionReviewReq.Request.Resource,
 			Name:          admissionReviewReq.Request.Name,
 			Namespace:     admissionReviewReq.Request.Namespace,
+			Operation:     string(admissionReviewReq.Request.Operation),
 			UserInfo:      &admissionReviewReq.Request.UserInfo,
 			DynamicClient: dc,
 			APIClient:     apiClient,
@@ -221,8 +239,12 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request, webhookName stri
 		admissionReview.SetGroupVersionKind(*gvk)
 		admissionRequest := Request{
 			Raw:           admissionReviewReq.Request.Object.Raw,
+			UID:           admissionReviewReq.Request.UID,
+			Kind:          admissionReviewReq.Request.Kind,
+			Resource:      admissionReviewReq.Request.Resource,
 			Name:          admissionReviewReq.Request.Name,
 			Namespace:     admissionReviewReq.Request.Namespace,
+			Operation:     string(admissionReviewReq.Request.Operation),
 			UserInfo:      &admissionReviewReq.Request.UserInfo,
 			DynamicClient: dc,
 			APIClient:     apiClient,

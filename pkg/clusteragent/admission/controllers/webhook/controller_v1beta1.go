@@ -9,6 +9,7 @@ package webhook
 
 import (
 	"context"
+	"github.com/DataDog/datadog-agent/comp/aggregator/demultiplexer"
 	"strings"
 	"time"
 
@@ -54,6 +55,7 @@ func NewControllerV1beta1(
 	config Config,
 	wmeta workloadmeta.Component,
 	pa workload.PodPatcher,
+	demultiplexer demultiplexer.Component,
 ) *ControllerV1beta1 {
 	controller := &ControllerV1beta1{}
 	controller.clientSet = client
@@ -67,7 +69,7 @@ func NewControllerV1beta1(
 	controller.queue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "webhooks")
 	controller.isLeaderFunc = isLeaderFunc
 	controller.isLeaderNotif = isLeaderNotif
-	controller.webhooks = controller.generateWebhooks(wmeta, pa)
+	controller.webhooks = controller.generateWebhooks(wmeta, pa, demultiplexer)
 	controller.generateTemplates()
 
 	if _, err := secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
