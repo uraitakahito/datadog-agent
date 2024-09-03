@@ -1,7 +1,7 @@
 ---
-# include:
+include:
 #   - .gitlab/.pre/cancel-prev-pipelines.yml
-#   - .gitlab/.pre/test_gitlab_configuration.yml
+  - .gitlab/.pre/test_gitlab_configuration.yml
 #   - .gitlab/benchmarks/include.yml
 #   - .gitlab/binary_build/include.yml
 #   - .gitlab/check_deploy/check_deploy.yml
@@ -258,6 +258,16 @@ variables:
   FF_SCRIPT_SECTIONS: 1 # Prevent multiline scripts log collapsing, see https://gitlab.com/gitlab-org/gitlab-runner/-/issues/3392
   FF_USE_NEW_BASH_EVAL_STRATEGY: 1
   FF_ENABLE_BASH_EXIT_CODE_CHECK: 1
+
+.setup_agent_github_app:
+  - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
+  - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $MACOS_GITHUB_APP_ID_SSM_NAME
+  - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $AGENT_GITHUB_APP_ID_SSM_NAME
+  - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $AGENT_GITHUB_INSTALLATION_ID_SSM_NAME
+  - export GITHUB_KEY_B64=$(pop_front)
+  - export GITHUB_APP_ID=$(pop_front)
+  - export GITHUB_INSTALLATION_ID=$(pop_front)
+  - echo "Using agent GitHub App"
 
 test_new_wrapper:
   stage: notify
