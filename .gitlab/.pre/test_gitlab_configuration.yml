@@ -25,7 +25,7 @@ test_gitlab_compare_to:
     - pip install -r tasks/requirements.txt
     - inv pipeline.compare-to-itself
 
-test_test:
+test_other:
   stage: .pre
   image: 486234852809.dkr.ecr.us-east-1.amazonaws.com/ci/datadog-agent-buildimages/deb_x64$DATADOG_AGENT_BUILDIMAGES_SUFFIX:$DATADOG_AGENT_BUILDIMAGES
   tags: ["arch:amd64"]
