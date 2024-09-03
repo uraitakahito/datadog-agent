@@ -47,6 +47,7 @@
 default:
   retry:
     max: 2
+    exit_codes: 42
     when:
       - runner_system_failure
       - stuck_or_timeout_failure
@@ -255,21 +256,24 @@ variables:
   RESTORE_CACHE_ATTEMPTS: 2
   # Feature flags
   FF_SCRIPT_SECTIONS: 1 # Prevent multiline scripts log collapsing, see https://gitlab.com/gitlab-org/gitlab-runner/-/issues/3392
+  FF_USE_NEW_BASH_EVAL_STRATEGY: 1
+  FF_ENABLE_BASH_EXIT_CODE_CHECK: 1
 
 test_new_wrapper:
   stage: notify
   image: 486234852809.dkr.ecr.us-east-1.amazonaws.com/ci/datadog-agent-buildimages/deb_x64$DATADOG_AGENT_BUILDIMAGES_SUFFIX:$DATADOG_AGENT_BUILDIMAGES
   tags: ["arch:amd64"]
   script:
+    - set +e
     - echo "Hello, World!"
     - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
     - echo secret >&3
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $DOCKER_REGISTRY_LOGIN_SSM_KEY
-    - EXIT_CODE=$?; if [ $EXIT_CODE -ne 0 ]; then exit $EXIT_CODE; fi
+    - echo $?
     - pop_front | tee >(echo "command --option1 \"$(pop_front)\" --option2-stdin")
-  after_script:
-    - echo "Goodbye" >&3
-    - head -n1 <&4
+      #after_script:
+      #- echo "Goodbye" >&3
+      #- head -n1 <&4
 
 test_windows:
   stage: notify
@@ -277,7 +281,6 @@ test_windows:
   before_script:
     - $tmpfile = [System.IO.Path]::GetTempFileName()
     - (& "$CI_PROJECT_DIR\tools\ci\aws_ssm_get_wrapper.ps1" "$Env:DOCKER_REGISTRY_LOGIN_SSM_KEY") > "$tmpfile"
-    - If ($lastExitCode -ne "0") { throw "Previous command returned $lastExitCode" }
     - $DOCKER_REGISTRY_LOGIN = $(& cat "$tmpfile")
     - echo $DOCKER_REGISTRY_LOGIN
   script:
@@ -297,7 +300,7 @@ test_windows:
       -e PY_RUNTIMES="3"
       486234852809.dkr.ecr.us-east-1.amazonaws.com/ci/datadog-agent-buildimages/windows_1809_x64${Env:DATADOG_AGENT_WINBUILDIMAGES_SUFFIX}:${Env:DATADOG_AGENT_WINBUILDIMAGES}
       c:\mnt\tasks\winbuildscripts\test.bat
-    - If ($lastExitCode -ne "0") { throw "Previous command returned $lastExitCode" }
+      #- If ($lastExitCode -ne "0") { throw "Previous command returned $lastExitCode" }
 #
 # Condition mixins for simplification of rules
 #

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set +e
+set -o pipefail
 retry_count=0
 max_retries=10
 parameter_name="$1"
@@ -14,7 +16,7 @@ while [[ $retry_count -lt $max_retries ]]; do
     error=$(<awsErrorFile)
     if [ -n "$result" ]; then
         echo "$result" >&3
-        exit 0
+        exit 42
     fi
     if [[ "$error" =~ "Unable to locate credentials" ]]; then
         # See 5th row in https://docs.google.com/spreadsheets/d/1JvdN0N-RdNEeOJKmW_ByjBsr726E3ZocCKU8QoYchAc

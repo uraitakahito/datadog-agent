@@ -21,3 +21,4 @@ while ($retryCount -lt $maxRetries) {
     $retryCount++
     Start-Sleep -Seconds ([math]::Pow(2, $retryCount))
 }
+exit 42
