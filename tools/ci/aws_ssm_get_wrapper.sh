@@ -16,7 +16,7 @@ while [[ $retry_count -lt $max_retries ]]; do
     error=$(<awsErrorFile)
     if [ -n "$result" ]; then
         echo "$result" >&3
-        exit 42
+        exit 0
     fi
     if [[ "$error" =~ "Unable to locate credentials" ]]; then
         # See 5th row in https://docs.google.com/spreadsheets/d/1JvdN0N-RdNEeOJKmW_ByjBsr726E3ZocCKU8QoYchAc
