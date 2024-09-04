@@ -1,5 +1,5 @@
 ---
- include:
+#  include:
 #   - .gitlab/.pre/cancel-prev-pipelines.yml
 #   - .gitlab/.pre/test_gitlab_configuration.yml
 #   - .gitlab/benchmarks/include.yml
@@ -40,7 +40,7 @@
 #   - .gitlab/package_deps_build/package_deps_build.yml
 #   - .gitlab/pkg_metrics/pkg_metrics.yml
 #   - .gitlab/post_rc_build/post_rc_tasks.yml
-  - .gitlab/setup/setup.yml
+#   - .gitlab/setup/setup.yml
 #   - .gitlab/source_test/include.yml
 #   - .gitlab/trigger_release/trigger_release.yml
 
@@ -290,11 +290,21 @@ test_windows:
   tags: ["runner:windows-docker", "windowsversion:1809"]
   before_script:
     - $tmpfile = [System.IO.Path]::GetTempFileName()
-    - (& "$CI_PROJECT_DIR\tools\ci\aws_ssm_get_wrapper.ps1" "$Env:DOCKER_REGISTRY_LOGIN_SSM_KEY") > "$tmpfile"
+    - (& "$CI_PROJECT_DIR\tools\ci\aws_ssm_get_wrapper.ps1" "$Env:DOCKER_REGISTRY_LOGIN_SSM_KEY" "$tmpfile") || throw "Returned $lastExitCode"
     - $DOCKER_REGISTRY_LOGIN = $(& cat "$tmpfile")
     - echo $DOCKER_REGISTRY_LOGIN
   script:
     - $ErrorActionPreference = "Stop"
+    - echo "UN"
+    - $tmpfile = [System.IO.Path]::GetTempFileName()
+    - (& "$CI_PROJECT_DIR\tools\ci\aws_ssm_get_wrapper.ps1" "$Env:DOCKER_REGISTRY_LOGIN_SSM_KEY" "$tmpfile")
+    - $DOCKER_REGISTRY_LOGIN = $(& cat "$tmpfile")
+    - echo $DOCKER_REGISTRY_LOGIN
+    - echo "DEUX"
+    - $tmpfile = [System.IO.Path]::GetTempFileName()
+    - (& "$CI_PROJECT_DIR\tools\ci\aws_ssm_get_wrapper.ps1" "$Env:DOCKER_REGISTRY_LOGIN_SSM_KEY" "$tmpfile") || throw "Returned $lastExitCode"
+    - $DOCKER_REGISTRY_LOGIN = $(& cat "$tmpfile")
+    - echo $DOCKER_REGISTRY_LOGIN
     - '$_instance_id = (iwr  -UseBasicParsing http://169.254.169.254/latest/meta-data/instance-id).content ; Write-Host "Running on instance $($_instance_id)"'
     - >
       docker run --rm
