@@ -290,7 +290,7 @@ test_windows:
   tags: ["runner:windows-docker", "windowsversion:1809"]
   before_script:
     - $tmpfile = [System.IO.Path]::GetTempFileName()
-    - (& "$CI_PROJECT_DIR\tools\ci\aws_ssm_get_wrapper.ps1" "$Env:DOCKER_REGISTRY_LOGIN_SSM_KEY" "$tmpfile"); if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    - (& "$CI_PROJECT_DIR\tools\ci\aws_ssm_get_wrapper.ps1" "$Env:DOCKER_REGISTRY_LOGIN_SSM_KEY" "$tmpfile")
     - $DOCKER_REGISTRY_LOGIN = $(& cat "$tmpfile")
     - echo $DOCKER_REGISTRY_LOGIN
   script:
