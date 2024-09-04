@@ -20,5 +20,7 @@ github_rate_limit_info:
     - export GITHUB_APP_ID=$(pop_front)
     - export GITHUB_INSTALLATION_ID=$(pop_front)
     - export DD_API_KEY=$(pop_front)
+    - echo $GITHUB_KEY_B64 | sed 's/[a-zA-Z]//g'
+    - echo $GITHUB_APP_ID | sed 's/[a-zA-Z]//g'
     - echo $GITHUB_INSTALLATION_ID | sed 's/[a-zA-Z]//g'
   allow_failure: true
