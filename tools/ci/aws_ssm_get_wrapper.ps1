@@ -11,7 +11,7 @@ while ($retryCount -lt $maxRetries) {
     $error = Get-Content awsErrorFile.txt
     if ($result) {
         echo $result > "$tempFileName"
-        exit 0
+        exit 42
     }
     if ($error -match "Unable to locate credentials") {
         # See 5th row in https://docs.google.com/spreadsheets/d/1JvdN0N-RdNEeOJKmW_ByjBsr726E3ZocCKU8QoYchAc
