@@ -290,7 +290,7 @@ test_windows:
   tags: ["runner:windows-docker", "windowsversion:1809"]
   before_script:
     - $tmpfile = [System.IO.Path]::GetTempFileName()
-    - (& "$CI_PROJECT_DIR\tools\ci\aws_ssm_get_wrapper.ps1" "$Env:DOCKER_REGISTRY_LOGIN_SSM_KEY" "$tmpfile") || throw "Returned $lastExitCode"
+    - (& "$CI_PROJECT_DIR\tools\ci\aws_ssm_get_wrapper.ps1" "$Env:DOCKER_REGISTRY_LOGIN_SSM_KEY" "$tmpfile"); if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     - $DOCKER_REGISTRY_LOGIN = $(& cat "$tmpfile")
     - echo $DOCKER_REGISTRY_LOGIN
   script:
@@ -302,7 +302,7 @@ test_windows:
     - echo $DOCKER_REGISTRY_LOGIN
     - echo "DEUX"
     - $tmpfile = [System.IO.Path]::GetTempFileName()
-    - (& "$CI_PROJECT_DIR\tools\ci\aws_ssm_get_wrapper.ps1" "$Env:DOCKER_REGISTRY_LOGIN_SSM_KEY" "$tmpfile") || throw "Returned $lastExitCode"
+    - (& "$CI_PROJECT_DIR\tools\ci\aws_ssm_get_wrapper.ps1" "$Env:DOCKER_REGISTRY_LOGIN_SSM_KEY" "$tmpfile"); if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     - $DOCKER_REGISTRY_LOGIN = $(& cat "$tmpfile")
     - echo $DOCKER_REGISTRY_LOGIN
     - '$_instance_id = (iwr  -UseBasicParsing http://169.254.169.254/latest/meta-data/instance-id).content ; Write-Host "Running on instance $($_instance_id)"'
