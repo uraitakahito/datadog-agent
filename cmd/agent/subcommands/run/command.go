@@ -328,14 +328,7 @@ func run(log log.Component,
 
 func getSharedFxOption() fx.Option {
 	return fx.Options(
-		flare.Module(flare.NewParams(
-			defaultpaths.GetDistPath(),
-			defaultpaths.PyChecksPath,
-			defaultpaths.LogFile,
-			defaultpaths.JmxLogFile,
-			defaultpaths.DogstatsDLogFile,
-			defaultpaths.StreamlogsLogFile,
-		)),
+		flare.Module(flare.NewParams()),
 		core.Bundle(),
 		lsof.Module(),
 		forwarder.BundleWithProvider(func(config config.Component, log log.Component) defaultforwarder.Params {

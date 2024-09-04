@@ -11,7 +11,9 @@ import (
 	"errors"
 
 	"github.com/DataDog/datadog-agent/comp/core/config"
+	flaretypes "github.com/DataDog/datadog-agent/comp/core/flare/types"
 	logdef "github.com/DataDog/datadog-agent/comp/core/log/def"
+	"github.com/DataDog/datadog-agent/comp/core/log/internal/flareprovider"
 	compdef "github.com/DataDog/datadog-agent/comp/def"
 	pkglog "github.com/DataDog/datadog-agent/pkg/util/log"
 	pkglogsetup "github.com/DataDog/datadog-agent/pkg/util/log/setup"
@@ -42,7 +44,8 @@ type Requires struct {
 
 // Provides defines the output of the log component
 type Provides struct {
-	Comp logdef.Component
+	Comp          logdef.Component
+	FlareProvider flaretypes.Provider
 }
 
 // NewComponent creates a log.Component using the provided config
@@ -70,5 +73,8 @@ func NewComponent(deps Requires) (Provides, error) {
 		return nil
 	}})
 
-	return Provides{Comp: l}, nil
+	return Provides{
+		Comp:          l,
+		FlareProvider: flareprovider.NewLogFlareProvider(deps.Config, l),
+	}, nil
 }

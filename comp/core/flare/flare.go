@@ -64,7 +64,7 @@ type provides struct {
 type flare struct {
 	log          log.Component
 	config       config.Component
-	params       Params
+	local        bool
 	providers    []types.FlareCallback
 	diagnoseDeps diagnose.SuitesDeps
 }
@@ -74,7 +74,7 @@ func newFlare(deps dependencies) provides {
 	f := &flare{
 		log:          deps.Log,
 		config:       deps.Config,
-		params:       deps.Params,
+		local:        deps.Params.local,
 		providers:    fxutil.GetAndFilterGroup(deps.Providers),
 		diagnoseDeps: diagnoseDeps,
 	}
@@ -155,7 +155,7 @@ func (f *flare) Send(flarePath string, caseID string, email string, source helpe
 
 // Create creates a new flare and returns the path to the final archive file.
 func (f *flare) Create(pdata ProfileData, ipcError error) (string, error) {
-	fb, err := helpers.NewFlareBuilder(f.params.local)
+	fb, err := helpers.NewFlareBuilder(f.local)
 	if err != nil {
 		return "", err
 	}
@@ -181,8 +181,6 @@ func (f *flare) Create(pdata ProfileData, ipcError error) (string, error) {
 		func(fb types.FlareBuilder) error {
 			return pkgFlare.CompleteFlare(fb, f.diagnoseDeps)
 		},
-		f.collectLogsFiles,
-		f.collectConfigFiles,
 	)
 
 	for _, p := range providers {

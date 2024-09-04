@@ -107,14 +107,7 @@ func Commands(globalParams *command.GlobalParams) []*cobra.Command {
 					SysprobeConfigParams: sysprobeconfigimpl.NewParams(sysprobeconfigimpl.WithSysProbeConfFilePath(globalParams.SysProbeConfFilePath), sysprobeconfigimpl.WithFleetPoliciesDirPath(globalParams.FleetPoliciesDirPath)),
 					LogParams:            log.ForOneShot(command.LoggerName, "off", false),
 				}),
-				flare.Module(flare.NewLocalParams(
-					defaultpaths.GetDistPath(),
-					defaultpaths.PyChecksPath,
-					defaultpaths.LogFile,
-					defaultpaths.JmxLogFile,
-					defaultpaths.DogstatsDLogFile,
-					defaultpaths.StreamlogsLogFile,
-				)),
+				flare.Module(flare.NewLocalParams()),
 				// workloadmeta setup
 				wmcatalog.GetCatalog(),
 				workloadmetafx.Module(workloadmeta.Params{

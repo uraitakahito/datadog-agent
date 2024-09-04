@@ -9,6 +9,9 @@ package collectorimpl
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +23,7 @@ import (
 	"github.com/DataDog/datadog-agent/comp/collector/collector"
 	"github.com/DataDog/datadog-agent/comp/collector/collector/collectorimpl/internal/middleware"
 	"github.com/DataDog/datadog-agent/comp/core/config"
+	flaretypes "github.com/DataDog/datadog-agent/comp/core/flare/types"
 	log "github.com/DataDog/datadog-agent/comp/core/log/def"
 	"github.com/DataDog/datadog-agent/comp/core/status"
 	metadata "github.com/DataDog/datadog-agent/comp/metadata/runner/runnerimpl"
@@ -32,6 +36,7 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/collector/scheduler"
 	"github.com/DataDog/datadog-agent/pkg/serializer"
 	collectorStatus "github.com/DataDog/datadog-agent/pkg/status/collector"
+	"github.com/DataDog/datadog-agent/pkg/util/defaultpaths"
 	"github.com/DataDog/datadog-agent/pkg/util/fxutil"
 	"github.com/DataDog/datadog-agent/pkg/util/optional"
 )
@@ -40,6 +45,9 @@ const (
 	stopped uint32 = iota
 	started
 )
+
+// Match .yaml and .yml to ship configuration files in the flare.
+var cnfFileExtRx = regexp.MustCompile(`(?i)\.ya?ml`)
 
 type dependencies struct {
 	fx.In
@@ -81,6 +89,7 @@ type provides struct {
 	StatusProvider   status.InformationProvider
 	MetadataProvider metadata.Provider
 	APIGetPyStatus   api.AgentEndpointProvider
+	FlareProvider    flaretypes.Provider
 }
 
 // Module defines the fx options for this component.
@@ -106,6 +115,7 @@ func newProvides(deps dependencies) provides {
 		StatusProvider:   status.NewInformationProvider(collectorStatus.Provider{}),
 		MetadataProvider: agentCheckMetadata,
 		APIGetPyStatus:   api.NewAgentEndpointProvider(getPythonStatus, "/py/status", "GET"),
+		FlareProvider:    flaretypes.NewProvider(c.fillFlare),
 	}
 }
 
@@ -130,6 +140,35 @@ func newCollector(deps dependencies) *collectorImpl {
 	})
 
 	return c
+}
+
+func getFirstSuffix(s string) string {
+	return filepath.Ext(strings.TrimSuffix(s, filepath.Ext(s)))
+}
+
+func (c *collectorImpl) fillFlare(fb flaretypes.FlareBuilder) error {
+	confSearchPaths := map[string]string{
+		"":        c.config.GetString("confd_path"),
+		"dist":    filepath.Join(defaultpaths.GetDistPath(), "conf.d"),
+		"checksd": defaultpaths.PyChecksPath,
+	}
+
+	for prefix, filePath := range confSearchPaths {
+		fb.CopyDirTo(filePath, filepath.Join("etc", "confd", prefix), func(path string) bool {
+			// ignore .example file
+			if filepath.Ext(path) == ".example" {
+				return false
+			}
+
+			firstSuffix := []byte(getFirstSuffix(path))
+			ext := []byte(filepath.Ext(path))
+			if cnfFileExtRx.Match(firstSuffix) || cnfFileExtRx.Match(ext) {
+				return true
+			}
+			return false
+		})
+	}
+	return nil
 }
 
 // AddEventReceiver adds a callback to the collector to be called each time a check is added or removed.
