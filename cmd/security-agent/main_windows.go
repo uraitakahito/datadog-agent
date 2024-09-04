@@ -13,9 +13,6 @@ import (
 	"os"
 	"path"
 
-	"go.uber.org/fx"
-
-	commonpath "github.com/DataDog/datadog-agent/cmd/agent/common/path"
 	"github.com/DataDog/datadog-agent/cmd/internal/runcmd"
 	"github.com/DataDog/datadog-agent/cmd/security-agent/command"
 	saconfig "github.com/DataDog/datadog-agent/cmd/security-agent/config"
@@ -45,12 +42,14 @@ import (
 	"github.com/DataDog/datadog-agent/comp/dogstatsd/statsd"
 	"github.com/DataDog/datadog-agent/comp/metadata/host/hostimpl"
 	commonsettings "github.com/DataDog/datadog-agent/pkg/config/settings"
+	"go.uber.org/fx"
 
 	"github.com/DataDog/datadog-agent/pkg/collector/python"
 	"github.com/DataDog/datadog-agent/pkg/config/setup"
 	"github.com/DataDog/datadog-agent/pkg/security/agent"
 	"github.com/DataDog/datadog-agent/pkg/security/utils"
 
+	"github.com/DataDog/datadog-agent/pkg/util/defaultpaths"
 	"github.com/DataDog/datadog-agent/pkg/util/fxutil"
 	"github.com/DataDog/datadog-agent/pkg/util/optional"
 	"github.com/DataDog/datadog-agent/pkg/util/startstop"
@@ -63,10 +62,10 @@ type service struct {
 
 var (
 	defaultSecurityAgentConfigFilePaths = []string{
-		path.Join(commonpath.DefaultConfPath, "datadog.yaml"),
-		path.Join(commonpath.DefaultConfPath, "security-agent.yaml"),
+		path.Join(defaultpaths.ConfPath, "datadog.yaml"),
+		path.Join(defaultpaths.ConfPath, "security-agent.yaml"),
 	}
-	defaultSysProbeConfPath = path.Join(commonpath.DefaultConfPath, "system-probe.yaml")
+	defaultSysProbeConfPath = path.Join(defaultpaths.ConfPath, "system-probe.yaml")
 )
 
 // Name returns the service name

@@ -13,9 +13,6 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/gorilla/mux"
-
-	"github.com/DataDog/datadog-agent/cmd/agent/common/path"
 	"github.com/DataDog/datadog-agent/cmd/agent/common/signals"
 	"github.com/DataDog/datadog-agent/comp/core/autodiscovery"
 	"github.com/DataDog/datadog-agent/comp/core/settings"
@@ -25,10 +22,12 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/config"
 	"github.com/DataDog/datadog-agent/pkg/flare"
 	"github.com/DataDog/datadog-agent/pkg/status/health"
+	"github.com/DataDog/datadog-agent/pkg/util/defaultpaths"
 	"github.com/DataDog/datadog-agent/pkg/util/hostname"
 	httputils "github.com/DataDog/datadog-agent/pkg/util/http"
 	"github.com/DataDog/datadog-agent/pkg/util/log"
 	"github.com/DataDog/datadog-agent/pkg/version"
+	"github.com/gorilla/mux"
 )
 
 // SetupHandlers adds the specific handlers for cluster agent endpoints
@@ -146,9 +145,9 @@ func makeFlare(w http.ResponseWriter, r *http.Request, statusComponent status.Co
 
 	logFile := config.Datadog().GetString("log_file")
 	if logFile == "" {
-		logFile = path.DefaultDCALogFile
+		logFile = defaultpaths.DCALogFile
 	}
-	filePath, err := flare.CreateDCAArchive(false, path.GetDistPath(), logFile, profile, statusComponent)
+	filePath, err := flare.CreateDCAArchive(false, defaultpaths.GetDistPath(), logFile, profile, statusComponent)
 	if err != nil || filePath == "" {
 		if err != nil {
 			log.Errorf("The flare failed to be created: %s", err)

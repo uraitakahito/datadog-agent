@@ -18,9 +18,6 @@ import (
 	"syscall"
 	"time"
 
-	"gopkg.in/yaml.v2"
-
-	"github.com/DataDog/datadog-agent/cmd/agent/common/path"
 	"github.com/DataDog/datadog-agent/comp/agent/jmxlogger"
 	"github.com/DataDog/datadog-agent/comp/core/autodiscovery/integration"
 	dogstatsdServer "github.com/DataDog/datadog-agent/comp/dogstatsd/server"
@@ -28,7 +25,9 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/config"
 	"github.com/DataDog/datadog-agent/pkg/status/health"
 	jmxStatus "github.com/DataDog/datadog-agent/pkg/status/jmx"
+	"github.com/DataDog/datadog-agent/pkg/util/defaultpaths"
 	"github.com/DataDog/datadog-agent/pkg/util/log"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -187,7 +186,7 @@ func (j *JMXFetch) setDefaults() {
 func (j *JMXFetch) Start(manage bool) error {
 	j.setDefaults()
 
-	classpath := filepath.Join(path.GetDistPath(), "jmx", jmxJarName)
+	classpath := filepath.Join(defaultpaths.GetDistPath(), "jmx", jmxJarName)
 	if j.JavaToolsJarPath != "" {
 		classpath = fmt.Sprintf("%s%s%s", j.JavaToolsJarPath, string(os.PathListSeparator), classpath)
 	}
