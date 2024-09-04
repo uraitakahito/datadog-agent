@@ -24,7 +24,6 @@ replace (
 )
 
 replace (
-	github.com/DataDog/datadog-agent/cmd/agent/common/path => ./cmd/agent/common/path/
 	github.com/DataDog/datadog-agent/comp/api/api/def => ./comp/api/api/def/
 	github.com/DataDog/datadog-agent/comp/core/config => ./comp/core/config/
 	github.com/DataDog/datadog-agent/comp/core/flare/builder => ./comp/core/flare/builder
@@ -112,6 +111,7 @@ replace (
 	github.com/DataDog/datadog-agent/pkg/util/cgroups => ./pkg/util/cgroups
 	github.com/DataDog/datadog-agent/pkg/util/common => ./pkg/util/common
 	github.com/DataDog/datadog-agent/pkg/util/containers/image => ./pkg/util/containers/image
+	github.com/DataDog/datadog-agent/pkg/util/defaultpaths => ./pkg/util/defaultpaths/
 	github.com/DataDog/datadog-agent/pkg/util/executable => ./pkg/util/executable
 	github.com/DataDog/datadog-agent/pkg/util/filesystem => ./pkg/util/filesystem
 	github.com/DataDog/datadog-agent/pkg/util/flavor => ./pkg/util/flavor
@@ -596,6 +596,7 @@ require (
 )
 
 require (
+	github.com/DataDog/datadog-agent/cmd/agent/common/path v0.56.2
 	github.com/DataDog/datadog-agent/comp/core/tagger/utils v0.56.2
 	github.com/DataDog/datadog-agent/comp/otelcol/ddflareextension/def v0.56.0-rc.3
 	github.com/DataDog/datadog-agent/comp/otelcol/ddflareextension/impl v0.0.0-00010101000000-000000000000
@@ -610,7 +611,6 @@ require (
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/DataDog/agent-payload/v5 v5.0.130
-	github.com/DataDog/datadog-agent/cmd/agent/common/path v0.56.0-rc.3
 	github.com/DataDog/datadog-agent/comp/api/api/def v0.56.0-rc.3
 	github.com/DataDog/datadog-agent/comp/core/config v0.56.0-rc.3
 	github.com/DataDog/datadog-agent/comp/core/flare/types v0.56.0-rc.3
