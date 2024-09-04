@@ -1,5 +1,5 @@
 ---
-#  include:
+ include:
 #   - .gitlab/.pre/cancel-prev-pipelines.yml
 #   - .gitlab/.pre/test_gitlab_configuration.yml
 #   - .gitlab/benchmarks/include.yml
@@ -40,7 +40,7 @@
 #   - .gitlab/package_deps_build/package_deps_build.yml
 #   - .gitlab/pkg_metrics/pkg_metrics.yml
 #   - .gitlab/post_rc_build/post_rc_tasks.yml
-#   - .gitlab/setup/setup.yml
+  - .gitlab/setup/setup.yml
 #   - .gitlab/source_test/include.yml
 #   - .gitlab/trigger_release/trigger_release.yml
 
@@ -194,7 +194,7 @@ variables:
   # List of parameters retrieved from AWS SSM
   # They must be defined as environment variables in the GitLab CI/CD settings, to ease rotation if needed
   AGENT_QA_PROFILE_SSM_NAME: ci.datadog-agent.agent-qa-profile  # agent-devx-infra
-  API_KEY_ORG2_SSM_NAME: ci.datadog-agent.datadog_api_key_org2  # agent-devx-infra
+  API_KEY_ORG2: ci.datadog-agent.datadog_api_key_org2  # agent-devx-infra
   API_KEY_DDDEV_SSM_NAME: ci.datadog-agent.datadog_api_key  # agent-devx-infra
   APP_KEY_ORG2_SSM_NAME: ci.datadog-agent.datadog_app_key_org2  # agent-devx-infra
   CHANGELOG_COMMIT_SHA_SSM_NAME: ci.datadog-agent.gitlab_changelog_commit_sha  # agent-devx-infra
@@ -227,9 +227,9 @@ variables:
   AGENT_GITHUB_APP_ID_SSM_NAME: ci.datadog-agent.platform-github-app-id  # agent-devx-infra
   AGENT_GITHUB_INSTALLATION_ID_SSM_NAME: ci.datadog-agent.platform-github-app-installation-id  # agent-devx-infra
   AGENT_GITHUB_KEY_SSM_NAME: ci.datadog-agent.platform-github-app-key  # agent-devx-infra
-  MACOS_GITHUB_APP_ID_SSM_NAME: ci.datadog-agent.macos_github_app_id  # agent-devx-infra
-  MACOS_GITHUB_INSTALLATION_ID_SSM_NAME: ci.datadog-agent.macos_github_installation_id  # agent-devx-infra
-  MACOS_GITHUB_KEY_SSM_NAME: ci.datadog-agent.macos_github_key_b64  # agent-devx-infra
+  MACOS_GITHUB_APP_ID: ci.datadog-agent.macos_github_app_id  # agent-devx-infra
+  MACOS_GITHUB_INSTALLATION_ID: ci.datadog-agent.macos_github_installation_id  # agent-devx-infra
+  MACOS_GITHUB_KEY: ci.datadog-agent.macos_github_key_b64  # agent-devx-infra
   MACOS_GITHUB_APP_ID_2_SSM_NAME: ci.datadog-agent.macos_github_app_id_2  # agent-devx-infra
   MACOS_GITHUB_INSTALLATION_ID_2_SSM_NAME: ci.datadog-agent.macos_github_installation_id_2  # agent-devx-infra
   MACOS_GITHUB_KEY_2_SSM_NAME: ci.datadog-agent.macos_github_key_b64_2  # agent-devx-infra
@@ -278,9 +278,8 @@ test_new_wrapper:
     - echo "Hello, World!"
     - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
     - echo secret >&3
-    - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $DOCKER_REGISTRY_LOGIN_SSM_KEY
+    - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $DOCKER_REGISTRY_LOGIN_SSM_KEY || exit $?
     - echo $?
-    - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh ci.datadog-agent.nicolas || exit $?
     - pop_front | tee >(echo "command --option1 \"$(pop_front)\" --option2-stdin")
       #after_script:
       #- echo "Goodbye" >&3
