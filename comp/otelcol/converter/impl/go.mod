@@ -52,7 +52,6 @@ require (
 )
 
 require (
-	github.com/DataDog/datadog-agent/comp/api/authtoken v0.0.0-00010101000000-000000000000 // indirect
 	github.com/DataDog/datadog-agent/comp/core/flare/builder v0.56.0 // indirect
 	github.com/DataDog/datadog-agent/comp/core/flare/types v0.56.0 // indirect
 	github.com/DataDog/datadog-agent/comp/core/secrets v0.56.0 // indirect

@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 
-	apiauth "github.com/DataDog/datadog-agent/comp/api/authtoken"
 	configstore "github.com/DataDog/datadog-agent/comp/otelcol/configstore/def"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/confighttp"
@@ -34,8 +33,6 @@ type Config struct {
 	HTTPConfig *confighttp.ServerConfig `mapstructure:",squash"`
 
 	ConfigStore configstore.Component
-
-	authtoken apiauth.Component
 }
 
 var _ component.Config = (*Config)(nil)
