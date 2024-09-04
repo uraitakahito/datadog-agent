@@ -3,7 +3,6 @@ module github.com/DataDog/datadog-agent/pkg/serializer
 go 1.22.0
 
 replace (
-	github.com/DataDog/datadog-agent/cmd/agent/common/path => ../../cmd/agent/common/path
 	github.com/DataDog/datadog-agent/comp/api/api/def => ../../comp/api/api/def
 	github.com/DataDog/datadog-agent/comp/core/config => ../../comp/core/config
 	github.com/DataDog/datadog-agent/comp/core/flare/builder => ../../comp/core/flare/builder
@@ -39,6 +38,7 @@ replace (
 	github.com/DataDog/datadog-agent/pkg/util/backoff => ../util/backoff/
 	github.com/DataDog/datadog-agent/pkg/util/buf => ../util/buf/
 	github.com/DataDog/datadog-agent/pkg/util/common => ../util/common
+	github.com/DataDog/datadog-agent/pkg/util/defaultpaths => ../../pkg/util/defaultpaths
 	github.com/DataDog/datadog-agent/pkg/util/executable => ../util/executable/
 	github.com/DataDog/datadog-agent/pkg/util/filesystem => ../util/filesystem/
 	github.com/DataDog/datadog-agent/pkg/util/fxutil => ../util/fxutil/

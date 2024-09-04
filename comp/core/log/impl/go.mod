@@ -48,7 +48,7 @@ replace github.com/DataDog/datadog-agent/pkg/util/fxutil => ../../../../pkg/util
 
 replace github.com/DataDog/datadog-agent/pkg/util/executable => ../../../../pkg/util/executable
 
-replace github.com/DataDog/datadog-agent/cmd/agent/common/path => ../../../../cmd/agent/common/path
+replace github.com/DataDog/datadog-agent/pkg/util/defaultpaths => ../../../../pkg/util/defaultpaths
 
 replace github.com/DataDog/datadog-agent/comp/api/api/def => ../../../../comp/api/api/def
 
