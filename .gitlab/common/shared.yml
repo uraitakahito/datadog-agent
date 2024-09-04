@@ -42,9 +42,13 @@
     fi
 
 .setup_agent_github_app:
-  - export GITHUB_KEY_B64=$($CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $AGENT_GITHUB_KEY_SSM_NAME)
-  - export GITHUB_APP_ID=$($CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $AGENT_GITHUB_APP_ID_SSM_NAME)
-  - export GITHUB_INSTALLATION_ID=$($CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $AGENT_GITHUB_INSTALLATION_ID_SSM_NAME)
+  - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
+  - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $AGENT_GITHUB_KEY
+  - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $AGENT_GITHUB_APP_ID
+  - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $AGENT_GITHUB_INSTALLATION_ID
+  - export GITHUB_KEY_B64=$(pop_front)
+  - export GITHUB_APP_ID=$(pop_front)
+  - export GITHUB_INSTALLATION_ID=$(pop_front)
   - echo "Using agent GitHub App"
 
 # Install `dd-pkg` and lint packages produced by Omnibus, supports only deb and rpm packages

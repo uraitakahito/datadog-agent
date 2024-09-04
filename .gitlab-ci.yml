@@ -1,7 +1,7 @@
 ---
-include:
+#  include:
 #   - .gitlab/.pre/cancel-prev-pipelines.yml
-  - .gitlab/.pre/test_gitlab_configuration.yml
+#   - .gitlab/.pre/test_gitlab_configuration.yml
 #   - .gitlab/benchmarks/include.yml
 #   - .gitlab/binary_build/include.yml
 #   - .gitlab/check_deploy/check_deploy.yml
@@ -280,6 +280,7 @@ test_new_wrapper:
     - echo secret >&3
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $DOCKER_REGISTRY_LOGIN_SSM_KEY
     - echo $?
+    - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh ci.datadog-agent.nicolas || exit $?
     - pop_front | tee >(echo "command --option1 \"$(pop_front)\" --option2-stdin")
       #after_script:
       #- echo "Goodbye" >&3
