@@ -186,7 +186,7 @@
   tags: ["arch:amd64"]
   before_script:
     - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
-    - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $GITLAB_SCHEDULER_TOKEN || exit $?
+    - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $GITLAB_SCHEDULER_TOKEN_SSM_NAME || exit $?
     - export GITLAB_TOKEN=$(pop_ssm)
     - !reference [.kmt_new_profile]
   script:
