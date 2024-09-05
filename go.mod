@@ -620,7 +620,7 @@ require (
 	github.com/DataDog/datadog-agent/comp/core/log/def v0.58.0-devel
 	github.com/DataDog/datadog-agent/comp/core/log/impl v0.0.0-00010101000000-000000000000
 	github.com/DataDog/datadog-agent/comp/core/log/impl-trace v0.0.0-00010101000000-000000000000
-	github.com/DataDog/datadog-agent/comp/core/log/mock v0.0.0-00010101000000-000000000000
+	github.com/DataDog/datadog-agent/comp/core/log/mock v0.58.0-devel
 	github.com/DataDog/datadog-agent/comp/core/secrets v0.56.2
 	github.com/DataDog/datadog-agent/comp/core/status v0.56.0-rc.3
 	github.com/DataDog/datadog-agent/comp/core/status/statusimpl v0.56.0-rc.3
@@ -650,14 +650,14 @@ require (
 	github.com/DataDog/datadog-agent/comp/trace/compression/impl-gzip v0.56.0-rc.3
 	github.com/DataDog/datadog-agent/comp/trace/compression/impl-zstd v0.56.0-rc.3
 	github.com/DataDog/datadog-agent/pkg/aggregator/ckey v0.56.0-rc.3
-	github.com/DataDog/datadog-agent/pkg/api v0.56.0-rc.3
+	github.com/DataDog/datadog-agent/pkg/api v0.56.0
 	github.com/DataDog/datadog-agent/pkg/collector/check/defaults v0.56.2
 	github.com/DataDog/datadog-agent/pkg/config/env v0.56.2
 	github.com/DataDog/datadog-agent/pkg/config/mock v0.58.0-devel
 	github.com/DataDog/datadog-agent/pkg/config/model v0.56.2
 	github.com/DataDog/datadog-agent/pkg/config/remote v0.56.0-rc.3
 	github.com/DataDog/datadog-agent/pkg/config/setup v0.56.2
-	github.com/DataDog/datadog-agent/pkg/config/utils v0.56.0-rc.3
+	github.com/DataDog/datadog-agent/pkg/config/utils v0.56.0
 	github.com/DataDog/datadog-agent/pkg/errors v0.56.0-rc.3
 	github.com/DataDog/datadog-agent/pkg/logs/auditor v0.56.0-rc.3
 	github.com/DataDog/datadog-agent/pkg/logs/client v0.56.0-rc.3
@@ -703,7 +703,7 @@ require (
 	github.com/DataDog/datadog-agent/pkg/util/testutil v0.56.0-rc.3
 	github.com/DataDog/datadog-agent/pkg/util/uuid v0.56.0-rc.3
 	github.com/DataDog/datadog-agent/pkg/util/winutil v0.56.2
-	github.com/DataDog/datadog-agent/pkg/version v0.56.0-rc.3
+	github.com/DataDog/datadog-agent/pkg/version v0.56.0
 	github.com/DataDog/go-libddwaf/v3 v3.3.0
 	github.com/DataDog/go-sqllexer v0.0.14
 	github.com/Datadog/dublin-traceroute v0.0.1
