@@ -3,6 +3,8 @@ module github.com/DataDog/datadog-agent/comp/otelcol/ddflareextension/impl
 go 1.22.0
 
 replace (
+	github.com/DataDog/datadog-agent/cmd/agent/common/path => ../../../../cmd/agent/common/path
+	github.com/DataDog/datadog-agent/comp/api/api/def => ../../../api/api/def
 	github.com/DataDog/datadog-agent/comp/api/authtoken => ../../../api/authtoken
 	github.com/DataDog/datadog-agent/comp/core/config => ../../../core/config
 	github.com/DataDog/datadog-agent/comp/core/flare/builder => ../../../core/flare/builder
@@ -24,6 +26,7 @@ replace (
 	github.com/DataDog/datadog-agent/comp/trace/compression/def => ../../../trace/compression/def
 	github.com/DataDog/datadog-agent/comp/trace/compression/impl-gzip => ../../../trace/compression/impl-gzip
 	github.com/DataDog/datadog-agent/comp/trace/compression/impl-zstd => ../../../trace/compression/impl-zstd
+	github.com/DataDog/datadog-agent/pkg/api => ../../../../pkg/api
 	github.com/DataDog/datadog-agent/pkg/collector/check/defaults => ../../../../pkg/collector/check/defaults
 	github.com/DataDog/datadog-agent/pkg/config/env => ../../../../pkg/config/env
 	github.com/DataDog/datadog-agent/pkg/config/mock => ../../../../pkg/config/mock
@@ -63,6 +66,7 @@ replace (
 	github.com/DataDog/datadog-agent/pkg/util/statstracker => ../../../../pkg/util/statstracker
 	github.com/DataDog/datadog-agent/pkg/util/system => ../../../../pkg/util/system
 	github.com/DataDog/datadog-agent/pkg/util/system/socket => ../../../../pkg/util/system/socket
+	github.com/DataDog/datadog-agent/pkg/util/testutil => ../../../../pkg/util/testutil
 	github.com/DataDog/datadog-agent/pkg/util/winutil => ../../../../pkg/util/winutil
 	github.com/DataDog/datadog-agent/pkg/version => ../../../../pkg/version
 )
