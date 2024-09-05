@@ -72,6 +72,8 @@ require (
 	github.com/DataDog/datadog-agent/comp/otelcol/configstore/impl v0.56.0-rc.3
 	github.com/DataDog/datadog-agent/comp/otelcol/ddflareextension/def v0.0.0-00010101000000-000000000000
 	github.com/DataDog/datadog-agent/pkg/api v0.56.0
+	github.com/DataDog/datadog-agent/pkg/config/model v0.56.0
+	github.com/DataDog/datadog-agent/pkg/config/setup v0.56.0
 	github.com/gorilla/mux v1.8.1
 	github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector v0.104.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension v0.104.0
@@ -107,8 +109,6 @@ require (
 	github.com/DataDog/datadog-agent/pkg/collector/check/defaults v0.56.0 // indirect
 	github.com/DataDog/datadog-agent/pkg/config/env v0.56.0 // indirect
 	github.com/DataDog/datadog-agent/pkg/config/mock v0.58.0-devel // indirect
-	github.com/DataDog/datadog-agent/pkg/config/model v0.56.0 // indirect
-	github.com/DataDog/datadog-agent/pkg/config/setup v0.56.0 // indirect
 	github.com/DataDog/datadog-agent/pkg/config/utils v0.56.0 // indirect
 	github.com/DataDog/datadog-agent/pkg/util/executable v0.56.0 // indirect
 	github.com/DataDog/datadog-agent/pkg/util/filesystem v0.56.0 // indirect
