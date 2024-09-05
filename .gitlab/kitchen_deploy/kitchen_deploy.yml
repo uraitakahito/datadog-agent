@@ -4,17 +4,17 @@
 
 .setup_rpm_signing_key: &setup_rpm_signing_key
   - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
-  - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $RPM_GPG_KEY_SSM_NAME
-  - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $RPM_SIGNING_PASSPHRASE_SSM_NAME
-  - printf -- "$(pop_front)" | gpg --import --batch
-  - export RPM_SIGNING_PASSPHRASE=$(pop_front)
+  - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $RPM_GPG_KEY_SSM_NAME || exit $?
+  - printf -- "$(pop_ssm)" | gpg --import --batch
+  - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $RPM_SIGNING_PASSPHRASE_SSM_NAME || exit $?
+  - export RPM_SIGNING_PASSPHRASE=$(pop_ssm)
 
 .setup_apt_signing_key: &setup_apt_signing_key
   - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
-  - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $DEB_GPG_KEY_SSM_NAME
-  - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $DEB_SIGNING_PASSPHRASE_SSM_NAME
-  - APT_SIGNING_PRIVATE_KEY=$(pop_front)
-  - APT_SIGNING_KEY_PASSPHRASE=$(pop_front)
+  - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $DEB_GPG_KEY_SSM_NAME || exit $?
+  - APT_SIGNING_PRIVATE_KEY=$(pop_ssm)
+  - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $DEB_SIGNING_PASSPHRASE_SSM_NAME || exit $?
+  - APT_SIGNING_KEY_PASSPHRASE=$(pop_ssm)
 
   - printf -- "$APT_SIGNING_PRIVATE_KEY" | gpg --import --batch
 
