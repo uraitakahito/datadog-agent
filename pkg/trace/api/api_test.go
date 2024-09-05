@@ -7,9 +7,11 @@ package api
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -27,6 +29,7 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/trace/telemetry"
 	"github.com/DataDog/datadog-agent/pkg/trace/testutil"
 	"github.com/DataDog/datadog-agent/pkg/trace/timing"
+	"golang.org/x/net/http2"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -128,6 +131,65 @@ func TestReceiverRequestBodyLength(t *testing.T) {
 
 	testBody(http.StatusOK, "[]")
 	testBody(http.StatusRequestEntityTooLarge, " []")
+}
+
+func TestRequesth1h2(t *testing.T) {
+	assert := assert.New(t)
+
+	conf := newTestReceiverConfig()
+	conf.MaxRequestBytes = 2
+	receiver := newTestReceiverFromConfig(conf)
+	go receiver.Start()
+	defer receiver.Stop()
+
+	url := fmt.Sprintf("http://%s:%d/v0.4/traces",
+		conf.ReceiverHost, conf.ReceiverPort)
+
+	var client http.Client
+	body := bytes.NewBufferString("[]")
+	// Before going further, make sure receiver is started
+	// since it's running in another goroutine
+	serverReady := false
+	for i := 0; i < 100; i++ {
+
+		req, err := http.NewRequest("POST", url, body)
+		assert.NoError(err)
+
+		resp, err := client.Do(req)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				serverReady = true
+				break
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	assert.True(serverReady)
+
+	req, err := http.NewRequest("POST", url, body)
+	assert.NoError(err)
+	resp, err := client.Do(req)
+	assert.NoError(err)
+	resp.Body.Close()
+	assert.Equal(1, resp.ProtoMajor)
+
+	clientHTTP2 := http.Client{
+		Timeout: 2 * time.Second,
+		Transport: &http2.Transport{
+			AllowHTTP: true,
+			DialTLS: func(network, addr string, _ *tls.Config) (net.Conn, error) {
+				return net.Dial(network, addr)
+			},
+		},
+	}
+
+	req, err = http.NewRequest("POST", url, body)
+	assert.NoError(err)
+	resp, err = clientHTTP2.Do(req)
+	assert.NoError(err)
+	resp.Body.Close()
+	assert.Equal(2, resp.ProtoMajor)
 }
 
 func TestListenTCP(t *testing.T) {
