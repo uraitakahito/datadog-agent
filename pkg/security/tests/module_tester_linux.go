@@ -688,9 +688,11 @@ func newTestModuleWithOnDemandProbes(t testing.TB, onDemandHooks []rules.OnDeman
 		}
 	}
 
-	if err := initLogger(); err != nil {
-		return nil, err
-	}
+	fxDeps := fxutil.Test[testModuleFxDeps](
+		t,
+		core.MockBundle(),
+		wmmock.MockModule(workloadmeta.NewParams()),
+	)
 
 	if opts.dynamicOpts.disableBundledRules {
 		ruleDefs = append(ruleDefs, &rules.RuleDefinition{
@@ -807,11 +809,6 @@ func newTestModuleWithOnDemandProbes(t testing.TB, onDemandHooks []rules.OnDeman
 		emopts.ProbeOpts.TagsResolver = NewFakeResolverDifferentImageNames()
 	}
 
-	fxDeps := fxutil.Test[testModuleFxDeps](
-		t,
-		core.MockBundle(),
-		wmmock.MockModule(workloadmeta.NewParams()),
-	)
 	testMod.eventMonitor, err = eventmonitor.NewEventMonitor(emconfig, secconfig, emopts, fxDeps.WMeta, fxDeps.Telemetry)
 	if err != nil {
 		return nil, err
