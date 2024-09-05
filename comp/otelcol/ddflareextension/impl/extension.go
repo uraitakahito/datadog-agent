@@ -10,7 +10,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 
 	"go.opentelemetry.io/collector/component"
@@ -30,11 +29,10 @@ type ddExtension struct {
 
 	cfg *Config // Extension configuration.
 
-	telemetry   component.TelemetrySettings
-	server      *http.Server
-	tlsListener net.Listener
-	info        component.BuildInfo
-	debug       extensionDef.DebugSourceResponse
+	telemetry component.TelemetrySettings
+	server    *server
+	info      component.BuildInfo
+	debug     extensionDef.DebugSourceResponse
 }
 
 var _ extension.Extension = (*ddExtension)(nil)
@@ -51,7 +49,7 @@ func NewExtension(_ context.Context, cfg *Config, telemetry component.TelemetryS
 	}
 
 	var err error
-	ext.server, ext.tlsListener, err = buildHTTPServer(cfg.HTTPConfig.Endpoint, ext)
+	ext.server, err = newServer(cfg.HTTPConfig.Endpoint, ext)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +119,7 @@ func (ext *ddExtension) Start(_ context.Context, host component.Host) error {
 	}
 
 	go func() {
-		if err := ext.server.Serve(ext.tlsListener); err != nil && err != http.ErrServerClosed {
+		if err := ext.server.start(); err != nil && err != http.ErrServerClosed {
 			ext.telemetry.ReportStatus(component.NewFatalErrorEvent(err))
 			ext.telemetry.Logger.Info("DD Extension HTTP could not start", zap.String("err", err.Error()))
 		}
@@ -136,7 +134,7 @@ func (ext *ddExtension) Shutdown(ctx context.Context) error {
 	ext.telemetry.Logger.Info("Shutting down HTTP server")
 
 	// Give the server a grace period to finish handling requests.
-	return ext.server.Shutdown(ctx)
+	return ext.server.shutdown(ctx)
 }
 
 // ServeHTTP the request handler for the extension.
