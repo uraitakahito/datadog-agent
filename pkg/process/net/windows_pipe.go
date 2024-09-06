@@ -8,6 +8,7 @@
 package net
 
 import (
+	"fmt"
 	"net"
 	"time"
 
@@ -28,7 +29,7 @@ type WindowsPipeListener struct {
 	pipePath string
 }
 
-// Create a standardized named pipe server and with hardened ACL
+// newPipeListener creates a standardized named pipe server and with hardened ACL
 func newPipeListener(namedPipeName string) (net.Listener, error) {
 	config := winio.PipeConfig{
 		InputBufferSize:  namedPipeInputBufferSize,
@@ -46,8 +47,7 @@ func NewSystemProbeListener(_ string) (*WindowsPipeListener, error) {
 
 	namedPipe, err := newPipeListener(SystemProbePipeName)
 	if err != nil {
-		log.Errorf("error creating named pipe %s: %s", SystemProbePipeName, err)
-		return nil, err
+		return nil, fmt.Errorf("error named pipe %s : %s", SystemProbePipeName, err)
 	}
 
 	return &WindowsPipeListener{namedPipe, SystemProbePipeName}, err

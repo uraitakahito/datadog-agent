@@ -29,7 +29,7 @@ import (
 func StartServer(cfg *sysconfigtypes.Config, telemetry telemetry.Component, wmeta workloadmeta.Component, settings settings.Component) error {
 	conn, err := net.NewSystemProbeListener(cfg.SocketAddress)
 	if err != nil {
-		return fmt.Errorf("error creating IPC socket: %s", err)
+		return err
 	}
 
 	mux := gorilla.NewRouter()
