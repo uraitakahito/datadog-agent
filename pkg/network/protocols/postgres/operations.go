@@ -29,6 +29,14 @@ const (
 	AlterTableOP
 	// TruncateTableOP represents a TRUNCATE operation.
 	TruncateTableOP
+	// ShowOP -
+	ShowOP
+	// BeginOP -
+	BeginOP
+	// CommitOP -
+	CommitOP
+	// WithOP -
+	WithOP
 )
 
 // String returns the string representation of the operation.
@@ -50,6 +58,15 @@ func (op Operation) String() string {
 		return "DELETE"
 	case AlterTableOP:
 		return "ALTER"
+	case ShowOP:
+		return "SHOW"
+	case BeginOP:
+		return "BEGIN"
+	case CommitOP:
+		return "COMMIT"
+	case WithOP:
+		return "WITH"
+
 	default:
 		return "UNKNOWN"
 	}
@@ -74,6 +91,15 @@ func FromString(op string) Operation {
 		return DeleteTableOP
 	case "ALTER":
 		return AlterTableOP
+	case "SHOW":
+		return ShowOP
+	case "BEGIN":
+		return BeginOP
+	case "COMMIT":
+		return CommitOP
+	case "WITH":
+		return WithOP
+
 	default:
 		return UnknownOP
 	}
