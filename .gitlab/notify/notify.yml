@@ -25,7 +25,7 @@ notify:
   resource_group: notification
   timeout: 15 minutes # Added to prevent a stuck job blocking the resource_group defined above
   script:
-    - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
+    - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $GITLAB_READ_API_TOKEN_SSM_NAME || exit $?
     - export GITLAB_TOKEN=$(pop_ssm)
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $API_KEY_ORG2_SSM_NAME || exit $?
@@ -57,7 +57,7 @@ send_pipeline_stats:
   dependencies: []
   script:
     - source /root/.bashrc
-    - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
+    - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $GITLAB_READ_API_TOKEN_SSM_NAME || exit $?
     - export GITLAB_TOKEN=$(pop_ssm)
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $API_KEY_ORG2_SSM_NAME || exit $?
@@ -118,7 +118,7 @@ notify_gitlab_ci_changes:
     - source /root/.bashrc
     - python3 -m pip install -r tasks/libs/requirements-github.txt
     - |
-      source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
+      source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
       $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $GITHUB_PR_COMMENTER_APP_KEY_SSM_NAME || exit $?
       export GITHUB_KEY_B64=$(pop_ssm | base64)
       $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $GITHUB_PR_COMMENTER_INTEGRATION_ID_SSM_NAME || exit $?
@@ -139,7 +139,7 @@ notify_gitlab_ci_changes:
 
 .failure_summary_setup:
   - source /root/.bashrc
-  - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
+  - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
   - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $SLACK_AGENT_CI_TOKEN_SSM_NAME || exit $?
   - export SLACK_API_TOKEN=$(pop_ssm)
   - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $GITLAB_READ_API_TOKEN_SSM_NAME || exit $?

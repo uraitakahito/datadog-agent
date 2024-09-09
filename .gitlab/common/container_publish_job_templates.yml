@@ -14,7 +14,7 @@
     IMG_SIGNING: ""
   script: # We can't use the 'trigger' keyword on manual jobs, otherwise they can't be run if the pipeline fails and is retried
     - source /root/.bashrc
-    - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
+    - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $GITLAB_SCHEDULER_TOKEN_SSM_NAME || exit $?
     - export GITLAB_TOKEN=$(pop_ssm)
     - |

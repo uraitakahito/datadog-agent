@@ -528,7 +528,7 @@ def changelog(ctx, new_commit_sha):
         parent_dir = os.environ["CI_PROJECT_DIR"]
     else:
         parent_dir = os.getcwd()
-    open_descriptor = f"{parent_dir}/tools/ci/open_file_descriptor.sh"
+    open_descriptor = f"{parent_dir}/tools/ci/open_local_secret_store.sh"
     get_param = f"{parent_dir}/tools/ci/aws_ssm_get_wrapper.sh {os.environ['CHANGELOG_COMMIT_SHA_SSM_NAME']} || exit $?"
     pop_secret = "pop_ssm"
     old_commit_sha = ctx.run(";".join([open_descriptor, get_param, pop_secret]), hide=True).stdout.strip()

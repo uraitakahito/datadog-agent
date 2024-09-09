@@ -9,7 +9,7 @@ set -euo pipefail
 
 # Open file description for secrets
 # shellcheck source=/dev/null
-source "$CI_PROJECT_DIR"/tools/ci/open_file_descriptor.sh
+source "$CI_PROJECT_DIR"/tools/ci/open_local_secret_store.sh
 # These should not be printed out
 set +x
 if [ -z ${AZURE_CLIENT_ID+x} ]; then

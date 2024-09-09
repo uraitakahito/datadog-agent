@@ -8,7 +8,7 @@ set -euo pipefail
 
 # Open file description for secrets
 # shellcheck source=/dev/null
-source "$CI_PROJECT_DIR"/tools/ci/open_file_descriptor.sh
+source "$CI_PROJECT_DIR"/tools/ci/open_local_secret_store.sh
 # These should not be printed out
 if [ -z ${AZURE_CLIENT_ID+x} ]; then
   "$CI_PROJECT_DIR"/tools/ci/aws_ssm_get_wrapper.sh "$KITCHEN_AZURE_CLIENT_ID_SSM_NAME"

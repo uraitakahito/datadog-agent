@@ -28,7 +28,7 @@ upload_dependencies_sysprobe_arm64:
   stage: kernel_matrix_testing_prepare
   script:
     # DockerHub login for build to limit rate limit when pulling base images
-    - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
+    - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $DOCKER_REGISTRY_LOGIN_SSM_KEY || exit $?
     - DOCKER_LOGIN=$(pop_ssm)
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $DOCKER_REGISTRY_PWD_SSM_KEY  || exit $?

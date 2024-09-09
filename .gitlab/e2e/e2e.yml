@@ -12,7 +12,7 @@
     - !reference [.retrieve_linux_go_e2e_deps]
     # Setup AWS Credentials
     - mkdir -p ~/.aws
-    - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
+    - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $AGENT_QA_PROFILE_SSM_NAME || exit $?
     - pop_ssm >> ~/.aws/config
     - export AWS_PROFILE=agent-qa-ci

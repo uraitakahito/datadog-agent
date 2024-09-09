@@ -23,7 +23,7 @@ rc_kubernetes_deploy:
     AGENT_IMAGE_TAG: $CI_COMMIT_REF_NAME
   script:
     - source /root/.bashrc
-    - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
+    - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $GITLAB_SCHEDULER_TOKEN || exit $?
     - export GITLAB_TOKEN=$(pop_ssm)
     - "inv pipeline.trigger-child-pipeline --project-name DataDog/k8s-datadog-agent-ops --git-ref main

@@ -24,7 +24,7 @@ popd
 
 # Open file descriptor for secrets
 # shellcheck source=/dev/null
-source "$PARENT_DIR"/tools/ci/open_file_descriptor.sh
+source "$PARENT_DIR"/tools/ci/open_local_secret_store.sh
 
 # in docker we cannot interact to do this so we must disable it
 mkdir -p ~/.ssh

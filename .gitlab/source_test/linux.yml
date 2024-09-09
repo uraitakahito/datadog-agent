@@ -51,7 +51,7 @@
 .upload_coverage:
   # Upload coverage files to Codecov. Never fail on coverage upload.
   - source /root/.bashrc
-  - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
+  - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
   - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $CODECOV_TOKEN_SSM_NAME || exit $?
   - export CODECOV_TOKEN=$(pop_ssm)
   - inv -e coverage.upload-to-codecov $COVERAGE_CACHE_FLAG || true
@@ -271,7 +271,7 @@ new-e2e-unit-tests:
   before_script:
     # Setup AWS Credentials
     - mkdir -p ~/.aws
-    - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
+    - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $AGENT_QA_PROFILE_SSM_NAME || exit $?
     - pop_ssm >> ~/.aws/config
     - export AWS_PROFILE=agent-qa-ci

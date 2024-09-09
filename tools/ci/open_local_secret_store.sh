@@ -1,5 +1,5 @@
 #!/bin/bash
-# Create a file descriptor on a temporary file
+# Create a file descriptor on a temporary file to store secrets
 # https://unix.stackexchange.com/questions/181937/how-create-a-temporary-file-in-shell-script
 
 # Create the temp file

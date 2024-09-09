@@ -26,7 +26,7 @@ periodic_kitchen_cleanup_azure:
   # the job to be run one at a time.
   resource_group: azure_cleanup
   script:
-    - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
+    - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $KITCHEN_AZURE_SUBSCRIPTION_ID_SSM_NAME || exit $?
     - export ARM_SUBSCRIPTION_ID=$(pop_ssm)
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $KITCHEN_AZURE_CLIENT_ID_SSM_NAME || exit $?

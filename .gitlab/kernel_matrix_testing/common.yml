@@ -48,7 +48,7 @@
 
 .kmt_new_profile:
   - mkdir -p ~/.aws
-  - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
+  - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
   - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $AGENT_QA_PROFILE_SSM_NAME || exit $?
   - pop_ssm >> ~/.aws/config
   - export AWS_PROFILE=agent-qa-ci
@@ -185,7 +185,7 @@
   image: 486234852809.dkr.ecr.us-east-1.amazonaws.com/ci/test-infra-definitions/runner$TEST_INFRA_DEFINITIONS_BUILDIMAGES_SUFFIX:$TEST_INFRA_DEFINITIONS_BUILDIMAGES
   tags: ["arch:amd64"]
   before_script:
-    - source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
+    - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $GITLAB_SCHEDULER_TOKEN_SSM_NAME || exit $?
     - export GITLAB_TOKEN=$(pop_ssm)
     - !reference [.kmt_new_profile]
@@ -320,7 +320,7 @@ notify_ebpf_complexity_changes:
     - python3 -m pip install tabulate # Required for printing the tables
     - python3 -m pip install -r tasks/libs/requirements-github.txt
     - |
-      source $CI_PROJECT_DIR/tools/ci/open_file_descriptor.sh
+      source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
       $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $GITHUB_PR_COMMENTER_APP_KEY_SSM_NAME || exit $?
       export GITHUB_KEY_B64=$(pop_ssm | base64)
       $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $GITHUB_PR_COMMENTER_INTEGRATION_ID_SSM_NAME || exit $?

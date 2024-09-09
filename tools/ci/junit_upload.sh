@@ -9,7 +9,7 @@ fi
 
 # Open file description for secrets
 # shellcheck source=/dev/null
-source "$CI_PROJECT_DIR"/tools/ci/open_file_descriptor.sh
+source "$CI_PROJECT_DIR"/tools/ci/open_local_secret_store.sh
 "$CI_PROJECT_DIR"/tools/ci/aws_ssm_get_wrapper.sh "$GITLAB_READ_API_TOKEN_SSM_NAME"
 "$CI_PROJECT_DIR"/tools/ci/aws_ssm_get_wrapper.sh "$API_KEY_ORG2_SSM_NAME"
 DATADOG_API_KEY=$(pop_ssm)
