@@ -19,14 +19,9 @@ import (
 
 // NewSystemProbeTestServer starts a new mock server to handle System Probe requests.
 func NewSystemProbeTestServer(_ http.Handler) (*httptest.Server, error) {
-	// Linux still uses a port-based system-probe, it does not need a dedicated server
+	// Linux still uses a port-based system-probe, it does not need a dedicated system probe server
 	// for the tests.
 	return nil, nil
-}
-
-// RestartSystemProbeTestServer restarts the system probe server to ensure no cache responses
-// are used for a test.
-func RestartSystemProbeTestServer(_ *commandTestSuite) {
 }
 
 // InjectConnectionFailures injects a failure in TestReadProfileDataErrors.

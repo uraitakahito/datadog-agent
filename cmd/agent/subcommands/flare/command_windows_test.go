@@ -41,23 +41,6 @@ func NewSystemProbeTestServer(handler http.Handler) (*httptest.Server, error) {
 	return server, nil
 }
 
-// RestartSystemProbeTestServer restarts the system probe server to ensure no cache responses
-// are used for a test.
-func RestartSystemProbeTestServer(c *commandTestSuite) {
-	// In Windows, the http server caches responses from prior test runs.
-	// This prevents simulating connection failures.
-	// Thus on every test run, we need to recreate the http server.
-	if c.systemProbeServer != nil {
-		c.systemProbeServer.Close()
-		c.systemProbeServer = nil
-	}
-
-	var err error
-	c.systemProbeServer, err = NewSystemProbeTestServer(newMockHandler())
-	require.NoError(c.T(), err, "could not restart system probe server")
-	c.systemProbeServer.Start()
-}
-
 // InjectConnectionFailures injects a failure in TestReadProfileDataErrors.
 func InjectConnectionFailures(mockSysProbeConfig model.Config, mockConfig model.Config) {
 	// The system probe http server must be setup before this.
