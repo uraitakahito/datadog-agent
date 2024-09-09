@@ -17,5 +17,4 @@ cancel-prev-pipelines:
     - source /root/.bashrc
     - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $GITLAB_SCHEDULER_TOKEN_SSM_NAME || exit $?
-    - export GITLAB_TOKEN=$(pop_secret)
-    - inv pipeline.auto-cancel-previous-pipelines
+    - GITLAB_TOKEN=$(pop_secret) inv pipeline.auto-cancel-previous-pipelines

@@ -22,3 +22,6 @@ rm "$tmpfile"
 function pop_secret() {
     cat <&4
 }
+function pop_front_secret() {
+    head -n 1 <&4
+}
