@@ -41,6 +41,13 @@ if ohai["platform"] != "windows"
     # 2.0 is the license version here, not the python version
     license "Python-2.0"
 
+    if mac_os_x?
+      # Fix curses detection for macOS, the patch is taken from
+      # https://github.com/python/cpython/pull/119816
+      # TODO: Remove when updating from 3.12 to 3.13+
+      patch source: "curses_detection.diff"
+    end
+
     env = with_standard_compiler_flags(with_embedded_path)
     # Force different defaults for the "optimization settings"
     # This removes the debug symbol generation and doesn't enable all warnings
