@@ -72,5 +72,5 @@ func DialSystemProbe(_ string, _ string) (net.Conn, error) {
 		return nil, fmt.Errorf("error connecting to named pipe %s : %s", SystemProbePipeName, err)
 	}
 
-	return namedPipe, err
+	return namedPipe, nil
 }
