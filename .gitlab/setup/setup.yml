@@ -22,20 +22,20 @@ github_rate_limit_info:
     - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
     # Send stats for app 1
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $MACOS_GITHUB_KEY_SSM_NAME || exit $?
-    - export GITHUB_KEY_B64=$(pop_ssm)
+    - export GITHUB_KEY_B64=$(pop_secret)
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $MACOS_GITHUB_APP_ID_SSM_NAME || exit $?
-    - export GITHUB_APP_ID=$(pop_ssm)
+    - export GITHUB_APP_ID=$(pop_secret)
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $MACOS_GITHUB_INSTALLATION_ID_SSM_NAME || exit $?
-    - export GITHUB_INSTALLATION_ID=$(pop_ssm)
+    - export GITHUB_INSTALLATION_ID=$(pop_secret)
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $API_KEY_ORG2_SSM_NAME || exit $?
-    - export DD_API_KEY=$(pop_ssm)
+    - export DD_API_KEY=$(pop_secret)
     - inv github.send-rate-limit-info-datadog --pipeline-id $CI_PIPELINE_ID --app-instance 1
     # Send stats for app 2
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $MACOS_GITHUB_KEY_2_SSM_NAME || exit $?
-    - export GITHUB_KEY_B64=$(pop_ssm)
+    - export GITHUB_KEY_B64=$(pop_secret)
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $MACOS_GITHUB_APP_ID_2_SSM_NAME || exit $?
-    - export GITHUB_APP_ID=$(pop_ssm)
+    - export GITHUB_APP_ID=$(pop_secret)
     - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $MACOS_GITHUB_INSTALLATION_ID_2_SSM_NAME || exit $?
-    - export GITHUB_INSTALLATION_ID=$(pop_ssm)
+    - export GITHUB_INSTALLATION_ID=$(pop_secret)
     - inv github.send-rate-limit-info-datadog --pipeline-id $CI_PIPELINE_ID --app-instance 2
   allow_failure: true

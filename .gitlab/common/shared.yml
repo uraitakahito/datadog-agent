@@ -23,9 +23,9 @@
   - set +x
   - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
   - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $DEB_GPG_KEY_SSM_NAME || exit $?
-  - printf -- "$(pop_ssm)" | gpg --import --batch
+  - printf -- "$(pop_secret)" | gpg --import --batch
   - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $DEB_SIGNING_PASSPHRASE_SSM_NAME || exit $?
-  - export DEB_SIGNING_PASSPHRASE=$(pop_ssm)
+  - export DEB_SIGNING_PASSPHRASE=$(pop_secret)
 
 .setup_macos_github_app:
   # GitHub App rate-limits are per-app.
@@ -34,30 +34,30 @@
     source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
     if [[ "$(( RANDOM % 2 ))" == "1" ]]; then
       $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $MACOS_GITHUB_KEY_SSM_NAME || exit $?
-      export GITHUB_KEY_B64=$(pop_ssm)
+      export GITHUB_KEY_B64=$(pop_secret)
       $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $MACOS_GITHUB_APP_ID_SSM_NAME || exit $?
-      export GITHUB_APP_ID=$(pop_ssm)
+      export GITHUB_APP_ID=$(pop_secret)
       $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $MACOS_GITHUB_INSTALLATION_ID_SSM_NAME || exit $?
-      export GITHUB_INSTALLATION_ID=$(pop_ssm)
+      export GITHUB_INSTALLATION_ID=$(pop_secret)
       echo "Using GitHub App instance 1"
     else
       $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $MACOS_GITHUB_KEY_2_SSM_NAME || exit $?
-      export GITHUB_KEY_B64=$(pop_ssm)
+      export GITHUB_KEY_B64=$(pop_secret)
       $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $MACOS_GITHUB_APP_ID_2_SSM_NAME || exit $?
-      export GITHUB_APP_ID=$(pop_ssm)
+      export GITHUB_APP_ID=$(pop_secret)
       $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $MACOS_GITHUB_INSTALLATION_ID_2_SSM_NAME || exit $?
-      export GITHUB_INSTALLATION_ID=$(pop_ssm)
+      export GITHUB_INSTALLATION_ID=$(pop_secret)
       echo "Using GitHub App instance 2"
     fi
 
 .setup_agent_github_app:
   - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
   - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $AGENT_GITHUB_KEY_SSM_NAME || exit $?
-  - export GITHUB_KEY_B64=$(pop_ssm)
+  - export GITHUB_KEY_B64=$(pop_secret)
   - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $AGENT_GITHUB_APP_ID_SSM_NAME || exit $?
-  - export GITHUB_APP_ID=$(pop_ssm)
+  - export GITHUB_APP_ID=$(pop_secret)
   - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $AGENT_GITHUB_INSTALLATION_ID_SSM_NAME || exit $?
-  - export GITHUB_INSTALLATION_ID=$(pop_ssm)
+  - export GITHUB_INSTALLATION_ID=$(pop_secret)
   - echo "Using agent GitHub App"
 
 # Install `dd-pkg` and lint packages produced by Omnibus, supports only deb and rpm packages
@@ -68,14 +68,14 @@
 .export_gitlab_token_scheduler:
   - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
   - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $GITLAB_SCHEDULER_TOKEN_SSM_NAME || exit $?
-  - export GITLAB_TOKEN=$(pop_ssm)
+  - export GITLAB_TOKEN=$(pop_secret)
 
 .export_gitlab_token_full:
   - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
   - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $GITLAB_FULL_API_TOKEN_SSM_NAME || exit $?
-  - export GITLAB_TOKEN=$(pop_ssm)
+  - export GITLAB_TOKEN=$(pop_secret)
 
 .export_dd_api_key_org2:
   - source $CI_PROJECT_DIR/tools/ci/open_local_secret_store.sh
   - $CI_PROJECT_DIR/tools/ci/aws_ssm_get_wrapper.sh $API_KEY_ORG2_SSM_NAME || exit $?
-  - export DD_API_KEY=$(pop_ssm)
+  - export DD_API_KEY=$(pop_secret)

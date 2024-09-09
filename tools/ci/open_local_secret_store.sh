@@ -19,6 +19,6 @@ exec 4<"$tmpfile"
 rm "$tmpfile"
 
 # Set a meaningful name to retrieve the full secret from the file descriptor
-function pop_ssm() {
+function pop_secret() {
     cat <&4
 }

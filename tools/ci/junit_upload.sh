@@ -12,8 +12,8 @@ fi
 source "$CI_PROJECT_DIR"/tools/ci/open_local_secret_store.sh
 "$CI_PROJECT_DIR"/tools/ci/aws_ssm_get_wrapper.sh "$GITLAB_READ_API_TOKEN_SSM_NAME"
 "$CI_PROJECT_DIR"/tools/ci/aws_ssm_get_wrapper.sh "$API_KEY_ORG2_SSM_NAME"
-DATADOG_API_KEY=$(pop_ssm)
-GITLAB_TOKEN=$(pop_ssm)
+DATADOG_API_KEY=$(pop_secret)
+GITLAB_TOKEN=$(pop_secret)
 export DATADOG_API_KEY
 export GITLAB_TOKEN
 error=0
