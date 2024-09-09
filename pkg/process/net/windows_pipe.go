@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"github.com/Microsoft/go-winio"
-
-	"github.com/DataDog/datadog-agent/pkg/util/log"
 )
 
 const (
@@ -71,7 +69,7 @@ func DialSystemProbe(_ string, _ string) (net.Conn, error) {
 
 	namedPipe, err := winio.DialPipe(SystemProbePipeName, &timeout)
 	if err != nil {
-		log.Errorf("error connecting to named pipe %s: %s", SystemProbePipeName, err)
+		return nil, fmt.Errorf("error connecting to named pipe %s : %s", SystemProbePipeName, err)
 	}
 
 	return namedPipe, err
