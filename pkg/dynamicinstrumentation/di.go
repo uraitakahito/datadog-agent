@@ -54,6 +54,10 @@ func newGoDIStats() GoDIStats {
 type DIOptions struct {
 	Offline bool
 
+	ConfigReader     diconfig.ConfigReader
+	SnapshotWriter   uploader.WriterSerializer[ditypes.SnapshotUpload]
+	DiagnosticWriter uploader.WriterSerializer[ditypes.DiagnosticUpload]
+
 	ProbesFilePath   string
 	SnapshotOutput   string
 	DiagnosticOutput string

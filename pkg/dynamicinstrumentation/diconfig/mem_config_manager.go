@@ -9,6 +9,7 @@ package diconfig
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"reflect"
 	"sync"
@@ -31,11 +32,12 @@ type ReaderConfigManager struct {
 }
 
 type readerConfigCallback func(configsByService)
+type configsByService = map[ditypes.ServiceName]map[ditypes.ProbeID]rcConfig
 
-func NewReaderConfigManager(reader *ConfigReader) (*ReaderConfigManager, error) {
+func NewReaderConfigManager() (*ReaderConfigManager, error) {
 	cm := &ReaderConfigManager{
-		callback:     applyConfigUpdate,
-		configReader: reader,
+		callback: applyConfigUpdate,
+		state:    ditypes.NewDIProcs(),
 	}
 
 	cm.procTracker = proctracker.NewProcessTracker(cm.updateProcessInfo)
@@ -44,11 +46,22 @@ func NewReaderConfigManager(reader *ConfigReader) (*ReaderConfigManager, error) 
 		return nil, err
 	}
 
+	reader := NewConfigReader(cm.updateServiceConfigs)
 	err = reader.Start()
 	if err != nil {
 		return nil, err
 	}
+	cm.configReader = reader
 	return cm, nil
+}
+
+func (cm *ReaderConfigManager) GetProcInfos() ditypes.DIProcs {
+	return cm.state
+}
+
+func (cm *ReaderConfigManager) Stop() {
+	cm.configReader.Stop()
+	cm.procTracker.Stop()
 }
 
 func (cm *ReaderConfigManager) update() error {
@@ -183,5 +196,29 @@ func (cu *ConfigReader) UpdateProcesses(procs ditypes.DIProcs) {
 	old := cu.Processes
 	if !reflect.DeepEqual(current, old) {
 		cu.Processes = current
+	}
+}
+
+func convert(service string, configsByID map[ditypes.ProbeID]rcConfig) map[ditypes.ProbeID]*ditypes.Probe {
+	probesByID := map[ditypes.ProbeID]*ditypes.Probe{}
+	for id, config := range configsByID {
+		probesByID[id] = config.toProbe(service)
+	}
+	return probesByID
+}
+
+func (rc *rcConfig) toProbe(service string) *ditypes.Probe {
+	return &ditypes.Probe{
+		ID:          rc.ID,
+		ServiceName: service,
+		FuncName:    fmt.Sprintf("%s.%s", rc.Where.TypeName, rc.Where.MethodName),
+		InstrumentationInfo: &ditypes.InstrumentationInfo{
+			InstrumentationOptions: &ditypes.InstrumentationOptions{
+				CaptureParameters: ditypes.CaptureParameters,
+				ArgumentsMaxSize:  ditypes.ArgumentsMaxSize,
+				StringMaxSize:     ditypes.StringMaxSize,
+				MaxReferenceDepth: rc.Capture.MaxReferenceDepth,
+			},
+		},
 	}
 }
