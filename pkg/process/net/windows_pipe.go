@@ -27,6 +27,9 @@ type WindowsPipeListener struct {
 	pipePath string
 }
 
+// activeSystemProbePipeName is the effective named pipe path for system probe
+var activeSystemProbePipeName = SystemProbePipeName
+
 // newPipeListener creates a standardized named pipe server and with hardened ACL
 func newPipeListener(namedPipeName string) (net.Listener, error) {
 	config := winio.PipeConfig{
@@ -39,16 +42,22 @@ func newPipeListener(namedPipeName string) (net.Listener, error) {
 	return winio.ListenPipe(namedPipeName, &config)
 }
 
+// OverrideSystemProbeNamedPipePath sets the active named pipe path for System Probe connections.
+// This is used by tests only to avoid conflicts with an existing locally installed Datadog agent.
+func OverrideSystemProbeNamedPipePath(path string) {
+	activeSystemProbePipeName = path
+}
+
 // NewSystemProbeListener sets up a named pipe listener for the system probe service.
 func NewSystemProbeListener(_ string) (*WindowsPipeListener, error) {
 	// socketAddr not used
 
-	namedPipe, err := newPipeListener(SystemProbePipeName)
+	namedPipe, err := newPipeListener(activeSystemProbePipeName)
 	if err != nil {
-		return nil, fmt.Errorf("error named pipe %s : %s", SystemProbePipeName, err)
+		return nil, fmt.Errorf("error named pipe %s : %s", activeSystemProbePipeName, err)
 	}
 
-	return &WindowsPipeListener{namedPipe, SystemProbePipeName}, err
+	return &WindowsPipeListener{namedPipe, activeSystemProbePipeName}, nil
 }
 
 // GetListener will return underlying Listener's conn
@@ -67,9 +76,9 @@ func DialSystemProbe(_ string, _ string) (net.Conn, error) {
 
 	var timeout = time.Duration(5 * time.Second)
 
-	namedPipe, err := winio.DialPipe(SystemProbePipeName, &timeout)
+	namedPipe, err := winio.DialPipe(activeSystemProbePipeName, &timeout)
 	if err != nil {
-		return nil, fmt.Errorf("error connecting to named pipe %s : %s", SystemProbePipeName, err)
+		return nil, fmt.Errorf("error connecting to named pipe %s : %s", activeSystemProbePipeName, err)
 	}
 
 	return namedPipe, nil

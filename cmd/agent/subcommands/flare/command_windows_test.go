@@ -25,13 +25,10 @@ const (
 
 // NewSystemProbeTestServer starts a new mock server to handle System Probe requests.
 func NewSystemProbeTestServer(handler http.Handler) (*httptest.Server, error) {
-	// Override the named pipe path for test to avoid conflicts with the production
-	// named pipe (in case the agent is installed locally).
-	process_net.SystemProbePipeName = SystemProbeTestPipeName
-
 	server := httptest.NewUnstartedServer(handler)
 
-	// The Windows System Probe uses a named pipe, it does not care about ports.
+	// Override the named pipe path for tests to avoid conflicts with the locally installed Datadog agent.
+	process_net.OverrideSystemProbeNamedPipePath(SystemProbeTestPipeName)
 	conn, err := process_net.NewSystemProbeListener("")
 	if err != nil {
 		return nil, err
@@ -43,22 +40,18 @@ func NewSystemProbeTestServer(handler http.Handler) (*httptest.Server, error) {
 
 // InjectConnectionFailures injects a failure in TestReadProfileDataErrors.
 func InjectConnectionFailures(mockSysProbeConfig model.Config, mockConfig model.Config) {
-	// The system probe http server must be setup before this.
-	// Exercise a connection failure for the Windows system-probe named pipe by overriding
-	// the path with a bad one before the named pipe client creates the connection.
+	// Explicitly enabled system probe to exercise connections to it.
 	mockSysProbeConfig.SetWithoutSource("system_probe_config.enabled", true)
-	process_net.SystemProbePipeName = `\\.\pipe\dd_system_probe_test_bad`
+
+	// Exercise connection failures for the Windows system probe named pipe clients by
+	// making them use a bad path.
+	// The system probe http server must be setup before this override.
+	process_net.OverrideSystemProbeNamedPipePath(`\\.\pipe\dd_system_probe_test_bad`)
 
 	// The security-agent connection is expected to fail too in this test, but
 	// by enabling system probe, a port will be provided to it (security agent).
 	// Here we make sure the security agent port is a bad one.
 	mockConfig.SetWithoutSource("security_agent.expvar_port", 0)
-}
-
-// ClearConnectionFailures clears the injected failure in TestReadProfileDataErrors.
-func ClearConnectionFailures() {
-	// Disable system probe and restore the named pipe path.
-	process_net.SystemProbePipeName = SystemProbeTestPipeName
 }
 
 // CheckExpectedConnectionFailures checks the expected errors after simulated

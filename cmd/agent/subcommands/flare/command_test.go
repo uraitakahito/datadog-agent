@@ -40,7 +40,7 @@ func (c *commandTestSuite) SetupSuite() {
 }
 
 // startTestServers starts test servers from a clean state to ensure no cache responses are used.
-// This should be called by each test that requires the test servers.
+// This should be called by each test that requires them.
 func (c *commandTestSuite) startTestServers() {
 	t := c.T()
 	c.tcpServer, c.unixServer, c.systemProbeServer = c.getPprofTestServer()
@@ -259,8 +259,6 @@ func (c *commandTestSuite) TestReadProfileDataErrors() {
 	InjectConnectionFailures(mockSysProbeConfig, mockConfig)
 
 	data, err := readProfileData(10)
-
-	ClearConnectionFailures()
 
 	require.Error(t, err)
 	CheckExpectedConnectionFailures(c, err)

@@ -28,10 +28,6 @@ func NewSystemProbeTestServer(_ http.Handler) (*httptest.Server, error) {
 func InjectConnectionFailures(_ model.Config, _ model.Config) {
 }
 
-// ClearConnectionFailures clears the injected failure in TestReadProfileDataErrors.
-func ClearConnectionFailures() {
-}
-
 // CheckExpectedConnectionFailures checks the expected errors after simulated
 // connection failures.
 func CheckExpectedConnectionFailures(c *commandTestSuite, err error) {
