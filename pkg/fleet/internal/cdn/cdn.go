@@ -80,6 +80,10 @@ func (c *CDN) Get(ctx context.Context) (_ *Config, err error) {
 	return newConfig(configLayers...)
 }
 
+func (c *CDN) Close() error {
+	return c.client.Close()
+}
+
 // getOrderedLayers calls the Remote Config service to get the ordered layers.
 func (c *CDN) getOrderedLayers() ([]*layer, error) {
 	agentConfigUpdate, err := c.client.GetCDNConfigUpdate(

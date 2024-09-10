@@ -100,6 +100,11 @@ func (m *testPackageManager) UninstrumentAPMInjector(ctx context.Context, method
 	return args.Error(0)
 }
 
+func (m *testPackageManager) Close() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
 type testRemoteConfigClient struct {
 	sync.Mutex
 	t         *testing.T
