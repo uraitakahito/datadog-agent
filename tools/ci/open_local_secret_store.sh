@@ -1,5 +1,6 @@
 #!/bin/bash
 # Create a file descriptor on a temporary file to store secrets
+# It enables a secure FIFO list to store secret before they are used
 # https://unix.stackexchange.com/questions/181937/how-create-a-temporary-file-in-shell-script
 
 # Create the temp file
@@ -18,10 +19,11 @@ exec 4<"$tmpfile"
 # reference counter drops to zero.
 rm "$tmpfile"
 
-# Set a meaningful name to retrieve the full secret from the file descriptor
+# Method to retrieve the full secret from the file descriptor. Mandatory if secret is multiline.
 function pop_secret() {
     cat <&4
 }
+# Method to retrieve the first stored secret. Usefull when we store several secrets before use.
 function pop_front_secret() {
     head -n 1 <&4
 }
