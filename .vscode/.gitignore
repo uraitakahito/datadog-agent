@@ -1,6 +1,9 @@
 *
+!launch.json
 !launch.json.template
+!settings.json
 !settings.json.template
+!tasks.json
 !tasks.json.template
 !copyright.code-snippets
 !extensions.json
