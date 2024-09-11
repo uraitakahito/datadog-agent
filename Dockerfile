@@ -85,6 +85,7 @@ RUN apt-get update -qq && \
     cmake \
     g++ \
     gcc \
+    libsystemd-dev \
     python3-dev && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
